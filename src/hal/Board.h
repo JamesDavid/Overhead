@@ -104,6 +104,11 @@
   #define PIN_TOUCH_MISO        39    // T_OUT (input-only)
   #define PIN_TOUCH_CS          33
   #define PIN_TOUCH_IRQ         36    // input-only
+  // The MV=0 landscape flip (rotation 6) makes LovyanGFX's calibrateTouch draw
+  // its corner targets at physically-flipped positions, so the learned map comes
+  // out 180 deg point-reflected. Invert both calibrated axes to correct it.
+  #define TOUCH_INVERT_X        1
+  #define TOUCH_INVERT_Y        1
 
   // microSD (HSPI, shared with display: 18/23/19) — not used in bring-up
   #define PIN_SD_CS              5

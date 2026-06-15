@@ -27,8 +27,10 @@
 #include "services/Provisioning.h"
 #include "services/WebPortal.h"
 #include "providers/TleProvider.h"
+#include "providers/LaunchProvider.h"
 #include "pages/PageDiag.h"
 #include "pages/PageSatellites.h"
+#include "pages/PageLaunches.h"
 #if ASTRO_SELFTEST
 #include "astro/SelfTest.h"
 #endif
@@ -50,8 +52,10 @@ static LocationService locSvc;
 static Provisioning    prov;
 static WebPortal       web;
 static TleProvider     tleProv;
+static LaunchProvider  launchProv;
 // --- pages ---
 static String          gHostname;
+static PageLaunches*   launchesPage = nullptr;
 static PageSatellites* satsPage = nullptr;
 static PageDiag*       diag = nullptr;
 
@@ -130,6 +134,7 @@ void setup() {
   net.begin();
   locSvc.begin(&settings, &net, &bus, &timeSvc);   // kicks off IP geolocation
   tleProv.begin(&settings, &net, &cache, &bus);    // loads cache + fetches TLEs
+  launchProv.begin(&settings, &net, &cache, &bus); // LL2 + fallback
 
   web.setStatusJsonProvider(fillStatusJson);
   web.begin(&settings, gHostname);
@@ -138,10 +143,14 @@ void setup() {
   sched.every(60UL * 60UL * 1000UL, [] { locSvc.refresh(); }, /*runNow=*/false);          // hourly
   uint32_t tleMs = (uint32_t)settings.getInt("refreshTleHour", 12) * 3600UL * 1000UL;
   sched.every(tleMs, [] { tleProv.refresh(); }, /*runNow=*/false);
+  uint32_t lchMs = (uint32_t)settings.getInt("refreshLaunchMin", 45) * 60UL * 1000UL;
+  sched.every(lchMs, [] { launchProv.refresh(); }, /*runNow=*/false);
 
-  // UI: Satellites is the first real tab; Diagnostics rides alongside for now.
+  // UI carousel, roughly ground->space order: Launches, Satellites, Diagnostics.
+  launchesPage = new PageLaunches(launchProv, timeSvc);
   satsPage = new PageSatellites(tleProv, locSvc, timeSvc, settings);
   diag = new PageDiag(timeSvc, locSvc, gHostname);
+  app.addPage(launchesPage);
   app.addPage(satsPage);
   app.addPage(diag);
   app.begin();
