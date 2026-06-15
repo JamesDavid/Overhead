@@ -68,4 +68,16 @@ momentum. Pick up later. (Bugs/blocking work go in commits/tasks, not here.)
 - Pulsing/lead-time tab badges (currently a steady warn dot).
 - Red dark-adapt palette is wired (nightPalette=red) but default dark; tune palettes.
 
+## M8 — Space Weather
+- A/K indices + sunspot number; short Kp history sparkline (NOAA or hamqsl XML).
+- hamqsl.com band-condition XML as a richer alternative to the local heuristic.
+- Aurora visibility estimate from Kp + observer latitude.
+- Kp trigger currently only badges Space Wx; optional banner/auto-switch (m7 polish).
+
+## Future tab ideas (in SPEC §14)
+- Aviation weather: METAR/TAF + atmospheric soundings (Skew-T, lapse rate,
+  inversion, lifted index) for glider/soaring analysis. NOAA AWC (no key) +
+  RAOB/RAP soundings. Director triggers: new METAR/TAF, SPECI, new sounding.
+  Reuses the OurAirports subset; pairs with the Aircraft tab.
+
 <!-- new milestones append below as they land -->

@@ -31,11 +31,13 @@
 #include "providers/TleProvider.h"
 #include "providers/LaunchProvider.h"
 #include "providers/AircraftProvider.h"
+#include "providers/SpaceWxProvider.h"
 #include "pages/PageDiag.h"
 #include "pages/PageSatellites.h"
 #include "pages/PageLaunches.h"
 #include "pages/PageAircraft.h"
 #include "pages/PageSolarSystem.h"
+#include "pages/PageSpaceWx.h"
 #if ASTRO_SELFTEST
 #include "astro/SelfTest.h"
 #endif
@@ -61,12 +63,14 @@ static WebPortal       web;
 static TleProvider     tleProv;
 static LaunchProvider  launchProv;
 static AircraftProvider aircraftProv;
+static SpaceWxProvider spaceWxProv;
 // --- pages ---
 static String          gHostname;
 static PageLaunches*   launchesPage = nullptr;
 static PageAircraft*   aircraftPage = nullptr;
 static PageSatellites* satsPage = nullptr;
 static PageSolarSystem* solarPage = nullptr;
+static PageSpaceWx*    spaceWxPage = nullptr;
 static PageDiag*       diag = nullptr;
 
 static String chipSuffix() {
@@ -146,6 +150,7 @@ void setup() {
   tleProv.begin(&settings, &net, &cache, &bus);    // loads cache + fetches TLEs
   launchProv.begin(&settings, &net, &cache, &bus); // LL2 + fallback
   aircraftProv.begin(&settings, &net, &bus, &locSvc);
+  spaceWxProv.begin(&settings, &net, &cache, &bus);
 
   web.setStatusJsonProvider(fillStatusJson);
   web.begin(&settings, gHostname);
@@ -159,16 +164,20 @@ void setup() {
   uint32_t adsbMs = (uint32_t)settings.getInt("adsbPollSec", 5) * 1000UL;
   if (adsbMs < 2000) adsbMs = 2000;                // respect the 1 req/s cloud cap
   sched.every(adsbMs, [] { aircraftProv.poll(); }, /*runNow=*/true);
+  uint32_t swxMs = (uint32_t)settings.getInt("refreshSpaceWxMin", 20) * 60UL * 1000UL;
+  sched.every(swxMs, [] { spaceWxProv.refresh(); }, /*runNow=*/false);
 
   // UI carousel, ground->space order: Launches, Aircraft, Satellites, Diagnostics.
   launchesPage = new PageLaunches(launchProv, timeSvc);
   aircraftPage = new PageAircraft(aircraftProv, locSvc, settings);
   satsPage = new PageSatellites(tleProv, locSvc, timeSvc, settings);
   solarPage = new PageSolarSystem(timeSvc, locSvc, settings);
+  spaceWxPage = new PageSpaceWx(spaceWxProv, timeSvc, locSvc);
   diag = new PageDiag(timeSvc, locSvc, gHostname);
   app.addPage(launchesPage);
   app.addPage(aircraftPage);
   app.addPage(satsPage);
+  app.addPage(spaceWxPage);
   app.addPage(solarPage);
   app.addPage(diag);
   app.setInactivityMs((uint32_t)settings.getInt("inactivitySec", 90) * 1000UL);
@@ -177,6 +186,7 @@ void setup() {
   // Intelligent Focus + day/night theming (spec §7).
   themeCtl.begin(&timeSvc, &locSvc, &display, &settings);
   director.begin(&app, &settings, &timeSvc, &locSvc, &tleProv, &launchProv, satsPage);
+  director.setSpaceWx(&spaceWxProv);
 
   Serial.printf("[boot] done. free heap=%u  largest=%u\n",
                 Display::freeHeap(), Display::largestFreeBlock());

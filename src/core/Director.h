@@ -9,6 +9,7 @@ class TimeService;
 class LocationService;
 class TleProvider;
 class LaunchProvider;
+class SpaceWxProvider;
 class PageSatellites;
 
 // core/Director — Intelligent Focus (spec §7). The only component with cross-tab
@@ -21,6 +22,7 @@ class Director {
 public:
   void begin(App* app, Settings* s, TimeService* time, LocationService* loc,
              TleProvider* tle, LaunchProvider* launch, PageSatellites* satPage);
+  void setSpaceWx(SpaceWxProvider* wx) { _spacewx = wx; }
   void tick(uint32_t nowMs);
 
 private:
@@ -33,6 +35,7 @@ private:
   LocationService* _loc = nullptr;
   TleProvider*     _tle = nullptr;
   LaunchProvider*  _launch = nullptr;
+  SpaceWxProvider* _spacewx = nullptr;
   PageSatellites*  _satPage = nullptr;
 
   astro::SatEngine _eng;
