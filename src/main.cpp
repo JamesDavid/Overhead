@@ -28,9 +28,11 @@
 #include "services/WebPortal.h"
 #include "providers/TleProvider.h"
 #include "providers/LaunchProvider.h"
+#include "providers/AircraftProvider.h"
 #include "pages/PageDiag.h"
 #include "pages/PageSatellites.h"
 #include "pages/PageLaunches.h"
+#include "pages/PageAircraft.h"
 #if ASTRO_SELFTEST
 #include "astro/SelfTest.h"
 #endif
@@ -53,9 +55,11 @@ static Provisioning    prov;
 static WebPortal       web;
 static TleProvider     tleProv;
 static LaunchProvider  launchProv;
+static AircraftProvider aircraftProv;
 // --- pages ---
 static String          gHostname;
 static PageLaunches*   launchesPage = nullptr;
+static PageAircraft*   aircraftPage = nullptr;
 static PageSatellites* satsPage = nullptr;
 static PageDiag*       diag = nullptr;
 
@@ -135,6 +139,7 @@ void setup() {
   locSvc.begin(&settings, &net, &bus, &timeSvc);   // kicks off IP geolocation
   tleProv.begin(&settings, &net, &cache, &bus);    // loads cache + fetches TLEs
   launchProv.begin(&settings, &net, &cache, &bus); // LL2 + fallback
+  aircraftProv.begin(&settings, &net, &bus, &locSvc);
 
   web.setStatusJsonProvider(fillStatusJson);
   web.begin(&settings, gHostname);
@@ -145,12 +150,17 @@ void setup() {
   sched.every(tleMs, [] { tleProv.refresh(); }, /*runNow=*/false);
   uint32_t lchMs = (uint32_t)settings.getInt("refreshLaunchMin", 45) * 60UL * 1000UL;
   sched.every(lchMs, [] { launchProv.refresh(); }, /*runNow=*/false);
+  uint32_t adsbMs = (uint32_t)settings.getInt("adsbPollSec", 5) * 1000UL;
+  if (adsbMs < 2000) adsbMs = 2000;                // respect the 1 req/s cloud cap
+  sched.every(adsbMs, [] { aircraftProv.poll(); }, /*runNow=*/true);
 
-  // UI carousel, roughly ground->space order: Launches, Satellites, Diagnostics.
+  // UI carousel, ground->space order: Launches, Aircraft, Satellites, Diagnostics.
   launchesPage = new PageLaunches(launchProv, timeSvc);
+  aircraftPage = new PageAircraft(aircraftProv, locSvc, settings);
   satsPage = new PageSatellites(tleProv, locSvc, timeSvc, settings);
   diag = new PageDiag(timeSvc, locSvc, gHostname);
   app.addPage(launchesPage);
+  app.addPage(aircraftPage);
   app.addPage(satsPage);
   app.addPage(diag);
   app.begin();

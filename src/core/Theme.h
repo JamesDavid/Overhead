@@ -47,3 +47,11 @@ namespace themes {
 
 // The active palette. Mutable global by design (widgets read it every frame).
 extern Theme gTheme;
+
+// Right-pad with spaces so opaque-background text overwrites a previous (longer)
+// string in place — no fillRect clear, hence no flicker (spec §4 dirty redraws).
+#include <Arduino.h>
+inline String padRight(String s, uint16_t width) {
+  while (s.length() < width) s += ' ';
+  return s;
+}

@@ -15,11 +15,11 @@ static constexpr double D2R = 3.14159265358979323846 / 180.0;
 
 int PageSatellites::minEl() const { return (int)_settings.getInt("satMinEl", 10); }
 
-void PageSatellites::onEnter(App& app) { rebuildOrder(); _dirty = true; }
+void PageSatellites::onEnter(App& app) { rebuildOrder(); _dirty = _needClear = true; }
 
 void PageSatellites::onData(App& app, ProviderId id) {
-  if (id == ProviderId::Tle)            rebuildOrder();
-  else if (id == ProviderId::Location)  { reloadSelected(); recomputeTrack(time(nullptr)); }
+  if (id == ProviderId::Tle)            { rebuildOrder(); _needClear = true; }
+  else if (id == ProviderId::Location)  { reloadSelected(); recomputeTrack(time(nullptr)); _needClear = true; }
   _dirty = true;
 }
 
@@ -58,7 +58,7 @@ void PageSatellites::selectPos(int pos) {
   reloadSelected();
   time_t now = time(nullptr);
   if (_loaded) { recomputePass(now); recomputeTrack(now); }
-  _dirty = true;
+  _dirty = _needClear = true;
 }
 
 void PageSatellites::reloadSelected() {
@@ -106,7 +106,7 @@ void PageSatellites::onTouch(App& app, int x, int y) {
   else {                                          // centre: cycle Polar->Ground->Graph
     _view = (_view == View::Polar) ? View::Ground
           : (_view == View::Ground) ? View::Graph : View::Polar;
-    _dirty = true;
+    _dirty = _needClear = true;
   }
 }
 
@@ -145,11 +145,14 @@ void PageSatellites::draw(App& app) {
   if (!_loaded)              { drawMessage(app, "no satellite selected"); return; }
 
   time_t now = time(nullptr);
-  if (!_pass.valid || now > _pass.los) recomputePass(now);
+  if (!_pass.valid || now > _pass.los) { recomputePass(now); _needClear = true; }
   astro::SatObservation o = _eng.observe(now);
 
   auto& g = app.display().gfx();
-  g.fillRect(0, app.contentY(), app.contentW(), app.contentH(), gTheme.bg);
+  if (_needClear) {                                // full clear only on structural change
+    g.fillRect(0, app.contentY(), app.contentW(), app.contentH(), gTheme.bg);
+    _needClear = false; _pdx = _pdy = -1;
+  }
   if      (_view == View::Polar)  drawPolarView(app, o);
   else if (_view == View::Ground) drawGroundView(app, o);
   else                            drawGraphView(app, o);
@@ -175,7 +178,8 @@ void PageSatellites::drawInfoColumn(App& app, int ix, int iy, const astro::SatOb
   g.setTextColor(gTheme.accent, gTheme.bg);
   g.setTextSize(2); g.drawString(sat.name.substring(0, 13), ix, iy); iy += 20;
   g.setTextSize(1);
-  auto line = [&](const String& s, Color c) { g.setTextColor(c, gTheme.bg); g.drawString(s, ix, iy); iy += 14; };
+  // padRight so shorter values overwrite longer ones in place (no clear/flicker).
+  auto line = [&](const String& s, Color c) { g.setTextColor(c, gTheme.bg); g.drawString(padRight(s, 22), ix, iy); iy += 14; };
 
   line(String(_orderPos + 1) + "/" + _order.size() +
        (_settings.getBool("satWatchlistOnly", true) ? "  watchlist" : "  all"), gTheme.dim);
@@ -188,8 +192,13 @@ void PageSatellites::drawInfoColumn(App& app, int ix, int iy, const astro::SatOb
     line(String("PASS NOW max ") + (int)round(_pass.maxElDeg), gTheme.ok);
   } else if (_pass.valid) {
     long t = (long)_pass.aos - (long)now; if (t < 0) t = 0;
-    char b[28]; snprintf(b, sizeof(b), "AOS T-%02ld:%02ld max %d", t / 60, t % 60, (int)round(_pass.maxElDeg));
+    char b[32];
+    if (t >= 3600) snprintf(b, sizeof(b), "AOS T-%ldh%02ldm  max %d", t / 3600, (t % 3600) / 60, (int)round(_pass.maxElDeg));
+    else           snprintf(b, sizeof(b), "AOS T-%02ld:%02ld  max %d", t / 60, t % 60, (int)round(_pass.maxElDeg));
     line(b, gTheme.fg);
+    struct tm tm; time_t a = _pass.aos; localtime_r(&a, &tm);
+    char lb[20]; strftime(lb, sizeof(lb), "at %H:%M local", &tm);
+    line(lb, gTheme.dim);
   } else {
     line("no pass in window", gTheme.dim);
   }
@@ -213,6 +222,9 @@ void PageSatellites::drawPolarView(App& app, const astro::SatObservation& o) {
   int R = size / 2 - 12;
   int cx = 8 + R + 8, cy = cy0 + ch / 2;
 
+  if (_pdx >= 0) g.fillCircle(_pdx, _pdy, 4, gTheme.bg);   // erase old blip first
+
+  // Static grid (redrawn in place each tick = stable, also restores any erase).
   g.drawCircle(cx, cy, R, gTheme.grid);
   g.drawCircle(cx, cy, R * 2 / 3, gTheme.grid);
   g.drawCircle(cx, cy, R / 3, gTheme.grid);
@@ -228,6 +240,9 @@ void PageSatellites::drawPolarView(App& app, const astro::SatObservation& o) {
     int sx = cx + (int)round(rr * sin(o.azDeg * D2R));
     int sy = cy - (int)round(rr * cos(o.azDeg * D2R));
     g.fillCircle(sx, sy, 4, o.sunlit ? gTheme.warn : gTheme.accent);
+    _pdx = sx; _pdy = sy;
+  } else {
+    _pdx = -1;
   }
 
   drawInfoColumn(app, cw / 2 + 8, cy0 + 6, o);
@@ -242,7 +257,9 @@ void PageSatellites::drawGroundView(App& app, const astro::SatObservation& o) {
   auto px = [&](double lon) { return mx + (int)round((lon + 180.0) / 360.0 * mw); };
   auto py = [&](double lat) { return my + (int)round((90.0 - lat) / 180.0 * mh); };
 
-  // Map frame + 30-degree graticule.
+  if (_pdx >= 0) g.fillCircle(_pdx, _pdy, 3, gTheme.bg);   // erase old sat point
+
+  // Map frame + 30-degree graticule (redrawn in place = stable).
   g.drawRect(mx, my, mw, mh, gTheme.grid);
   for (int lon = -150; lon < 180; lon += 30) g.drawFastVLine(px(lon), my, mh, gTheme.grid);
   for (int lat = -60; lat < 90;  lat += 30) g.drawFastHLine(mx, py(lat), mw, gTheme.grid);
@@ -269,7 +286,9 @@ void PageSatellites::drawGroundView(App& app, const astro::SatObservation& o) {
   int oxv = px(loc.lon), oyv = py(loc.lat);
   g.drawFastHLine(oxv - 3, oyv, 7, gTheme.ok);
   g.drawFastVLine(oxv, oyv - 3, 7, gTheme.ok);
-  g.fillCircle(px(o.subLonDeg), py(o.subLatDeg), 3, o.sunlit ? gTheme.warn : gTheme.fg);
+  int spx = px(o.subLonDeg), spy = py(o.subLatDeg);
+  g.fillCircle(spx, spy, 3, o.sunlit ? gTheme.warn : gTheme.fg);
+  _pdx = spx; _pdy = spy;
 
   // Compact info line on top.
   const auto& sat = _tle.sats()[_sel];

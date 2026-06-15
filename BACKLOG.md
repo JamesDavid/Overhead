@@ -28,4 +28,23 @@ momentum. Pick up later. (Bugs/blocking work go in commits/tasks, not here.)
 - Doppler: uplink correction + tuning readout; rotor/Az-El output.
 - Watchlist editing on-device (currently seeded; edit via web only later).
 
+## M4 — Launches
+- On-device filter chips: time window (24h/7d/30d), hide-TBD, by provider/site/country.
+- Detail view on centre-tap (full mission text, window open/close, weather, image).
+- RocketLaunch.Live fallback parser: verify pad/location/mission field paths on a live 429.
+- Streaming JSON parse off the UI thread for the (larger) detailed mode.
+
+## M5 — Aircraft
+- Nearest-airport + likely-frequency (bundle OurAirports subset in LittleFS) — the
+  headline ham/SDR feature, deferred because it needs a generated dataset.
+- Filter chips: altitude band, category (airliner/GA/heli/mil), hide-on-ground, emergency-only.
+- Tap-on-blip selection (currently tap edges to step); callsign labels on the radar.
+- Local-feeder auto-discovery / mDNS; adsb.lol secondary source.
+- Flicker: radar still clears its circle bbox each tick — per-blip erase or a PSRAM sprite.
+
+## Cross-cutting — rendering
+- Anti-flicker done via _needClear + in-place opaque/padded text + blip-erase. Next:
+  optional LGFX sprite double-buffer on PSRAM boards (CrowPanel) for zero-flicker everywhere.
+- Page-state widget (loading/empty/error/stale) shared component (spec §13) instead of ad-hoc messages.
+
 <!-- new milestones append below as they land -->

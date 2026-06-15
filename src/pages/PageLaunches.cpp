@@ -21,15 +21,15 @@ void PageLaunches::onData(App& app, ProviderId id) {
     int n = (int)_lp.launches().size();
     if (_sel >= n) _sel = n ? n - 1 : 0;
   }
-  _dirty = true;
+  _dirty = _needClear = true;
 }
 
 void PageLaunches::onTouch(App& app, int x, int y) {
   int n = (int)_lp.launches().size();
   if (n == 0) return;
   int third = app.contentW() / 3;
-  if (x < third)          _sel = (_sel - 1 + n) % n;
-  else if (x > 2 * third) _sel = (_sel + 1) % n;
+  if (x < third)          { _sel = (_sel - 1 + n) % n; _needClear = true; }
+  else if (x > 2 * third) { _sel = (_sel + 1) % n;     _needClear = true; }
   _dirty = true;
 }
 
@@ -62,7 +62,7 @@ void PageLaunches::draw(App& app) {
 
   auto& g = app.display().gfx();
   const int cw = app.contentW(), cy0 = app.contentY(), ch = app.contentH();
-  g.fillRect(0, cy0, cw, ch, gTheme.bg);
+  if (_needClear) { g.fillRect(0, cy0, cw, ch, gTheme.bg); _needClear = false; }
   time_t now = time(nullptr);
 
   // Status pill (top-right).
@@ -83,17 +83,18 @@ void PageLaunches::draw(App& app) {
 
   g.setTextSize(1);
   auto line = [&](const String& s, Color c) { if (s.length()) { g.setTextColor(c, gTheme.bg); g.drawString(s, x0, y); y += 13; } };
+  // Where it's launching from — surfaced prominently (accent).
+  line(String("@ ") + l.location, gTheme.accent);
   line(l.provider + (l.vehicle.length() ? "  -  " + l.vehicle : String()), gTheme.fg);
-  line(l.mission, gTheme.dim);
-  line(l.pad + (l.location.length() ? ", " + l.location : String()), gTheme.dim);
+  line(l.pad + (l.mission.length() ? "  -  " + l.mission : String()), gTheme.dim);
   line(String(_sel + 1) + "/" + list.size() + (_lp.usingFallback() ? "  (RLL)" : ""), gTheme.dim);
 
-  // Big T-minus (or approximate date).
-  int tY = cy0 + ch / 2 + 4;
-  g.setTextDatum(textdatum_t::middle_center);
+  // T-minus right under the index line (left-aligned); the list fills the rest.
+  g.setTextDatum(textdatum_t::top_left);
+  y += 2;
   if (l.net == 0) {
     g.setTextColor(gTheme.dim, gTheme.bg); g.setTextSize(2);
-    g.drawString("NET TBD", cw / 2, tY);
+    g.drawString("NET TBD", x0, y); y += 22;
   } else if (precise(l.netPrecision)) {
     long s = (long)l.net - (long)now;
     bool past = s < 0; if (past) s = -s;
@@ -102,21 +103,20 @@ void PageLaunches::draw(App& app) {
     if (d > 0) snprintf(b, sizeof(b), "%s%ldd %02ld:%02ld", past ? "T+" : "T-", d, h, m);
     else       snprintf(b, sizeof(b), "%s%02ld:%02ld:%02ld", past ? "T+" : "T-", h, m, sec);
     g.setTextColor(past ? gTheme.warn : gTheme.fg, gTheme.bg);
-    g.setTextSize(3); g.drawString(b, cw / 2, tY);
+    g.setTextSize(3); g.drawString(padRight(b, 12), x0, y); y += 28;
   } else {
     struct tm tm; time_t t = l.net; localtime_r(&t, &tm);
     char b[24]; strftime(b, sizeof(b), "~ %b %d", &tm);
     g.setTextColor(gTheme.fg, gTheme.bg); g.setTextSize(2);
-    g.drawString(b, cw / 2, tY);
+    g.drawString(b, x0, y); y += 20;
     g.setTextSize(1); g.setTextColor(gTheme.dim, gTheme.bg);
-    g.drawString(String("precision: ") + l.netPrecision, cw / 2, tY + 18);
+    g.drawString(String("precision: ") + l.netPrecision, x0, y); y += 14;
   }
 
-  // Upcoming mini-list at the bottom.
-  g.setTextDatum(textdatum_t::top_left);
+  // Upcoming list fills the remaining space.
+  g.drawFastHLine(x0, y, cw - 2 * x0, gTheme.grid); y += 4;
   g.setTextSize(1);
-  int ly = cy0 + ch - 40;
-  for (int i = 0; i < (int)list.size() && ly < cy0 + ch - 2; ++i) {
+  for (int i = 0; i < (int)list.size() && y < cy0 + ch - 12; ++i) {
     if (i == _sel) continue;
     const Launch& u = list[i];
     long s = (long)u.net - (long)now; if (s < 0) s = 0;
@@ -124,10 +124,13 @@ void PageLaunches::draw(App& app) {
     if (u.net == 0) snprintf(tm, sizeof(tm), "TBD");
     else if (s >= 86400) snprintf(tm, sizeof(tm), "%ldd", s / 86400);
     else snprintf(tm, sizeof(tm), "%02ld:%02ld", s / 3600, (s % 3600) / 60);
-    g.setTextColor(gTheme.dim, gTheme.bg);
-    g.drawString(u.name.substring(0, 24), 6, ly);
-    g.setTextDatum(textdatum_t::top_right); g.drawString(tm, cw - 6, ly);
     g.setTextDatum(textdatum_t::top_left);
-    ly += 12;
+    g.setTextColor(gTheme.fg, gTheme.bg);
+    g.drawString(u.name.substring(0, 26), x0, y);
+    g.fillRect(cw - x0 - 44, y, 44, 12, gTheme.bg);   // clear time cell (right-aligned, shrinks)
+    g.setTextDatum(textdatum_t::top_right);
+    g.setTextColor(gTheme.dim, gTheme.bg);
+    g.drawString(tm, cw - x0, y);
+    y += 13;
   }
 }

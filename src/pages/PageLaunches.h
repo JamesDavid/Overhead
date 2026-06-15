@@ -14,7 +14,7 @@ public:
   PageLaunches(LaunchProvider& lp, TimeService& time) : _lp(lp), _time(time) {}
 
   const char* title() const override { return "Launches"; }
-  void onEnter(App& app) override { _dirty = true; }
+  void onEnter(App& app) override { _dirty = _needClear = true; }
   void onData(App& app, ProviderId id) override;
   void onTouch(App& app, int x, int y) override;
   void tick(App& app, uint32_t nowMs) override;
@@ -27,5 +27,6 @@ private:
   TimeService&    _time;
   int   _sel = 0;
   bool  _dirty = true;
+  bool  _needClear = true;   // full-clear only on structural change (anti-flicker)
   uint32_t _lastDraw = 0;
 };

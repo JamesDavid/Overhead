@@ -47,6 +47,12 @@ void Settings::seedDefaults() {
   wl.add("AO-91");
   _doc["satWatchlistOnly"] = true;    // Satellites selector walks the watchlist
   _doc["satMinEl"]         = 10;      // min pass elevation (deg) — kills grazers
+  // Aircraft (spec §6): cloud by default; local readsb/tar1090 feeder optional.
+  _doc["adsbMode"]      = "cloud";    // cloud | local
+  _doc["adsbHost"]      = "";         // local feeder host/ip (e.g. 192.168.1.50)
+  _doc["adsbRadiusNm"]  = 50;
+  _doc["adsbPollSec"]   = 5;
+  _doc["adsbMaxAltFt"]  = 0;          // 0 = no altitude cap
 }
 
 void Settings::migrate() {

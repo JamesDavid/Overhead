@@ -64,5 +64,7 @@ private:
 
   View     _view     = View::Polar;
   bool     _dirty    = true;
+  bool     _needClear = true;       // full-clear only on structural change
+  int16_t  _pdx = -1, _pdy = -1;    // last plotted blip (for erase, anti-flicker)
   uint32_t _lastDraw = 0;
 };

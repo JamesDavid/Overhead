@@ -73,20 +73,22 @@ void LaunchProvider::fetchFallback() {
 }
 
 bool LaunchProvider::parseLL2(const String& body) {
-  // Filter: keep only the fields we render (LL2 responses are large).
+  // LL2 mode=list FLATTENS most fields to strings: pad, location, lsp_name,
+  // launcher, mission are strings (not the nested objects of detailed mode).
+  // status + net_precision stay as small objects.
   JsonDocument filter;
   JsonObject r = filter["results"].add<JsonObject>();
   r["name"] = true;
   r["net"] = true;
-  r["net_precision"]["name"] = true;
-  r["net_precision"]["abbrev"] = true;
+  r["pad"] = true;
+  r["location"] = true;          // launch site, e.g. "Cape Canaveral SFS, FL, USA"
+  r["lsp_name"] = true;          // provider
+  r["launcher"] = true;          // vehicle (string or object across versions)
+  r["mission"] = true;           // mission (string or object)
   r["status"]["name"] = true;
   r["status"]["abbrev"] = true;
-  r["launch_service_provider"]["name"] = true;
-  r["rocket"]["configuration"]["name"] = true;
-  r["pad"]["name"] = true;
-  r["pad"]["location"]["name"] = true;
-  r["mission"]["name"] = true;
+  r["net_precision"]["name"] = true;
+  r["net_precision"]["abbrev"] = true;
 
   JsonDocument doc;
   if (deserializeJson(doc, body, DeserializationOption::Filter(filter))) return false;
@@ -101,11 +103,16 @@ bool LaunchProvider::parseLL2(const String& body) {
     l.netPrecision = (const char*)(o["net_precision"]["name"] | "");
     l.statusName   = (const char*)(o["status"]["name"] | "");
     l.statusAbbrev = (const char*)(o["status"]["abbrev"] | "");
-    l.provider     = (const char*)(o["launch_service_provider"]["name"] | "");
-    l.vehicle      = (const char*)(o["rocket"]["configuration"]["name"] | "");
-    l.pad          = (const char*)(o["pad"]["name"] | "");
-    l.location     = (const char*)(o["pad"]["location"]["name"] | "");
-    l.mission      = (const char*)(o["mission"]["name"] | "");
+    l.provider     = (const char*)(o["lsp_name"] | "");
+    l.pad          = (const char*)(o["pad"] | "");
+    l.location     = (const char*)(o["location"] | "");
+    // launcher/mission may be a flat string (list mode) or an object.
+    JsonVariant lv = o["launcher"];
+    if (lv.is<const char*>())      l.vehicle = (const char*)lv;
+    else if (lv.is<JsonObject>())  l.vehicle = (const char*)(lv["full_name"] | lv["name"] | "");
+    JsonVariant mv = o["mission"];
+    if (mv.is<const char*>())      l.mission = (const char*)mv;
+    else if (mv.is<JsonObject>())  l.mission = (const char*)(mv["name"] | "");
     if (l.name.length()) out.push_back(l);
   }
   if (out.empty()) return false;
