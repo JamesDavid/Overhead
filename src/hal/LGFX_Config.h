@@ -121,21 +121,26 @@ public:
       _bus.config(cfg);
       _panel.setBus(&_bus);
     }
-    {   // Panel (ILI9341)
+    {   // Panel (ILI9341) — driven LANDSCAPE-NATIVE at MV=0 (see Board.h):
+      // panel + memory are 320x240 so rotation 0 keeps MV=0 (the only
+      // visually-correct orientation on this mounting) while reporting a 320x240
+      // landscape canvas. rgb_order drops the BGR bit for this board's R/B wiring.
       auto cfg = _panel.config();
       cfg.pin_cs           = PIN_TFT_CS;
       cfg.pin_rst          = PIN_TFT_RST;
       cfg.pin_busy         = -1;
-      cfg.panel_width      = TFT_PANEL_WIDTH;
-      cfg.panel_height     = TFT_PANEL_HEIGHT;
+      cfg.panel_width      = TFT_PANEL_WIDTH;   // 320
+      cfg.panel_height     = TFT_PANEL_HEIGHT;  // 240
+      cfg.memory_width     = TFT_PANEL_WIDTH;   // 320
+      cfg.memory_height    = TFT_PANEL_HEIGHT;  // 240
       cfg.offset_x         = 0;
       cfg.offset_y         = 0;
       cfg.offset_rotation  = 0;
       cfg.dummy_read_pixel = 8;
       cfg.dummy_read_bits  = 1;
       cfg.readable         = true;
-      cfg.invert           = (CYD_INVERT_DISPLAY != 0);  // dual-USB variant needs 1
-      cfg.rgb_order        = false;
+      cfg.invert           = (CYD_INVERT_DISPLAY != 0);
+      cfg.rgb_order        = (CYD_PANEL_RGB_ORDER != 0);  // drop BGR (Board.h)
       cfg.dlen_16bit       = false;
       cfg.bus_shared       = false;  // touch is on its own bus
       _panel.config(cfg);

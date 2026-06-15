@@ -52,17 +52,28 @@ bool Touch::read(Display& display, int16_t& x, int16_t& y) {
 }
 
 #if CAP_TOUCH_NEEDS_CAL
+// Calibration depends on the display rotation, so the saved blob is tagged with
+// the rotation it was made at. Changing DISPLAY_DEFAULT_ROTATION therefore
+// invalidates the old calibration and triggers a fresh first-boot routine.
 bool Touch::loadCalibration(uint16_t out[8]) {
   File f = LittleFS.open(kCalPath, "r");
   if (!f) return false;
+  uint16_t rot = 0xFFFF;
+  f.read(reinterpret_cast<uint8_t*>(&rot), sizeof(rot));
   size_t n = f.read(reinterpret_cast<uint8_t*>(out), sizeof(uint16_t) * 8);
   f.close();
+  if (rot != (uint16_t)DISPLAY_DEFAULT_ROTATION) {
+    Serial.println("[touch] saved calibration is for a different rotation — recalibrating");
+    return false;
+  }
   return n == sizeof(uint16_t) * 8;
 }
 
 void Touch::saveCalibration(const uint16_t data[8]) {
   File f = LittleFS.open(kCalPath, "w");
   if (!f) { Serial.println("[touch] WARN: could not persist calibration"); return; }
+  uint16_t rot = (uint16_t)DISPLAY_DEFAULT_ROTATION;
+  f.write(reinterpret_cast<const uint8_t*>(&rot), sizeof(rot));
   f.write(reinterpret_cast<const uint8_t*>(data), sizeof(uint16_t) * 8);
   f.close();
 }

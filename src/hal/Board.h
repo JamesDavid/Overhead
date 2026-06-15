@@ -76,9 +76,23 @@
   #define PIN_TFT_DC             2
   #define PIN_TFT_RST           -1    // tied to system reset
   #define PIN_TFT_BL            21    // backlight, active HIGH
-  #define TFT_PANEL_WIDTH      240    // native portrait; landscape = rotation 1
-  #define TFT_PANEL_HEIGHT     320
-  #define DISPLAY_DEFAULT_ROTATION 1  // 320x240 landscape
+  // ORIENTATION — the hard-won fix (see ../Voxalon/yoradio-pio
+  // yoRadio/src/displays/displayILI9341.cpp + boards/cyd_common.h):
+  //   This panel's ILI9341 is mounted so the chip's MV=1 "landscape" modes
+  //   (LovyanGFX ODD rotations) render 90deg-rotated and can only differ by
+  //   180deg mirror bits — they can NEVER produce the 90deg we need. The
+  //   orientation that visually appears as correct landscape is the chip's MV=0
+  //   mode, and on this CYD the column range extends so a full 320-wide layout
+  //   still fits. So we drive the panel as LANDSCAPE-NATIVE 320x240 at MV=0
+  //   (rotation 0; rotation 2 = 180 flip), NOT via a swapping odd rotation.
+  #define TFT_PANEL_WIDTH      320
+  #define TFT_PANEL_HEIGHT     240
+  #define DISPLAY_DEFAULT_ROTATION 0   // MV=0; use 2 to flip 180
+  // COLOUR — this CYD has reversed R/B wiring; without RGB order the warm theme
+  // colours (yellow/orange) render as cyan/blue (yoRadio DSP_PANEL_RGB). Set 0
+  // if your unit's colours are already correct.
+  #define CYD_PANEL_RGB_ORDER  1
+  // Changing rotation auto-invalidates the saved touch calibration (Touch.cpp).
 
   // Touch (XPT2046) on its OWN VSPI bus (cyd.md) — separate sclk/mosi/miso
   #define PIN_TOUCH_SCLK        25
