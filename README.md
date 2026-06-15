@@ -9,6 +9,22 @@ the full design.
 This repo is the **clean-room implementation** — existing CYD projects are
 reference material only, not a fork base.
 
+## Status — Milestone 2 (astronomy core) ✅ builds on all 3 boards
+
+The shared compute core is in (`src/astro/`): `Time` (JD/GMST/LST/ΔT), `Coords`
+(RA/Dec↔Alt/Az + refraction), `Sun` (permissive low-precision solar position —
+drives both the satellite sunlit test and, later, the Director's day/night, with
+no GPLv3), and `SatEngine` over the Hopperpop **SGP4** library (MIT): observer
+az/el, slant range, range-rate→Doppler, sub-satellite point, a cylindrical-umbra
+**sunlit** flag, and pass prediction (AOS/TCA/LOS). `Ephem` (Sun/Moon/planets) is
+written but fully gated behind `ENABLE_EPHEM` (GPLv3, default **off**). A boot
+self-test (`ASTRO_SELFTEST`) validates the core against a known ISS TLE over
+serial.
+
+⚠️ **Flash:** SGP4 pushed the 1.5 MB-app boards (cyd28/cyd4) to ~87%. Before the
+bundled catalogs land (m3+), those boards will need a partition rebalance (single
+app slot, or smaller LittleFS); the CrowPanel's 4 MB app slot is unaffected.
+
 ## Status — Milestone 1 (services + infra) ✅ builds on all 3 boards
 
 Milestone 0 (HAL bring-up) and Milestone 1 (services + infra) are in. The base

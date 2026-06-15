@@ -18,3 +18,9 @@
 #ifndef OVERHEAD_LOG_BAUD
 #define OVERHEAD_LOG_BAUD 115200
 #endif
+
+// Run the astronomy-core self-test at boot (Time/Coords/Sun/SatEngine vs a
+// known ISS TLE; prints PASS/FAIL to serial). Cheap; turn off once trusted.
+#ifndef ASTRO_SELFTEST
+#define ASTRO_SELFTEST 1
+#endif

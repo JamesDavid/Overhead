@@ -27,6 +27,9 @@
 #include "services/Provisioning.h"
 #include "services/WebPortal.h"
 #include "pages/PageDiag.h"
+#if ASTRO_SELFTEST
+#include "astro/SelfTest.h"
+#endif
 
 // --- HAL ---
 static Display display;
@@ -101,6 +104,11 @@ void setup() {
 
   if (!display.begin()) Serial.println("[display] init FAILED");
   touch.begin(display);
+
+#if ASTRO_SELFTEST
+  // Validate the astro core before the network (which may block on the portal).
+  astro::runSelfTests();
+#endif
 
   gHostname = "overhead-" + chipSuffix();
   gHostname.toLowerCase();

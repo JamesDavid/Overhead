@@ -38,7 +38,7 @@ void PageDiag::draw(App& app) {
 
   g.setTextColor(gTheme.accent, gTheme.bg);
   g.setTextSize(2);
-  g.drawString("Overhead \xB7 M1", x0, y); y += 22;
+  g.drawString("Overhead \xB7 M2", x0, y); y += 22;
   g.setTextSize(1);
 
   line(String("board:  ") + BOARD_NAME, gTheme.dim);
