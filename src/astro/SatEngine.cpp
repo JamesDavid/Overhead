@@ -53,7 +53,7 @@ SatPass SatEngine::nextPass(time_t fromUtc, double minElDeg, int maxIter) {
   SatPass p;
   if (!_haveTle) return p;
 
-  _sat.initpredpoint((double)fromUtc, minElDeg);
+  _sat.initpredpoint((unsigned long)fromUtc, minElDeg);  // unix overload (NOT the JD one)
   passinfo op;
   if (!_sat.nextpass(&op, maxIter)) return p;
 
@@ -64,6 +64,16 @@ SatPass SatEngine::nextPass(time_t fromUtc, double minElDeg, int maxIter) {
   p.durationSec = (p.los > p.aos) ? (uint32_t)(p.los - p.aos) : 0;
   p.valid    = true;
   return p;
+}
+
+SatEngine::SubPoint SatEngine::subPoint(time_t utc) {
+  SubPoint s{0, 0, 0};
+  if (!_haveTle) return s;
+  _sat.findsat((unsigned long)utc);
+  s.latDeg = _sat.satLat;
+  s.lonDeg = _sat.satLon;
+  s.altKm  = _sat.satAlt;
+  return s;
 }
 
 double SatEngine::dopplerHz(double emitHz, double rangeRateKmS) {

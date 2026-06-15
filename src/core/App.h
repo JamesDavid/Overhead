@@ -20,6 +20,8 @@ public:
   void begin();
   void addPage(Page* page);
   void setPage(int index);
+  void nextPage();
+  void prevPage();
 
   void tick(uint32_t nowMs);
 
@@ -44,8 +46,12 @@ private:
   int  _active = -1;
 
   bool     _wasTouched   = false;
+  int      _pressX = 0, _pressY = 0;   // touch-down point
+  int      _lastX  = 0, _lastY  = 0;   // last point while touched
   uint32_t _lastStatusMs = 0;
   bool     _statusDirty  = true;
 
-  static constexpr int kStatusH = 20;
+  static constexpr int kStatusH   = 20;
+  static constexpr int kSwipeMin  = 40;   // px to count as a swipe
+  static constexpr int kTapMax    = 18;   // px movement still a tap
 };

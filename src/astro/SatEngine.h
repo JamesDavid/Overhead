@@ -38,6 +38,11 @@ public:
   SatObservation observe(time_t utc);
   SatPass        nextPass(time_t fromUtc, double minElDeg = 0.0, int maxIter = 100);
 
+  // Lightweight sub-satellite point (one propagation, no observer math) — for
+  // sampling the ground track cheaply.
+  struct SubPoint { double latDeg; double lonDeg; double altKm; };
+  SubPoint subPoint(time_t utc);
+
   // Observed frequency for an emitted frequency, given range-rate (km/s):
   // f_obs = f * (1 - v_radial/c).
   static double dopplerHz(double emitHz, double rangeRateKmS);

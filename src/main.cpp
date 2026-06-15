@@ -26,7 +26,9 @@
 #include "services/LocationService.h"
 #include "services/Provisioning.h"
 #include "services/WebPortal.h"
+#include "providers/TleProvider.h"
 #include "pages/PageDiag.h"
+#include "pages/PageSatellites.h"
 #if ASTRO_SELFTEST
 #include "astro/SelfTest.h"
 #endif
@@ -47,9 +49,11 @@ static TimeService     timeSvc;
 static LocationService locSvc;
 static Provisioning    prov;
 static WebPortal       web;
+static TleProvider     tleProv;
 // --- pages ---
-static String   gHostname;
-static PageDiag* diag = nullptr;
+static String          gHostname;
+static PageSatellites* satsPage = nullptr;
+static PageDiag*       diag = nullptr;
 
 static String chipSuffix() {
   uint64_t mac = ESP.getEfuseMac();
@@ -125,15 +129,20 @@ void setup() {
 
   net.begin();
   locSvc.begin(&settings, &net, &bus, &timeSvc);   // kicks off IP geolocation
+  tleProv.begin(&settings, &net, &cache, &bus);    // loads cache + fetches TLEs
 
   web.setStatusJsonProvider(fillStatusJson);
   web.begin(&settings, gHostname);
 
   // Periodic maintenance.
-  sched.every(60UL * 60UL * 1000UL, [] { locSvc.refresh(); }, /*runNow=*/false); // hourly re-resolve
+  sched.every(60UL * 60UL * 1000UL, [] { locSvc.refresh(); }, /*runNow=*/false);          // hourly
+  uint32_t tleMs = (uint32_t)settings.getInt("refreshTleHour", 12) * 3600UL * 1000UL;
+  sched.every(tleMs, [] { tleProv.refresh(); }, /*runNow=*/false);
 
-  // UI.
+  // UI: Satellites is the first real tab; Diagnostics rides alongside for now.
+  satsPage = new PageSatellites(tleProv, locSvc, timeSvc, settings);
   diag = new PageDiag(timeSvc, locSvc, gHostname);
+  app.addPage(satsPage);
   app.addPage(diag);
   app.begin();
 

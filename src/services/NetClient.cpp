@@ -52,6 +52,7 @@ void NetClient::perform(Job* job) {
   http.setConnectTimeout(8000);
   http.setTimeout(8000);
   http.setUserAgent("Overhead/0.1");
+  http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
 
   bool ok;
   if (job->url.startsWith("https://")) {

@@ -11,11 +11,13 @@
 #   otadata  0x00e000  0x002000
 #   app0     0x010000  0x400000   4 MB
 #   app1     0x410000  0x400000   4 MB
-#   littlefs 0x810000  0x7F0000   ~7.9 MB
+#   spiffs   0x810000  0x7F0000   ~7.9 MB
+#
+# NOTE: label must be "spiffs" — Arduino LittleFS.begin() default partition label.
 #
 # Name,    Type, SubType, Offset,   Size,      Flags
 nvs,       data, nvs,     0x9000,   0x5000,
 otadata,   data, ota,     0xe000,   0x2000,
 app0,      app,  ota_0,   0x10000,  0x400000,
 app1,      app,  ota_1,   0x410000, 0x400000,
-littlefs,  data, spiffs,  0x810000, 0x7F0000,
+spiffs,    data, spiffs,  0x810000, 0x7F0000,

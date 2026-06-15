@@ -9,6 +9,24 @@ the full design.
 This repo is the **clean-room implementation** — existing CYD projects are
 reference material only, not a fork base.
 
+## Status — Milestone 3 (Satellites tab) ✅ builds on all 3 boards
+
+First real content tab. `TleProvider` fetches the Celestrak `amateur` + `stations`
+GP groups via the NetTask, caches them in LittleFS (offline-friendly), parses to a
+TLE list, and publishes on the EventBus. `PageSatellites` renders an observer-centred
+az/el **polar plot**, a live info panel (az/el, range, sunlit, next-pass countdown),
+and **live Doppler** for FM birds from a small transponder table. The `App` shell now
+has **swipe carousel navigation** with page-indicator dots (Satellites ↔ Diagnostics).
+Watchlist defaults (ISS + SO-50 + AO-91) are seeded in Settings.
+
+Deferred to follow-ups (noted): world ground-track map, az/el time graph,
+group/min-elevation filter UI, watchlist filtering of the selector, AMSAT
+mode/band sub-filters, and sourcing the live AMSAT transponder set.
+
+⚠️ **Flash:** small boards (cyd28/cyd4) at ~88% of the 1.5 MB slot. A partition
+rebalance (single app slot, or smaller LittleFS) is needed before the bundled
+catalogs land (airports m5 / star map m9).
+
 ## Status — Milestone 2 (astronomy core) ✅ builds on all 3 boards
 
 The shared compute core is in (`src/astro/`): `Time` (JD/GMST/LST/ΔT), `Coords`

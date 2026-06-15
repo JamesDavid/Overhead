@@ -40,6 +40,12 @@ void Settings::seedDefaults() {
   _doc["refreshTleHour"]    = 12;
   _doc["refreshSpaceWxMin"] = 20;
   _doc["refreshWeatherMin"] = 45;
+  // Seed the watchlist so the Director is useful on first boot (spec §13).
+  JsonArray wl = _doc["watchlist"].to<JsonArray>();
+  wl.add("ISS");
+  wl.add("SO-50");
+  wl.add("AO-91");
+  _doc["satWatchlistOnly"] = true;    // Satellites selector walks the watchlist
 }
 
 void Settings::migrate() {

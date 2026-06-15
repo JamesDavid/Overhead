@@ -19,7 +19,9 @@ class NetClient {
 public:
   using Callback = std::function<void(int httpCode, const String& body)>;
 
-  bool begin(uint32_t stackWords = 10240, BaseType_t core = 0);
+  // stackBytes: ESP-IDF task stack is in BYTES. TLS (mbedtls) is stack-heavy,
+  // so HTTPS fetches (Celestrak, SWPC, Open-Meteo) need >=16 KB or they fail.
+  bool begin(uint32_t stackBytes = 16384, BaseType_t core = 0);
   bool get(const String& url, Callback cb);   // returns false if the queue is full
   void poll();                                 // UI thread: dispatch completed jobs
   size_t inFlight() const { return _inFlight; }
