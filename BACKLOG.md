@@ -47,4 +47,13 @@ momentum. Pick up later. (Bugs/blocking work go in commits/tasks, not here.)
   optional LGFX sprite double-buffer on PSRAM boards (CrowPanel) for zero-flicker everywhere.
 - Page-state widget (loading/empty/error/stale) shared component (spec §13) instead of ad-hoc messages.
 
+## M6 — Solar System
+- Grayline / day-night terminator + subsolar point overlay on the Satellites
+  ground track (astro::Sun gives subsolar lat=dec, lon from GMST) — spec §6.
+- Rise/set + transit times per body (currently instantaneous alt/az only).
+- Moon phase ICON (drawn crescent/gibbous) rather than just the phase name.
+- Enable VSOP87 Ephem (ENABLE_EPHEM) for arcsecond precision when wanted;
+  current Schlyter is ~arcmin (outer planets worse, no planet perturbations).
+- Persist the show-filter (all/up/eye) in Settings.
+
 <!-- new milestones append below as they land -->

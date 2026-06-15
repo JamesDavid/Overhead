@@ -33,6 +33,7 @@
 #include "pages/PageSatellites.h"
 #include "pages/PageLaunches.h"
 #include "pages/PageAircraft.h"
+#include "pages/PageSolarSystem.h"
 #if ASTRO_SELFTEST
 #include "astro/SelfTest.h"
 #endif
@@ -61,6 +62,7 @@ static String          gHostname;
 static PageLaunches*   launchesPage = nullptr;
 static PageAircraft*   aircraftPage = nullptr;
 static PageSatellites* satsPage = nullptr;
+static PageSolarSystem* solarPage = nullptr;
 static PageDiag*       diag = nullptr;
 
 static String chipSuffix() {
@@ -158,10 +160,12 @@ void setup() {
   launchesPage = new PageLaunches(launchProv, timeSvc);
   aircraftPage = new PageAircraft(aircraftProv, locSvc, settings);
   satsPage = new PageSatellites(tleProv, locSvc, timeSvc, settings);
+  solarPage = new PageSolarSystem(timeSvc, locSvc, settings);
   diag = new PageDiag(timeSvc, locSvc, gHostname);
   app.addPage(launchesPage);
   app.addPage(aircraftPage);
   app.addPage(satsPage);
+  app.addPage(solarPage);
   app.addPage(diag);
   app.begin();
 
