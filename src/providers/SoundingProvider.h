@@ -10,10 +10,11 @@ class EventBus;
 class LocationService;
 
 // providers/SoundingProvider — atmospheric sounding for the Aviation tab's Skew-T
-// / soaring view (spec §14, aviation phase 2). Fetches an Op40 (RAP) model
-// sounding at the observer from rucsoundings.noaa.gov in GSD text format (no key,
-// works anywhere — no RAOB station needed). Parses temp/dewpoint/wind by altitude
-// and derives the freezing level.
+// / soaring view (spec §14, aviation phase 2). Builds a model sounding at the
+// observer from Open-Meteo pressure-level fields (temperature/dewpoint/geopotential
+// height/wind per hPa level; no key, works anywhere). Fetches only the current hour
+// to stay RAM-lean, parses temp/dewpoint/wind by altitude, derives the freezing
+// level. (Was rucsoundings.noaa.gov GSD until NOAA decommissioned that host.)
 struct SoundingLevel {
   float altM = 0;
   float tempC = -999;

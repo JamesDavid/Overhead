@@ -203,7 +203,7 @@ void PageAviation::drawSounding(App& app) {
   const auto& lv = _snd.levels();
   g.setTextDatum(textdatum_t::top_left);
   g.setTextColor(gTheme.accent, gTheme.bg);
-  g.drawString("Sounding (Op40)  [tap mid: hazards]", 6, cy0 + 2);
+  g.drawString("Sounding (model)  [tap mid: hazards]", 6, cy0 + 2);
   if (lv.size() < 3) {
     g.setTextColor(gTheme.dim, gTheme.bg);
     g.drawString(_snd.status() == ProviderStatus::Error ? "sounding unavailable" : "loading sounding...", 6, cy0 + ch / 2);
