@@ -37,11 +37,18 @@ void PageSolarSystem::recompute() {
 }
 
 void PageSolarSystem::onTouch(App& app, int x, int y) {
-  // Bottom-left badge cycles the filter.
-  if (x <= 80 && y >= app.contentH() - 20) { _filter = (_filter + 1) % 3; _dirty = true; return; }
   int third = app.contentW() / 3;
-  if (x < third)          { do { _sel = (_sel - 1 + kN) % kN; } while (!visible(_sel) && _filter); }
-  else if (x > 2 * third) { do { _sel = (_sel + 1) % kN; } while (!visible(_sel) && _filter); }
+  // Centre tap toggles sky-dome <-> orbits.
+  if (x >= third && x <= 2 * third) { _view ^= 1; _dirty = true; return; }
+  // Bottom-left badge cycles the filter (sky-dome view only).
+  if (_view == 0 && x <= 80 && y >= app.contentH() - 20) { _filter = (_filter + 1) % 3; _dirty = true; return; }
+  if (_view == 1) {                         // orbits: step Mercury..Pluto
+    if (x < third) _orbSel = (_orbSel - 1 + astro::kOrbitBodies) % astro::kOrbitBodies;
+    else           _orbSel = (_orbSel + 1) % astro::kOrbitBodies;
+  } else {                                  // sky-dome: step visible bodies
+    if (x < third)          { do { _sel = (_sel - 1 + kN) % kN; } while (!visible(_sel) && _filter); }
+    else if (x > 2 * third) { do { _sel = (_sel + 1) % kN; } while (!visible(_sel) && _filter); }
+  }
   _dirty = true;
 }
 
@@ -65,6 +72,8 @@ void PageSolarSystem::draw(App& app) {
     g.drawString(_time.synced() ? "no location" : "waiting for time sync...", cw / 2, cy0 + ch / 2);
     return;
   }
+
+  if (_view == 1) { drawOrbit(app); return; }
 
   // --- Horizon half-dome (top ~55%) ---
   const int domeH = ch * 55 / 100;
@@ -108,11 +117,58 @@ void PageSolarSystem::draw(App& app) {
     ly += 13;
   }
 
-  // Filter badge (bottom-left).
+  // Filter badge (bottom-left) + orbit-view hint (bottom-right).
   const char* fl = _filter == 0 ? "all" : _filter == 1 ? "up" : "eye";
   int by = cy0 + ch - 16;
   g.fillRect(4, by, 72, 14, gTheme.grid);
   g.setTextDatum(textdatum_t::middle_left);
   g.setTextColor(gTheme.fg, gTheme.grid);
   g.drawString(String("show ") + fl, 8, by + 7);
+  g.setTextDatum(textdatum_t::middle_right);
+  g.setTextColor(gTheme.dim, gTheme.bg);
+  g.drawString("tap mid: orbits", cw - 6, by + 7);
+}
+
+// Top-down orrery: Sun at centre, sqrt-scaled orbit rings (so the inner planets
+// aren't crushed by Pluto's 39 AU), each body at its live heliocentric longitude.
+void PageSolarSystem::drawOrbit(App& app) {
+  auto& g = app.display().gfx();
+  const int cw = app.contentW(), ch = app.contentH(), cy0 = app.contentY();
+  const double D2R = 3.14159265358979323846 / 180.0;
+  double jd = _time.julianDate();
+
+  g.setTextDatum(textdatum_t::top_left);
+  g.setTextColor(gTheme.fg, gTheme.bg);
+  g.drawString("Orbits (top-down)  [tap mid: sky]", 4, cy0 + 1);
+
+  int cx = cw / 2, cy = cy0 + (ch - 14) / 2 + 12;
+  int maxR = min(cw / 2, (ch - 26) / 2) - 8;
+  double maxAu = astro::orbitMeanAu(astro::kOrbitBodies - 1);     // Pluto
+  auto rad = [&](double au) { return (int)round(sqrt(au / maxAu) * maxR); };
+
+  g.fillCircle(cx, cy, 3, gTheme.warn);                          // Sun
+
+  astro::HelioPos sel{};
+  for (int i = 0; i < astro::kOrbitBodies; ++i) {
+    int rr = rad(astro::orbitMeanAu(i));
+    g.drawCircle(cx, cy, rr, gTheme.grid);                       // orbit ring
+    astro::HelioPos hp = astro::heliocentricBody(i, jd);
+    double a = hp.lonDeg * D2R;
+    int px = cx + (int)round(rr * cos(a));
+    int py = cy - (int)round(rr * sin(a));
+    bool s = (i == _orbSel);
+    Color c = s ? gTheme.ok : (i == 2 ? gTheme.accent : gTheme.fg);   // Earth accent
+    g.fillCircle(px, py, s ? 3 : 2, c);
+    g.setTextDatum(textdatum_t::middle_left);
+    g.setTextColor(c, gTheme.bg);
+    g.drawString(astro::orbitBodyName(i), px + 4, py);
+    if (s) sel = hp;
+  }
+
+  // Selected-body readout (bottom).
+  g.setTextDatum(textdatum_t::bottom_left);
+  g.setTextColor(gTheme.ok, gTheme.bg);
+  char b[40];
+  snprintf(b, sizeof(b), "%s  %.2f AU  lon %d", astro::orbitBodyName(_orbSel), sel.rAu, (int)round(sel.lonDeg));
+  g.drawString(b, 4, cy0 + ch - 2);
 }

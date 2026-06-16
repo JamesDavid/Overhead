@@ -27,6 +27,7 @@ private:
   static constexpr int kN = 9;          // Sun, Moon, Mercury..Neptune
   void recompute();
   void draw(App& app);
+  void drawOrbit(App& app);             // top-down orrery view
   bool visible(int i) const;            // passes the current filter
 
   TimeService&     _time;
@@ -35,6 +36,8 @@ private:
 
   astro::PlanetState _st[kN];
   int   _sel = 0;
+  int   _orbSel = 2;                     // selected orbit body (0..8, 2=Earth)
+  int   _view = 0;                       // 0 sky-dome, 1 orbits
   int   _filter = 1;                    // 0 all, 1 above-horizon, 2 naked-eye
   bool  _dirty = true;
   uint32_t _lastDraw = 0;

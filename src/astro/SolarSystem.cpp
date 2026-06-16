@@ -159,6 +159,68 @@ double moonIlluminationPct(double jd) {
   return 50.0 * (1.0 - cos(phase));
 }
 
+// ---- Orrery: heliocentric ecliptic (top-down) ----
+// Same orbital elements as geoEcliptic() but we keep the heliocentric vector
+// (xh,yh) instead of adding the Sun's offset. lat is dropped (top-down view).
+static HelioPos helioElements(double N, double i, double w, double a, double e, double M) {
+  N = rev(N); w = rev(w); M = rev(M);
+  double E = M + e * RAD2DEG * sind(M) * (1 + e * cosd(M));
+  for (int k = 0; k < 3; ++k)
+    E = E - (E - e * RAD2DEG * sind(E) - M) / (1 - e * cosd(E));
+  double xv = a * (cosd(E) - e);
+  double yv = a * sqrt(1 - e * e) * sind(E);
+  double v = atan2d(yv, xv);
+  double r = sqrt(xv * xv + yv * yv);
+  double xh = r * (cosd(N) * cosd(v + w) - sind(N) * sind(v + w) * cosd(i));
+  double yh = r * (sind(N) * cosd(v + w) + cosd(N) * sind(v + w) * cosd(i));
+  return { rev(atan2d(yh, xh)), r };
+}
+
+// Schlyter's special Pluto series (heliocentric lon + r; valid ~1800-2050).
+static HelioPos pluto(double d) {
+  double S = 50.03  + 0.033459652 * d;
+  double P = 238.95 + 0.003968789 * d;
+  double lon = 238.9508 + 0.00400703 * d
+    - 19.799 * sind(P)     + 19.848 * cosd(P)
+    +  0.897 * sind(2 * P) -  4.956 * cosd(2 * P)
+    +  0.610 * sind(3 * P) +  1.211 * cosd(3 * P)
+    -  0.341 * sind(4 * P) -  0.190 * cosd(4 * P)
+    +  0.128 * sind(5 * P) -  0.034 * cosd(5 * P)
+    -  0.038 * sind(6 * P) +  0.031 * cosd(6 * P)
+    +  0.020 * sind(S - P) -  0.010 * cosd(S - P);
+  double r = 40.72
+    + 6.68 * sind(P)     + 6.90 * cosd(P)
+    - 1.18 * sind(2 * P) - 0.03 * cosd(2 * P)
+    + 0.15 * sind(3 * P) - 0.14 * cosd(3 * P);
+  return { rev(lon), r };
+}
+
+HelioPos heliocentricBody(int idx, double jd) {
+  double d = schlyterDay(jd);
+  switch (idx) {
+    case 0: return helioElements(48.3313 + 3.24587e-5 * d, 7.0047 + 5.00e-8 * d, 29.1241 + 1.01444e-5 * d, 0.387098, 0.205635 + 5.59e-10 * d, 168.6562 + 4.0923344368 * d);
+    case 1: return helioElements(76.6799 + 2.46590e-5 * d, 3.3946 + 2.75e-8 * d, 54.8910 + 1.38374e-5 * d, 0.723330, 0.006773 - 1.302e-9 * d, 48.0052 + 1.6021302244 * d);
+    case 2: { double lonsun, rs, xs, ys; sun(d, lonsun, rs, xs, ys); return { rev(lonsun + 180.0), rs }; }   // Earth = Sun + 180
+    case 3: return helioElements(49.5574 + 2.11081e-5 * d, 1.8497 - 1.78e-8 * d, 286.5016 + 2.92961e-5 * d, 1.523688, 0.093405 + 2.516e-9 * d, 18.6021 + 0.5240207766 * d);
+    case 4: return helioElements(100.4542 + 2.76854e-5 * d, 1.3030 - 1.557e-7 * d, 273.8777 + 1.64505e-5 * d, 5.20256, 0.048498 + 4.469e-9 * d, 19.8950 + 0.0830853001 * d);
+    case 5: return helioElements(113.6634 + 2.38980e-5 * d, 2.4886 - 1.081e-7 * d, 339.3939 + 2.97661e-5 * d, 9.55475, 0.055546 - 9.499e-9 * d, 316.9670 + 0.0334442282 * d);
+    case 6: return helioElements(74.0005 + 1.3978e-5 * d, 0.7733 + 1.9e-8 * d, 96.6612 + 3.0565e-5 * d, 19.18171 - 1.55e-8 * d, 0.047318 + 7.45e-9 * d, 142.5905 + 0.011725806 * d);
+    case 7: return helioElements(131.7806 + 3.0173e-5 * d, 1.7700 - 2.55e-7 * d, 272.8461 - 6.027e-6 * d, 30.05826 + 3.313e-8 * d, 0.008606 + 2.15e-9 * d, 260.2471 + 0.005995147 * d);
+    case 8: return pluto(d);
+  }
+  return {};
+}
+
+double orbitMeanAu(int idx) {
+  static const double a[kOrbitBodies] = { 0.3871, 0.7233, 1.0000, 1.5237, 5.2026, 9.5547, 19.182, 30.058, 39.482 };
+  return (idx >= 0 && idx < kOrbitBodies) ? a[idx] : 1.0;
+}
+
+const char* orbitBodyName(int idx) {
+  static const char* n[kOrbitBodies] = { "Me", "Ve", "Ea", "Ma", "Ju", "Sa", "Ur", "Ne", "Pl" };
+  return (idx >= 0 && idx < kOrbitBodies) ? n[idx] : "?";
+}
+
 const char* planetName(Planet p) {
   switch (p) {
     case Planet::Sun: return "Sun";       case Planet::Moon: return "Moon";
