@@ -16,6 +16,7 @@ public:
   void begin(TimeService* time, LocationService* loc, Display* display, Settings* settings, App* app);
   void tick(uint32_t nowMs);     // theme every ~15 s; inactivity dim every call
   bool isNight() const { return _night; }
+  void forceReapply() { _applied = false; _lastMs = 0; }   // re-evaluate on the next tick
 
 private:
   void apply(bool night);

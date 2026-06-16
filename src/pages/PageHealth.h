@@ -10,6 +10,8 @@ class LaunchProvider;
 class AircraftProvider;
 class SpaceWxProvider;
 class WeatherProvider;
+class ThemeController;
+class Settings;
 
 // pages/PageHealth — System / diagnostics (spec §6 Health). System info, a
 // per-provider status table (status + age), and action buttons (force-refresh /
@@ -20,9 +22,11 @@ class PageHealth : public Page {
 public:
   PageHealth(Touch& touch, TimeService& time, LocationService& loc, String host,
              TleProvider& tle, LaunchProvider& launch, AircraftProvider& air,
-             SpaceWxProvider& swx, WeatherProvider& wx)
+             SpaceWxProvider& swx, WeatherProvider& wx,
+             ThemeController& theme, Settings& settings)
     : _touch(touch), _time(time), _loc(loc), _host(std::move(host)),
-      _tle(tle), _launch(launch), _air(air), _swx(swx), _wx(wx) {}
+      _tle(tle), _launch(launch), _air(air), _swx(swx), _wx(wx),
+      _theme(theme), _settings(settings) {}
 
   const char* title() const override { return "Health"; }
   void onEnter(App& app) override { _dirty = _needClear = true; }
@@ -41,6 +45,8 @@ private:
   AircraftProvider& _air;
   SpaceWxProvider& _swx;
   WeatherProvider& _wx;
+  ThemeController& _theme;
+  Settings&        _settings;
 
   bool _dirty = true;
   bool _needClear = true;

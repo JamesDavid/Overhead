@@ -11,6 +11,8 @@
 #include "../providers/AircraftProvider.h"
 #include "../providers/SpaceWxProvider.h"
 #include "../providers/WeatherProvider.h"
+#include "../core/ThemeController.h"
+#include "../services/Settings.h"
 #include <LittleFS.h>
 #include <WiFi.h>
 #include <time.h>
@@ -24,7 +26,31 @@ static const char* statusStr(ProviderStatus s) {
   }
 }
 
+// Display-mode cycle: Auto / Day / Night (dark) / Night (red dark-adapt).
+static const char* kThemeNames[] = {"Auto", "Day", "Night", "Red"};
+static int themeModeIndex(Settings& s) {
+  String m = s.getString("themeMode", "auto");
+  if (m == "day")   return 1;
+  if (m == "night") return s.getString("nightPalette", "dark") == "red" ? 3 : 2;
+  return 0;
+}
+static void setThemeMode(Settings& s, int idx) {
+  switch (idx) {
+    case 1: s.set("themeMode", "day");   break;
+    case 2: s.set("themeMode", "night"); s.set("nightPalette", "dark"); break;
+    case 3: s.set("themeMode", "night"); s.set("nightPalette", "red");  break;
+    default: s.set("themeMode", "auto"); break;
+  }
+  s.save();
+}
+
 void PageHealth::onTouch(App& app, int x, int y) {
+  if (y >= app.contentH() - 42 && y < app.contentH() - 24) {   // display-mode toggle row
+    setThemeMode(_settings, (themeModeIndex(_settings) + 1) % 4);
+    _theme.forceReapply();                        // apply the new palette immediately
+    _dirty = _needClear = true;
+    return;
+  }
   if (y < app.contentH() - 24) return;           // only the bottom button row
   int col = x / (app.contentW() / 3);
   if (col == 0) {                                 // Refresh all
@@ -86,6 +112,14 @@ void PageHealth::draw(App& app) {
   prow("Aircraft", _air.status(),    _air.lastFetched());
   prow("SpaceWx",  _swx.status(),    _swx.lastFetched());
   prow("Weather",  _wx.status(),     _wx.lastFetched());
+
+  // Display-mode toggle (tappable), just above the button row.
+  int ty = cy0 + ch - 40;
+  g.setTextDatum(textdatum_t::middle_left);
+  g.setTextColor(gTheme.dim, gTheme.bg);
+  g.drawString("Display:", x0, ty + 7);
+  g.setTextColor(gTheme.accent, gTheme.bg);
+  g.drawString(String(kThemeNames[themeModeIndex(_settings)]) + "  (tap)", x0 + 52, ty + 7);
 
   // Button row.
   int by = cy0 + ch - 22, bw = cw / 3;

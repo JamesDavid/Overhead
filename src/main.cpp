@@ -213,7 +213,8 @@ void setup() {
   starPage = new PageStarMap(timeSvc, locSvc);
   spaceWxPage = new PageSpaceWx(spaceWxProv, timeSvc, locSvc);
   healthPage = new PageHealth(touch, timeSvc, locSvc, gHostname,
-                              tleProv, launchProv, aircraftProv, spaceWxProv, weatherProv);
+                              tleProv, launchProv, aircraftProv, spaceWxProv, weatherProv,
+                              themeCtl, settings);
   // Carousel, ground->space order (spec §4.1): Agenda (home), Launches, Aircraft,
   // Satellites, Space Wx, Solar System, then Diagnostics.
   app.addPage(agendaPage);
