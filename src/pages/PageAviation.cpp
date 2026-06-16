@@ -45,9 +45,9 @@ void PageAviation::onData(App& app, ProviderId id) {
 
 void PageAviation::onTouch(App& app, int x, int y) {
   int third = app.contentW() / 3;
-  if (x >= third && x <= 2 * third) {               // centre: cycle view
-    _view = _view == View::Metar ? View::Map : _view == View::Map ? View::Sounding
-          : _view == View::Sounding ? View::Hazards : View::Metar;
+  if (x >= third && x <= 2 * third) {               // centre: cycle view (Map first)
+    _view = _view == View::Map ? View::Metar : _view == View::Metar ? View::Sounding
+          : _view == View::Sounding ? View::Hazards : View::Map;
     _needClear = _dirty = true; return;
   }
   if (_view == View::Map && x < 50 && y < 16) {     // top-left badge: cycle map zoom
@@ -65,10 +65,10 @@ bool PageAviation::autoAdvance(App&) {
   bool cycled = false;
   auto nextView = [&]() {
     bool wasHazards = (_view == View::Hazards);
-    _view = _view == View::Metar ? View::Map : _view == View::Map ? View::Sounding
-          : _view == View::Sounding ? View::Hazards : View::Metar;
+    _view = _view == View::Map ? View::Metar : _view == View::Metar ? View::Sounding
+          : _view == View::Sounding ? View::Hazards : View::Map;
     _tourN = 0; _sel = 0;
-    if (wasHazards) cycled = true;         // Hazards -> Metar = full cycle
+    if (wasHazards) cycled = true;         // Hazards -> Map = full cycle
   };
   int n = (int)_wx.stations().size();
   if ((_view == View::Metar || _view == View::Map) && n > 0) {
@@ -129,7 +129,7 @@ void PageAviation::drawMetar(App& app) {
     char z[10], l[10]; strftime(z, sizeof(z), "%d%H%MZ", &gu); strftime(l, sizeof(l), "%I:%M%p", &lo);
     line(String(z) + " / " + l, gTheme.dim);
   }
-  line(m.name.substring(0, maxc) + "  " + (int)round(m.distNm) + "nm  [tap mid: map]", gTheme.dim);
+  line(m.name.substring(0, maxc) + "  " + (int)round(m.distNm) + "nm  [tap mid: sounding]", gTheme.dim);
   if (m.wspd >= 0) line(m.wspd == 0 ? String("wind calm")
         : String("wind ") + (m.wdir < 0 ? String("VRB") : String(m.wdir)) + "\xF7 @ " + m.wspd
           + " kt (" + (int)round(m.wspd * 1.15078f) + " mph)", gTheme.fg);
@@ -162,7 +162,7 @@ void PageAviation::drawMap(App& app) {
   g.setTextColor(gTheme.fg, gTheme.grid);
   g.drawString(String("~") + rNm + "nm", 5, cy0 + 2);
   g.setTextColor(gTheme.dim, gTheme.bg);
-  g.drawString("tap:zoom [mid:snd]", 52, cy0 + 2);
+  g.drawString("tap:zoom  mid:metar", 52, cy0 + 2);
 
   if (list.empty() || !_loc.active().valid) {
     g.setTextColor(gTheme.dim, gTheme.bg);
@@ -171,7 +171,7 @@ void PageAviation::drawMap(App& app) {
   }
 
   double olat = _loc.active().lat, olon = _loc.active().lon;
-  int mapY = cy0 + 14, mapH = ch - 14 - 26;
+  int mapY = cy0 + 14, mapH = ch - 14 - 38;        // bottom block: detail line + raw METAR (2 lines)
   int cx = cw / 2, cyc = mapY + mapH / 2;
   auto SX = [&](double lon) { return cx + (int)((lon - olon) / lonR * (cw / 2 - 8)); };
   auto SY = [&](double lat) { return cyc - (int)((lat - olat) / latR * (mapH / 2 - 8)); };
@@ -202,7 +202,7 @@ void PageAviation::drawMap(App& app) {
   g.setTextColor(gTheme.accent, gTheme.bg); g.drawString("MVFR", cw - 30, cy0 + 2);
   g.setTextColor(gTheme.warn, gTheme.bg); g.drawString("I/LIFR", cw - 64, cy0 + 2);
 
-  // Selected detail.
+  // Selected detail: ICAO + category + decoded summary, then the full raw METAR.
   if (_sel >= 0 && _sel < (int)list.size()) {
     const Metar& s = list[_sel];
     int by = mapY + mapH + 2;
@@ -215,6 +215,8 @@ void PageAviation::drawMap(App& app) {
              s.tempC, s.dewpC, s.wdir < 0 ? 0 : s.wdir, s.wspd < 0 ? 0 : s.wspd);
     g.setTextDatum(textdatum_t::top_right);
     g.drawString(b, cw - 4, by);
+    if (s.raw.length())                            // full raw METAR, wrapped (2 lines)
+      drawWrapped(g, s.raw, 4, by + 11, (cw - 8) / 6, 2, gTheme.dim);
   }
 }
 
@@ -276,7 +278,7 @@ void PageAviation::drawHazards(App& app) {
   const int maxc = (cw - 10) / 6;
   g.setTextDatum(textdatum_t::top_left);
   g.setTextColor(gTheme.accent, gTheme.bg);
-  g.drawString("Hazards  [tap mid: metar]", 6, cy0 + 2);
+  g.drawString("Hazards  [tap mid: map]", 6, cy0 + 2);
   const auto& hz = _haz.hazards();
   int y = cy0 + 16;
   if (hz.empty()) {

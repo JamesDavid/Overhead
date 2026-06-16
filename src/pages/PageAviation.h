@@ -35,7 +35,7 @@ private:
   SoundingProvider&   _snd;
   HazardProvider&     _haz;
   LocationService&    _loc;
-  View  _view = View::Metar;
+  View  _view = View::Map;     // Map is the default Aviation view (then Metar/Sounding/Hazards)
   int   _sel = 0;
   int   _mapZoom = 0;          // airport-map zoom index (top-left badge cycles)
   int   _tourN = 0;            // attract-tour: stations stepped in this view
