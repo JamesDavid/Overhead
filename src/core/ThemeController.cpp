@@ -54,6 +54,9 @@ void ThemeController::apply(bool night) {
     int bl = _settings ? (int)_settings->getInt("nightBacklight", 90) : 90;
     _baseBl = (uint8_t)constrain(bl, 10, 255);
   }
+  // Manual brightness override (Health page / web): 0 = follow day/night default.
+  int forced = _settings ? (int)_settings->getInt("backlight", 0) : 0;
+  if (forced > 0) _baseBl = (uint8_t)constrain(forced, 10, 255);
   _curBl = _baseBl;
   if (_display) _display->setBacklight(_baseBl);   // dimmer adjusts from here when idle
 }

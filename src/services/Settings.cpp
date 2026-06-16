@@ -59,6 +59,7 @@ void Settings::seedDefaults() {
   _doc["nightPalette"]  = "dark";     // dark | red (dark-adapt)
   _doc["themeNightAlt"] = -6;         // Sun alt (deg) to flip the theme to night
   _doc["nightBacklight"]= 90;         // 0..255 at night
+  _doc["backlight"]     = 0;          // manual brightness override (0 = auto day/night)
   // Director / Intelligent Focus (spec §7.10)
   _doc["focusEnabled"]  = true;
   _doc["ambientDay"]    = "Agenda";         // page title for day ambient

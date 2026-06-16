@@ -44,10 +44,24 @@ static void setThemeMode(Settings& s, int idx) {
   s.save();
 }
 
+// Manual brightness cycle: Auto (follow day/night) / 25 / 50 / 75 / 100 %.
+static const int   kBri[]     = {0, 64, 128, 192, 255};
+static const char* kBriName[] = {"Auto", "25%", "50%", "75%", "100%"};
+static int briIndex(Settings& s) {
+  int b = (int)s.getInt("backlight", 0);
+  for (int i = 0; i < 5; ++i) if (kBri[i] == b) return i;
+  return 0;
+}
+
 void PageHealth::onTouch(App& app, int x, int y) {
-  if (y >= app.contentH() - 44 && y < app.contentH() - 26) {   // display-mode button
-    setThemeMode(_settings, (themeModeIndex(_settings) + 1) % 4);
-    _theme.forceReapply();                        // apply the new palette immediately
+  if (y >= app.contentH() - 44 && y < app.contentH() - 26) {   // display / brightness row
+    if (x < app.contentW() / 2) {                              // left: cycle palette
+      setThemeMode(_settings, (themeModeIndex(_settings) + 1) % 4);
+    } else {                                                   // right: cycle brightness
+      _settings.set("backlight", (long)kBri[(briIndex(_settings) + 1) % 5]);
+      _settings.save();
+    }
+    _theme.forceReapply();                        // apply palette/brightness immediately
     _dirty = _needClear = true;
     return;
   }
@@ -113,12 +127,14 @@ void PageHealth::draw(App& app) {
   prow("SpaceWx",  _swx.status(),    _swx.lastFetched());
   prow("Weather",  _wx.status(),     _wx.lastFetched());
 
-  // Display-mode button (tap to cycle palette), above the action buttons.
-  int ty = cy0 + ch - 44;
-  g.drawRect(2, ty, cw - 4, 18, gTheme.grid);
+  // Display-mode + brightness buttons (tap to cycle), above the action buttons.
+  int ty = cy0 + ch - 44, hw = cw / 2;
   g.setTextDatum(textdatum_t::middle_center);
+  g.drawRect(2, ty, hw - 4, 18, gTheme.grid);
   g.setTextColor(gTheme.accent, gTheme.bg);
-  g.drawString(String("Display: ") + kThemeNames[themeModeIndex(_settings)] + "  (tap)", cw / 2, ty + 9);
+  g.drawString(String("Disp: ") + kThemeNames[themeModeIndex(_settings)], 2 + (hw - 4) / 2, ty + 9);
+  g.drawRect(hw + 2, ty, hw - 4, 18, gTheme.grid);
+  g.drawString(String("Bright: ") + kBriName[briIndex(_settings)], hw + 2 + (hw - 4) / 2, ty + 9);
 
   // Button row.
   int by = cy0 + ch - 22, bw = cw / 3;
