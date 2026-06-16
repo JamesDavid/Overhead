@@ -29,6 +29,7 @@ const F=[
  ['Refresh'],['refreshLaunchMin','launches (min)','n'],['refreshTleHour','TLE (h)','n'],['refreshSpaceWxMin','space wx (min)','n'],['refreshWeatherMin','weather (min)','n'],
  ['Web/OTA'],['otaUser','user','t'],['otaPass','password','t'],
 ];
+const ORRERY=['Roadster','Psyche','Ceres','Vesta'];  // selectable minor bodies (astro catalog)
 let cur={};
 fetch('/api/settings').then(r=>r.json()).then(d=>{cur=d;build()});
 function build(){let h='';for(const r of F){if(r.length==1){h+=`<h3>${r[0]}</h3>`;continue;}
@@ -36,9 +37,15 @@ function build(){let h='';for(const r of F){if(r.length==1){h+=`<h3>${r[0]}</h3>
  if(t=='c')h+=`<label>${l}<input type=checkbox id=_${k} ${v?'checked':''}></label>`;
  else if(t=='sel')h+=`<label>${l}<select id=_${k}>${o.map(x=>`<option ${x==v?'selected':''}>${x}</option>`).join('')}</select></label>`;
  else h+=`<label>${l}<input id=_${k} type=${t=='n'?'number':'text'} step=any value="${v??''}"></label>`;}
+ h+='<h3>Orrery bodies</h3>';const ob=cur.orreryBodies||'';
+ for(const b of ORRERY)h+=`<label>${b}<input type=checkbox id=_orr_${b} ${ob.includes(b)?'checked':''}></label>`;
+ h+='<h3>Satellite watchlist</h3><label>names (comma-sep)'
+   +`<input id=_watchlist type=text value="${(cur.watchlist||[]).join(', ')}"></label>`;
  f.innerHTML=h;}
 function save(){const o={};for(const r of F){if(r.length==1)continue;const[k,l,t]=r,e=document.getElementById('_'+k);
  o[k]=t=='c'?e.checked:t=='n'?Number(e.value):e.value;}
+ o.orreryBodies=ORRERY.filter(b=>document.getElementById('_orr_'+b).checked).join(',');
+ o.watchlist=document.getElementById('_watchlist').value.split(',').map(s=>s.trim()).filter(Boolean);
  fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(o)})
  .then(r=>r.json()).then(_=>{msg.textContent='saved (some settings apply on reboot)';});}
 </script></body></html>
