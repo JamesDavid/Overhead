@@ -346,14 +346,19 @@ void PageAviation::drawSounding(App& app) {
     g.setTextDatum(textdatum_t::top_left);
   }
 
-  // Winds aloft (nearest levels to 3/10/20/30 kft).
-  int wy = gy + 2; const int targets[] = {3000, 10000, 20000, 30000};
+  // Winds aloft (nearest levels to 3/10/20/30 kft), each at its own altitude's y.
+  const int targets[] = {3000, 10000, 20000, 30000};
   g.setTextColor(gTheme.fg, gTheme.bg);
+  g.setTextDatum(textdatum_t::middle_left);
   for (int t : targets) {
     float tgtM = t / M2FT; const SoundingLevel* best = nullptr; float bd = 1e9;
     for (const auto& l : lv) if (l.wspd >= 0) { float d = fabsf(l.altM - tgtM); if (d < bd) { bd = d; best = &l; } }
-    if (best) { char b[24]; snprintf(b, sizeof(b), "%dk %03d@%d", t / 1000, best->wdir, best->wspd); g.drawString(b, cw - 60, wy); wy += 11; }
+    if (best) {
+      char b[24]; snprintf(b, sizeof(b), "%03d@%d", best->wdir, best->wspd);
+      g.drawString(b, cw - 62, pyf(best->altM * M2FT));   // y aligned to the level's altitude
+    }
   }
+  g.setTextDatum(textdatum_t::top_left);
 
   // Legend.
   int lgy = cy0 + ch - 22, lx = 4;

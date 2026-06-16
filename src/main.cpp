@@ -129,6 +129,13 @@ static void fillStatusJson(JsonDocument& d) {
   d["mode"]     = app.mode() == App::Mode::Auto ? "auto" : "manual";
   d["pinned"]   = app.pinned();
   d["page"]     = app.activeIndex();
+  // provider health (0 loading,1 ready,2 stale,3 error)
+  d["adsb"]     = (int)aircraftProv.status();
+  d["adsbN"]    = (int)aircraftProv.aircraft().size();
+  d["tle"]      = (int)tleProv.status();
+  d["avwxN"]    = (int)avwxProv.stations().size();
+  d["kp"]       = spaceWxProv.kp();
+  d["sfi"]      = spaceWxProv.sfi();
 }
 
 void setup() {

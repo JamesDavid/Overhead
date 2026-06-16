@@ -72,7 +72,7 @@ a{color:#50aaff}</style></head><body>
 <p><a href=/>settings</a></p>
 <script>
 const img=document.getElementById('s'),m=document.getElementById('m');let busy=false;
-function ref(){img.src='/api/screen.bmp?t='+Date.now();}
+function ref(){img.src='/api/screen.jpg?t='+Date.now();}
 img.onload=()=>{busy=false;setTimeout(ref,1300);};
 img.onerror=()=>setTimeout(ref,1800);
 function tap(e){const r=img.getBoundingClientRect();
@@ -122,40 +122,24 @@ bool WebPortal::begin(Settings* s, const String& hostname) {
       });
   _server.addHandler(setHandler);
 
-  // --- Debug/automation: screenshot (downsampled BMP, streamed from a RAM buffer
-  // so the async task never blocks on SPI). ?fmt= probes the read-back colour order.
-  _server.on("/api/screen.bmp", HTTP_GET, [this](AsyncWebServerRequest* req) {
+  // --- Debug/automation: full-res JPEG screenshot. The UI thread encodes into an
+  // on-demand buffer; we stream it and free it when done (no permanent heap hit).
+  _server.on("/api/screen.jpg", HTTP_GET, [this](AsyncWebServerRequest* req) {
     if (!_display) { req->send(503, "text/plain", "no display"); return; }
-    _display->requestShot();
+    Display* disp = _display;
+    disp->requestShot();
     uint32_t t0 = millis();
-    while (!_display->shotReady() && millis() - t0 < 800) delay(5);
-    if (!_display->shotReady()) { req->send(503, "text/plain", "capture timeout"); return; }
+    while (!disp->shotReady() && millis() - t0 < 1200) delay(5);
+    if (!disp->shotReady() || !disp->jpegLen()) { req->send(503, "text/plain", "capture failed"); return; }
 
-    const int W = Display::kShotW, H = Display::kShotH;
-    const uint16_t* px = _display->shot();
-    const uint32_t rowBytes = (uint32_t)W * 3, body = rowBytes * H, total = 54 + body;
-    std::array<uint8_t, 54> hdr{};
-    auto u32 = [&](int o, uint32_t v) { hdr[o] = v; hdr[o+1] = v>>8; hdr[o+2] = v>>16; hdr[o+3] = v>>24; };
-    hdr[0]='B'; hdr[1]='M'; u32(2,total); u32(10,54); u32(14,40);
-    u32(18,(uint32_t)W); u32(22,(uint32_t)(-H));    // negative height = top-down
-    hdr[26]=1; hdr[28]=24; u32(34,body); u32(38,2835); u32(42,2835);
-
-    AsyncWebServerResponse* res = req->beginChunkedResponse("image/bmp",
-      [px, W, rowBytes, total, hdr](uint8_t* buf, size_t maxLen, size_t index) -> size_t {
-        if (index >= total) return 0;
-        size_t n = 0;
-        while (n < maxLen && index + n < total) {
-          uint32_t p = index + n;
-          if (p < 54) { buf[n++] = hdr[p]; continue; }
-          uint32_t bp = p - 54, row = bp / rowBytes, col = (bp % rowBytes) / 3, ch = (bp % rowBytes) % 3;
-          // This panel's read-back, after a byte-swap, packs the channels as
-          // hi5=B, mid6=R, lo5=G (verified against bg + green + white). BMP wants B,G,R.
-          uint16_t c = px[row * W + col];
-          c = (uint16_t)((c >> 8) | (c << 8));
-          uint8_t B = ((c >> 11) & 0x1f) << 3, R = ((c >> 5) & 0x3f) << 2, G = (c & 0x1f) << 3;
-          buf[n++] = ch == 0 ? B : ch == 1 ? G : R;
-        }
-        return n;
+    const uint8_t* jpg = disp->jpeg();
+    size_t len = disp->jpegLen();
+    AsyncWebServerResponse* res = req->beginChunkedResponse("image/jpeg",
+      [jpg, len](uint8_t* buf, size_t maxLen, size_t index) -> size_t {
+        if (index >= len) return 0;
+        size_t k = (len - index < maxLen) ? (len - index) : maxLen;
+        memcpy(buf, jpg + index, k);
+        return k;
       });
     req->send(res);
   });

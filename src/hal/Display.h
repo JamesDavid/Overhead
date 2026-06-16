@@ -23,21 +23,23 @@ public:
   static uint32_t largestFreeBlock();
   static uint32_t psramSize();            // 0 if no PSRAM present
 
-  // --- Debug screenshot (web /api/screen): a downsampled framebuffer read-back,
-  // captured in ONE pass on the UI thread (never races the live draw, never blocks
-  // the async web task). requestShot() flags it; serviceShot() captures; shot()
-  // exposes the RGB565 buffer.
-  static constexpr int kShotW = 160, kShotH = 120;
+  // --- Debug screenshot (web /api/screen.jpg): full-res JPEG of the framebuffer.
+  // serviceShot() (UI thread) reads the panel MCU-by-MCU and JPEG-encodes into a
+  // buffer allocated ONCE at boot (fresh, unfragmented heap) so it neither
+  // fragments the heap nor competes with TLS allocations at runtime.
   void requestShot() { _shotReady = false; _shotPending = true; }
   void serviceShot();                     // call from the main loop each tick
   bool shotReady() const { return _shotReady; }
-  const uint16_t* shot() const { return _shot; }
+  const uint8_t* jpeg() const { return _jpg; }
+  size_t jpegLen() const { return _jpgLen; }
 
 private:
   LGFX _lcd;
-  uint16_t* _shot = nullptr;
+  static constexpr int kJpgMax = 16000;   // output cap (keeps largest free block > TLS floor)
+  uint8_t* _jpg = nullptr;
+  size_t   _jpgLen = 0;
   volatile bool _shotPending = false;
-  bool _shotReady = false;
+  volatile bool _shotReady = false;
 #if BACKLIGHT_VIA_EXPANDER
   uint8_t _expanderAddr = 0;              // detected I2C expander (0 = none)
   void    expanderBegin();

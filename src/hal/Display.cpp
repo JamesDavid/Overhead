@@ -1,6 +1,7 @@
 #include "Display.h"
 #include <Arduino.h>
 #include <esp_heap_caps.h>
+#include <JPEGENC.h>
 #if BACKLIGHT_VIA_EXPANDER
   #include <Wire.h>
 #else
@@ -28,6 +29,7 @@ bool Display::begin() {
   ledcAttachPin(PIN_TFT_BL, kBlChannel);
 #endif
   setBacklight(255);
+  _jpg = (uint8_t*)malloc(kJpgMax);   // screenshot buffer — once, while the heap is fresh
   return true;
 }
 
@@ -55,20 +57,39 @@ void Display::expanderBegin() {
 }
 #endif
 
-// Capture a downsampled framebuffer copy in one pass (UI thread only — shares the
-// SPI bus with the live draw, so it must not run from the async web task). Fast
-// (one readRect per output row), so the web handler's wait is just a tick or two.
+// JPEG-encode the framebuffer MCU-by-MCU (UI thread only — shares the SPI bus with
+// the live draw). Buffer is allocated here and freed by the web task after streaming.
 void Display::serviceShot() {
   if (!_shotPending) return;
   _shotPending = false;
-  if (!_shot) { _shot = (uint16_t*)malloc(kShotW * kShotH * sizeof(uint16_t)); if (!_shot) return; }
-  static uint16_t row[480];
-  int w = _lcd.width(); if (w > 480) w = 480;
-  for (int oy = 0; oy < kShotH; ++oy) {
-    int sy = oy * _lcd.height() / kShotH;
-    _lcd.readRect(0, sy, w, 1, row);
-    for (int ox = 0; ox < kShotW; ++ox) _shot[oy * kShotW + ox] = row[ox * w / kShotW];
+  _jpgLen = 0;
+  if (!_jpg) { _shotReady = true; return; }            // boot allocation failed
+
+  static JPEGENC enc;                                  // static: keep the ~4 KB struct off the stack
+  JPEGENCODE jpe;
+  int W = _lcd.width(), H = _lcd.height();
+  if (enc.open(_jpg, kJpgMax) != JPEGE_SUCCESS ||
+      enc.encodeBegin(&jpe, W, H, JPEGE_PIXEL_RGB888, JPEGE_SUBSAMPLE_420, JPEGE_Q_MED) != JPEGE_SUCCESS) {
+    _shotReady = true; return;
   }
+  static uint16_t blk[16 * 16];
+  static uint8_t  mcu[16 * 16 * 3];
+  while (jpe.y < H) {
+    int bw = jpe.cx, bh = jpe.cy;
+    _lcd.readRect(jpe.x, jpe.y, bw, bh, blk);
+    for (int yy = 0; yy < bh; ++yy)
+      for (int xx = 0; xx < bw; ++xx) {
+        // Read-back format: byte-swap, then hi5=B, mid6=R, lo5=G (verified).
+        uint16_t c = blk[yy * bw + xx];
+        c = (uint16_t)((c >> 8) | (c << 8));
+        uint8_t* p = &mcu[(yy * 16 + xx) * 3];   // JPEGENC RGB888 wants B,G,R order
+        p[0] = ((c >> 11) & 0x1f) << 3;  // B
+        p[1] = (c & 0x1f) << 3;          // G
+        p[2] = ((c >> 5) & 0x3f) << 2;   // R
+      }
+    if (enc.addMCU(&jpe, mcu, 16 * 3) != JPEGE_SUCCESS) break;
+  }
+  _jpgLen = enc.close();
   _shotReady = true;
 }
 
