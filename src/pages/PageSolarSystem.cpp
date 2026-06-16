@@ -23,16 +23,22 @@ static const char* moonPhaseName(double deg) {
   return "New";
 }
 
-// Orbit-view visible body sets (indices into astro::heliocentricBody).
-// inner: Mercury, Venus, Earth, Mars, Roadster.  all: + Jupiter..Pluto.
-static const int kInnerSet[] = { 0, 1, 2, 3, astro::kRoadster };
-static const int kAllSet[]   = { 0, 1, 2, 3, 4, 5, 6, 7, 8, astro::kRoadster };
-
-const int* PageSolarSystem::orbitSet(int& count) const {
-  if (_orbScope) { count = (int)(sizeof(kAllSet) / sizeof(int)); return kAllSet; }
-  count = (int)(sizeof(kInnerSet) / sizeof(int)); return kInnerSet;
+// Build the orbit-view body list: planets for the current scope (inner = Me..Ma,
+// all = Me..Pluto) plus the minor bodies enabled in settings ("orreryBodies" CSV).
+// In the inner scope only close minors (a <= 1.8 AU, e.g. Starman) are shown.
+int PageSolarSystem::buildOrbit(OrbBody* out, int maxN) {
+  int n = 0;
+  int planetN = _orbScope ? astro::kOrbitBodies : 4;
+  for (int i = 0; i < planetN && n < maxN; ++i) out[n++] = { false, i };
+  String en = _settings.getString("orreryBodies", "Roadster,Psyche,Ceres,Vesta");
+  for (int j = 0; j < astro::orbitMinorCount() && n < maxN; ++j) {
+    if (en.indexOf(astro::orbitMinorName(j)) < 0) continue;
+    if (!_orbScope && astro::orbitMinorAu(j) > 1.8) continue;
+    out[n++] = { true, j };
+  }
+  return n;
 }
-int PageSolarSystem::orbitVisibleCount() const { int n; orbitSet(n); return n; }
+int PageSolarSystem::orbitVisibleCount() { OrbBody t[kMaxOrb]; return buildOrbit(t, kMaxOrb); }
 
 bool PageSolarSystem::visible(int i) const {
   if (_filter == 1) return _st[i].above;
@@ -177,37 +183,37 @@ void PageSolarSystem::drawOrbit(App& app) {
 
   int cx = cw / 2, cy = cy0 + (ch - 14) / 2 + 12;
   int maxR = min(cw / 2, (ch - 26) / 2) - 8;
-  int count; const int* set = orbitSet(count);
+  OrbBody bodies[kMaxOrb];
+  int count = buildOrbit(bodies, kMaxOrb);
+  if (count == 0) return;
+  if (_orbSel >= count) _orbSel = count - 1;
+  auto bAu = [&](OrbBody b) { return b.minor ? astro::orbitMinorAu(b.idx) : astro::orbitMeanAu(b.idx); };
   double maxAu = 0;                                              // outermost ring shown
-  for (int i = 0; i < count; ++i) maxAu = max(maxAu, astro::orbitMeanAu(set[i]));
+  for (int i = 0; i < count; ++i) maxAu = max(maxAu, bAu(bodies[i]));
   auto rad = [&](double au) { return (int)round(sqrt(au / maxAu) * maxR); };
 
   g.fillCircle(cx, cy, 3, gTheme.warn);                          // Sun
 
-  astro::HelioPos sel{};
+  astro::HelioPos sel{}; const char* selName = "?";
   for (int i = 0; i < count; ++i) {
-    int body = set[i];
-    bool road = (body == astro::kRoadster);
-    int rr = rad(astro::orbitMeanAu(body));
-    if (road) for (int t = 0; t < 360; t += 18) g.drawPixel(cx + (int)round(rr * cosf(t * D2R)), cy - (int)round(rr * sinf(t * D2R)), gTheme.grid); // dashed orbit
-    else      g.drawCircle(cx, cy, rr, gTheme.grid);             // orbit ring
-    astro::HelioPos hp = astro::heliocentricBody(body, jd);
+    OrbBody b = bodies[i];
+    int rr = rad(bAu(b));
+    if (b.minor) for (int t = 0; t < 360; t += 18) g.drawPixel(cx + (int)round(rr * cosf(t * D2R)), cy - (int)round(rr * sinf(t * D2R)), gTheme.grid); // dashed orbit
+    else         g.drawCircle(cx, cy, rr, gTheme.grid);          // orbit ring
+    astro::HelioPos hp = b.minor ? astro::orbitMinorPos(b.idx, jd) : astro::heliocentricBody(b.idx, jd);
     double a = hp.lonDeg * D2R;
-    int px = cx + (int)round(rr * cos(a));
-    int py = cy - (int)round(rr * sin(a));
+    int pxp = cx + (int)round(rr * cos(a));
+    int pyp = cy - (int)round(rr * sin(a));
     bool s = (i == _orbSel);
-    Color c = s ? gTheme.ok : road ? gTheme.warn : (body == 2 ? gTheme.accent : gTheme.fg);  // Roadster=warn, Earth=accent
-    g.fillCircle(px, py, s ? 3 : 2, c);
+    Color c = s ? gTheme.ok : b.minor ? gTheme.warn : (b.idx == 2 ? gTheme.accent : gTheme.fg);  // minor=warn, Earth=accent
+    g.fillCircle(pxp, pyp, s ? 3 : 2, c);
     g.setTextDatum(textdatum_t::middle_left);
     g.setTextColor(c, gTheme.bg);
-    g.drawString(astro::orbitBodyName(body), px + 4, py);
-    if (s) sel = hp;
+    g.drawString(b.minor ? astro::orbitMinorSym(b.idx) : astro::orbitBodyName(b.idx), pxp + 4, pyp);
+    if (s) { sel = hp; selName = b.minor ? astro::orbitMinorName(b.idx) : astro::orbitBodyName(b.idx); }
   }
 
   // Selected-body readout (bottom-left) + inner/all scope badge (bottom-right).
-  if (_orbSel >= count) _orbSel = count - 1;
-  int selBody = set[_orbSel];
-  const char* selName = (selBody == astro::kRoadster) ? "Roadster" : astro::orbitBodyName(selBody);
   g.setTextDatum(textdatum_t::bottom_left);
   g.setTextColor(gTheme.ok, gTheme.bg);
   char b[44];

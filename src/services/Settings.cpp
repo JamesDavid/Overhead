@@ -63,6 +63,7 @@ void Settings::seedDefaults() {
   _doc["focusEnabled"]  = true;
   _doc["ambientDay"]    = "Agenda";         // page title for day ambient
   _doc["ambientNight"]  = "Solar System,Star Map";   // night ambient rotation (CSV of page titles)
+  _doc["orreryBodies"]  = "Roadster,Psyche,Ceres,Vesta";  // minor bodies shown on the orrery (CSV)
   _doc["nightAmbientAlt"] = -12;      // Sun alt to switch to the night ambient tab
   _doc["passLeadMin"]   = 5;          // minutes before AOS to seize focus
   _doc["launchLeadMin"] = 10;         // minutes before T-0 to seize focus

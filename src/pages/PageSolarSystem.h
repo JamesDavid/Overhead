@@ -30,8 +30,10 @@ private:
   void draw(App& app);
   void drawOrbit(App& app);             // top-down orrery view
   bool visible(int i) const;            // passes the current filter (sky-dome)
-  const int* orbitSet(int& count) const;  // visible orbit bodies for the scope
-  int orbitVisibleCount() const;
+  struct OrbBody { bool minor; int idx; };
+  static constexpr int kMaxOrb = 16;
+  int buildOrbit(OrbBody* out, int maxN);  // planets (per scope) + enabled minor bodies
+  int orbitVisibleCount();
 
   TimeService&     _time;
   LocationService& _loc;
