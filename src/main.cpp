@@ -159,7 +159,7 @@ void setup() {
   timeSvc.setRtc(&rtc);
   timeSvc.begin();
 
-  net.begin();
+  net.begin(24576);   // generous stack — mbedtls TLS handshakes are stack-hungry
   locSvc.begin(&settings, &net, &bus, &timeSvc);   // kicks off IP geolocation
   tleProv.begin(&settings, &net, &cache, &bus);    // loads cache + fetches TLEs
   launchProv.begin(&settings, &net, &cache, &bus); // LL2 + fallback

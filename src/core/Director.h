@@ -43,7 +43,10 @@ private:
   astro::SatEngine _eng;
   String   _passBird;
   time_t   _passAos = 0;
+  time_t   _passLos = 0;
   double   _passMaxEl = 0;
+  bool     _passVisible = false;  // bright sat, sunlit at TCA, observer in darkness
+  bool     _passRadio = false;    // amateur/radio-workable satellite
   String   _focusedBird;          // bird already pre-focused on the page
 
   uint32_t _lastScanMs = 0;

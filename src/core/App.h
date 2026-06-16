@@ -1,6 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include <vector>
+#include <Arduino.h>
 
 class Display;
 class Touch;
@@ -34,6 +35,7 @@ public:
   bool autoFocus(int index);            // switch only if AUTO & unpinned; true if switched
   bool autoAdvanceActive();             // step active page's tour; true if it completed a full cycle
   void setBadge(int index, bool on);
+  void setAlert(const String& s);       // Director cross-tab alert in the status strip
   void setInactivityMs(uint32_t ms) { _inactivityMs = ms; }
   uint32_t idleMs(uint32_t now) const { return now - _lastInteractMs; }
 
@@ -63,6 +65,7 @@ private:
   int      _lastX  = 0, _lastY  = 0;   // last point while touched
   uint32_t _lastStatusMs = 0;
   bool     _statusDirty  = true;
+  String   _alert;               // Director alert text (shown in the status strip)
 
   Mode     _mode = Mode::Auto;
   bool     _pinned = false;

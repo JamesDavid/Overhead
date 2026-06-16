@@ -9,19 +9,32 @@
 #include "../providers/AviationWxProvider.h"
 #include "../pages/PageSatellites.h"
 #include "../astro/Sun.h"
+#include "../astro/Time.h"
 #include <ArduinoJson.h>
+#include <math.h>
 #include <time.h>
+
+// Naked-eye-bright satellites (ISS / Tiangong / Hubble) vs amateur-radio birds.
+static bool brightSat(const String& n) {
+  return n.startsWith("ISS") || n.startsWith("CSS") || n.indexOf("TIANGONG") >= 0 || n.startsWith("HST");
+}
+static bool radioSat(const String& n) {
+  static const char* p[] = {"ISS", "SO-", "AO-", "PO-", "RS-", "FO-", "CAS-", "XW-", "JO-", "LO-", "TO-", "TEVEL", "HADES", "MESAT", "UVSQ"};
+  for (auto x : p) if (n.startsWith(x)) return true;
+  return false;
+}
 
 void Director::begin(App* app, Settings* s, TimeService* time, LocationService* loc,
                      TleProvider* tle, LaunchProvider* launch, PageSatellites* satPage) {
   _app = app; _s = s; _time = time; _loc = loc; _tle = tle; _launch = launch; _satPage = satPage;
 }
 
-// Find the soonest upcoming pass across watchlisted birds (heavy -> cached).
+// Find the soonest pass still in progress or upcoming across watchlisted birds.
 void Director::scanPasses() {
-  _passAos = 0; _passBird = ""; _passMaxEl = 0;
+  _passAos = 0; _passLos = 0; _passBird = ""; _passMaxEl = 0; _passVisible = false; _passRadio = false;
   if (!_loc->active().valid || _tle->sats().empty() || !_time->synced()) return;
-  _eng.setObserver(_loc->active().lat, _loc->active().lon, 0);
+  double lat = _loc->active().lat, lon = _loc->active().lon;
+  _eng.setObserver(lat, lon, 0);
   int minEl = (int)_s->getInt("satMinEl", 10);
   time_t now = time(nullptr);
 
@@ -33,13 +46,26 @@ void Director::scanPasses() {
     for (const auto& s : sats) {
       if (!s.name.startsWith(pre)) continue;
       _eng.loadTle(s.name.c_str(), s.line1.c_str(), s.line2.c_str());
-      astro::SatPass p = _eng.nextPass(now, (double)minEl, 40);
-      if (p.valid && (_passAos == 0 || p.aos < _passAos)) {
-        _passAos = p.aos; _passMaxEl = p.maxElDeg; _passBird = s.name;
+      // First pass whose LOS is still ahead (so a pass already in progress counts).
+      time_t from = now - 1200;
+      astro::SatPass p;
+      for (int k = 0; k < 3; ++k) {
+        p = _eng.nextPass(from, (double)minEl, 40);
+        if (!p.valid || p.los > now) break;
+        from = p.los + 60;
+      }
+      if (p.valid && p.los > now && (_passAos == 0 || p.aos < _passAos)) {
+        _passAos = p.aos; _passLos = p.los; _passMaxEl = p.maxElDeg; _passBird = s.name;
+        bool dark = astro::sunAltitudeDeg(astro::julianDate(p.tca), lat, lon) < -6.0;
+        _passVisible = brightSat(s.name) && dark && _eng.observe(p.tca).sunlit;
+        _passRadio = radioSat(s.name);
       }
       break;                                   // one match per watchlist entry
     }
   }
+  if (_passAos) Serial.printf("[director] pass %s aos %+lds maxEl %.0f%s%s\n",
+      _passBird.c_str(), (long)(_passAos - now), _passMaxEl,
+      _passVisible ? " VIS" : "", _passRadio ? " RF" : "");
 }
 
 void Director::tick(uint32_t nowMs) {
@@ -55,7 +81,8 @@ void Director::tick(uint32_t nowMs) {
 
   time_t now = time(nullptr);
   int passLead = (int)_s->getInt("passLeadMin", 5) * 60;
-  bool passNow = _passAos && (long)(_passAos - now) < passLead && (long)(_passAos - now) > -300;
+  // Active from `passLead` before AOS until LOS (so an in-progress pass stays flagged).
+  bool passNow = _passAos && now >= _passAos - passLead && now <= _passLos;
 
   time_t lnet = _launch->launches().empty() ? 0 : _launch->launches()[0].net;
   int launchLead = (int)_s->getInt("launchLeadMin", 10) * 60;
@@ -78,6 +105,13 @@ void Director::tick(uint32_t nowMs) {
   // (the bird / launch) rather than touring, so hold the tour clock.
   if (passNow && (!launchNow || _passAos <= lnet)) {
     _lastTourMs = nowMs;
+    // Prominent cross-tab alert in the status strip (the badge alone was missable).
+    long dt = (long)(_passAos - now);
+    String a = _passBird + " " + (int)lround(_passMaxEl) + "\xF7 "
+             + (dt > 0 ? "in " + String(dt / 60 + 1) + "m" : "NOW");
+    if (_passVisible) a += " VIS";
+    if (_passRadio)   a += " RF";
+    _app->setAlert(a);
     bool onSat = (_app->activeIndex() == satIdx);
     if (_app->autoFocus(satIdx)) onSat = true;
     else if (!onSat) _app->setBadge(satIdx, true);
@@ -88,9 +122,12 @@ void Director::tick(uint32_t nowMs) {
   }
   if (launchNow) {
     _lastTourMs = nowMs;
+    long dt = (long)(lnet - now);
+    _app->setAlert(String("Launch ") + (dt > 0 ? "in " + String(dt / 60 + 1) + "m" : "NOW"));
     if (!_app->autoFocus(lchIdx) && _app->activeIndex() != lchIdx) _app->setBadge(lchIdx, true);
     return;
   }
+  _app->setAlert("");          // nothing imminent -> clear the alert
 
   // Ambient resting default + multi-page attract tour. ambientDay/Night may be a
   // comma-separated rotation of page titles (e.g. "Solar System,Star Map"): once

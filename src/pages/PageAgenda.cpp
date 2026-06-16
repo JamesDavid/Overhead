@@ -30,6 +30,15 @@ static Color darknessShade(float sunAlt) {
   return rgb565(6, 7, 12);                          // night
 }
 
+static bool brightSat(const String& n) {
+  return n.startsWith("ISS") || n.startsWith("CSS") || n.indexOf("TIANGONG") >= 0 || n.startsWith("HST");
+}
+static bool radioSat(const String& n) {
+  static const char* p[] = {"ISS", "SO-", "AO-", "PO-", "RS-", "FO-", "CAS-", "XW-", "JO-", "LO-", "TO-", "TEVEL", "HADES", "MESAT", "UVSQ"};
+  for (auto x : p) if (n.startsWith(x)) return true;
+  return false;
+}
+
 void PageAgenda::recompute() {
   if (!_time.synced() || !_loc.active().valid) return;
   double lat = _loc.active().lat, lon = _loc.active().lon;
@@ -56,9 +65,16 @@ void PageAgenda::recompute() {
       for (const auto& s : _tle.sats()) {
         if (!s.name.startsWith(pre)) continue;
         _eng.loadTle(s.name.c_str(), s.line1.c_str(), s.line2.c_str());
-        astro::SatPass p = _eng.nextPass(now, (double)minEl, 40);
-        if (p.valid && p.aos < horizon)
-          _events.push_back({ p.aos, s.name + " " + (int)round(p.maxElDeg) + (char)247, 0 });
+        time_t from = now - 1200; astro::SatPass p;     // catch an in-progress pass too
+        for (int k = 0; k < 3; ++k) { p = _eng.nextPass(from, (double)minEl, 40); if (!p.valid || p.los > now) break; from = p.los + 60; }
+        if (p.valid && p.los > now && p.aos < horizon) {
+          bool dark = astro::sunAltitudeDeg(astro::julianDate(p.tca), lat, lon) < -6.0;
+          bool vis = brightSat(s.name) && dark && _eng.observe(p.tca).sunlit;
+          String lbl = s.name + " " + (int)round(p.maxElDeg) + (char)247;
+          if (vis) lbl += " VIS";
+          if (radioSat(s.name)) lbl += " RF";
+          _events.push_back({ p.aos, lbl, 0 });
+        }
         break;
       }
     }

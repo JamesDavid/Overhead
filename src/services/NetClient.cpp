@@ -57,7 +57,7 @@ void NetClient::perform(Job* job) {
   // fragmented OOMs and can corrupt the heap (lfs_close assert). Skip instead
   // and let the provider serve stale / retry later (cyd-radio §15 mbedtls floor).
   if (job->url.startsWith("https://") &&
-      heap_caps_get_largest_free_block(MALLOC_CAP_8BIT) < 48000) {
+      heap_caps_get_largest_free_block(MALLOC_CAP_8BIT) < 42000) {
     job->code = -3;
     Serial.printf("[net] skip (low heap) %.40s\n", job->url.c_str());
     return;

@@ -51,6 +51,10 @@ bool App::autoAdvanceActive() {
   return false;
 }
 
+void App::setAlert(const String& s) {
+  if (_alert != s) { _alert = s; _statusDirty = true; }
+}
+
 void App::setBadge(int index, bool on) {
   if (index >= 0 && index < (int)_badge.size() && _badge[index] != on) {
     _badge[index] = on; _statusDirty = true;
@@ -116,10 +120,6 @@ void App::tick(uint32_t nowMs) {
 
 void App::drawStatus() {
   auto& g = _display.gfx();
-  g.fillRect(0, 0, _display.width(), kStatusH, gTheme.grid);
-  g.setTextDatum(textdatum_t::middle_left);
-  g.setTextColor(gTheme.fg, gTheme.grid);
-  g.setTextSize(1);
 
   // Clock (local; TimeService configures TZ so localtime is correct).
   time_t now = time(nullptr);
@@ -128,6 +128,24 @@ void App::drawStatus() {
     struct tm tm; localtime_r(&now, &tm);
     strftime(clk, sizeof(clk), "%H:%M", &tm);
   }
+
+  // Alert mode: paint the whole strip warn and show the Director's message — this
+  // is the cross-tab "ISS pass NOW" notice, visible on any page (spec §7.4).
+  if (_alert.length()) {
+    g.fillRect(0, 0, _display.width(), kStatusH, gTheme.warn);
+    g.setTextSize(1);
+    g.setTextDatum(textdatum_t::middle_left);
+    g.setTextColor(gTheme.bg, gTheme.warn);
+    g.drawString(clk, 6, kStatusH / 2);
+    g.setTextDatum(textdatum_t::middle_right);
+    g.drawString(String("\xC2 ") + _alert, _display.width() - 6, kStatusH / 2);
+    return;
+  }
+
+  g.fillRect(0, 0, _display.width(), kStatusH, gTheme.grid);
+  g.setTextDatum(textdatum_t::middle_left);
+  g.setTextColor(gTheme.fg, gTheme.grid);
+  g.setTextSize(1);
   g.drawString(clk, 6, kStatusH / 2);
 
   // WiFi state + mode + active page title, right-aligned.
