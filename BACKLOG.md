@@ -93,8 +93,15 @@ Center API (aviationweather.gov/api/data/...) + rucsoundings.
 - Phase 1 (done): nearby METARs via bbox, decoded card (wind/vis/ceiling/temp/
   dewpoint/altimeter/flight category) + raw METAR + raw TAF, tap to step stations.
 - Decoded TAF (forecast periods, not just raw); home-field pin / favourite.
-- Skew-T / atmospheric SOUNDING (rucsoundings RAOB/RAP): temp+dewpoint vs altitude,
-  lapse rate, inversion height, lifted index, wind barbs, convective/soaring index.
+- Skew-T / atmospheric SOUNDING: temp+dewpoint vs altitude, lapse rate, inversion
+  height, lifted index, wind barbs, convective/soaring index.
+  !! DATA SOURCE DEAD: rucsoundings.noaa.gov is decommissioned (ECONNREFUSED on
+     80 and 443, confirmed off-device 2026-06). SoundingProvider currently fails ->
+     "sounding unavailable". REPLACE with Open-Meteo pressure-level fields
+     (temperature_1000hPa..10hPa, dewpoint_*hPa, windspeed/winddirection_*hPa) — the
+     same keyless HTTPS api.open-meteo.com we already use in WeatherProvider; map each
+     hPa level to altitude (geopotential_height_*hPa) and reuse the existing GSD
+     parse's freezing-level/level model. Clean swap, no new dependency.
 - Winds & temps aloft (FB) -> FREEZING LEVEL (interp temp=0) + wind/temp by altitude.
 - AIRMET/SIGMET + G-AIRMET hazards (icing, turbulence, IFR, mtn obscuration, FZLVL)
   near the observer; PIREPs (turbulence/icing/cloud tops); CWAs.

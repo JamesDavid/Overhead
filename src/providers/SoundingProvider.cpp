@@ -21,8 +21,13 @@ void SoundingProvider::refresh(bool force) {
   bool stale = force || !m.found || now < 1600000000UL || (now - m.fetchedAt) > ttl;
   if (!stale) return;
 
-  // Plain HTTP: rucsoundings' HTTPS handshake fails on the ESP32 (start_ssl_client
-  // -1). It's public data, so HTTP is fine. Parens URL-encoded (%28/%29).
+  // NOTE: rucsoundings.noaa.gov is DEAD as of 2026 (ECONNREFUSED on both 80/443,
+  // confirmed off-device too) — NOAA decommissioned the host, so this fetch will
+  // fail and the tab shows "sounding unavailable". Replacement planned: build a
+  // forecast sounding from Open-Meteo pressure-level fields (temperature_*hPa,
+  // dewpoint_*hPa, wind at each level) — same HTTPS API we already use for weather.
+  // See BACKLOG. Plain HTTP kept for now (rucsoundings' TLS also failed on ESP32).
+  // Parens URL-encoded (%28/%29).
   char url[220];
   snprintf(url, sizeof(url),
     "http://rucsoundings.noaa.gov/get_soundings.cgi?data_source=Op40&start=latest"

@@ -4,13 +4,37 @@
 #include "../services/Cache.h"
 #include "../core/EventBus.h"
 #include <ArduinoJson.h>
+#include <math.h>
 #include <time.h>
+
+// NOAA SWPC feeds drift between shapes (object vs array-of-objects, and the key
+// case changes: "Flux"/"flux", "kp_index"/"Kp"). Pull the value out tolerantly.
+static float numFrom(JsonVariant v) {
+  if (v.isNull()) return -1;
+  if (v.is<const char*>()) { const char* s = (const char*)v; if (!s || !(s[0]=='-'||s[0]=='.'||(s[0]>='0'&&s[0]<='9'))) return -1; return (float)atof(s); }
+  if (v.is<float>() || v.is<int>()) return v.as<float>();
+  return -1;
+}
+static int fluxFromObj(JsonObject o) {
+  for (const char* k : {"flux", "Flux", "f10.7", "f107"}) { float f = numFrom(o[k]); if (f >= 0) return (int)lround(f); }
+  return -1;
+}
+// Accept either a bare object or an array of samples (take the newest with flux).
+static int extractSfi(JsonVariant root) {
+  if (root.is<JsonObject>()) return fluxFromObj(root.as<JsonObject>());
+  if (root.is<JsonArray>()) {
+    JsonArray a = root.as<JsonArray>();
+    for (int i = (int)a.size() - 1; i >= 0; --i)
+      if (a[i].is<JsonObject>()) { int f = fluxFromObj(a[i].as<JsonObject>()); if (f >= 0) return f; }
+  }
+  return -1;
+}
 
 void SpaceWxProvider::begin(Settings* s, NetClient* net, Cache* cache, EventBus* bus) {
   _s = s; _net = net; _cache = cache; _bus = bus;
   String body; CacheMeta m;
   if (_cache->get("swx_kp", body, m) && parseKp(body)) _status = ProviderStatus::Stale;
-  if (_cache->get("swx_sfi", body, m)) { JsonDocument d; if (!deserializeJson(d, body)) _sfi = (int)((float)atof((const char*)(d["Flux"] | "-1"))); }
+  if (_cache->get("swx_sfi", body, m)) { JsonDocument d; if (!deserializeJson(d, body)) _sfi = extractSfi(d); }
   refresh(false);
 }
 
@@ -44,12 +68,9 @@ void SpaceWxProvider::fetchSfi() {
       if (code == 200) {
         JsonDocument d;
         if (!deserializeJson(d, body)) {
-          JsonVariant fv = d["Flux"];
-          if (fv.isNull()) fv = d["flux"];
-          _sfi = fv.is<const char*>() ? atoi((const char*)fv) : (fv.isNull() ? -1 : fv.as<int>());
-          _cache->put("swx_sfi", body, code, (uint32_t)time(nullptr));
-          if (_sfi < 0) Serial.printf("[spacewx] SFI not found, body: %.90s\n", body.c_str());
-          else          Serial.printf("[spacewx] SFI=%d\n", _sfi);
+          _sfi = extractSfi(d);
+          if (_sfi >= 0) { _cache->put("swx_sfi", body, code, (uint32_t)time(nullptr)); Serial.printf("[spacewx] SFI=%d\n", _sfi); }
+          else            Serial.printf("[spacewx] SFI not found, body: %.90s\n", body.c_str());
         }
       } else {
         Serial.printf("[spacewx] SFI fetch code=%d\n", code);
@@ -66,18 +87,24 @@ bool SpaceWxProvider::parseKp(const String& body) {
   if (err) { Serial.printf("[spacewx] kp parse err: %s\n", err.c_str()); return false; }
   JsonArray rows = doc.as<JsonArray>();
   if (rows.isNull() || rows.size() < 2) { Serial.println("[spacewx] kp: not an array"); return false; }
-  // Scan backward for the most recent row with a real Kp (the latest slots are
-  // often blank, and the value can be a string or a number).
-  for (int i = (int)rows.size() - 1; i >= 1; --i) {
-    JsonArray r = rows[i].as<JsonArray>();
-    if (r.isNull() || r.size() < 2) continue;
-    JsonVariant kv = r[1];
-    if (kv.is<const char*>()) { const char* s = (const char*)kv; if (!s || !s[0]) continue; _kp = atof(s); }
-    else if (kv.is<float>() || kv.is<int>()) _kp = kv.as<float>();
-    else continue;
-    Serial.printf("[spacewx] Kp=%.2f (row %d/%u)\n", _kp, i, (unsigned)rows.size());
-    return _kp >= 0;
+  // Scan backward for the most recent row with a real Kp. The feed comes either as
+  // array-of-arrays ([time, Kp, ...], row[0] a header) or array-of-objects
+  // ({"kp_index":..} / {"Kp":..}); the latest slots are often blank.
+  for (int i = (int)rows.size() - 1; i >= 0; --i) {
+    JsonVariant row = rows[i];
+    float v = -1;
+    if (row.is<JsonArray>()) {
+      JsonArray r = row.as<JsonArray>();
+      if (r.size() >= 2) v = numFrom(r[1]);                 // header "Kp" -> numFrom rejects
+    } else if (row.is<JsonObject>()) {
+      JsonObject o = row.as<JsonObject>();
+      for (const char* k : {"kp_index", "kp", "estimated_kp", "Kp"}) { v = numFrom(o[k]); if (v >= 0) break; }
+    }
+    if (v < 0) continue;
+    _kp = v;
+    Serial.printf("[spacewx] Kp=%.1f (row %d/%u)\n", _kp, i, (unsigned)rows.size());
+    return true;
   }
-  Serial.println("[spacewx] kp: no numeric row");
+  Serial.printf("[spacewx] kp: no numeric row; body: %.110s\n", body.c_str());
   return false;
 }
