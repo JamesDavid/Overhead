@@ -5,6 +5,8 @@
 #include "../services/TimeService.h"
 #include "../services/LocationService.h"
 #include "../services/Settings.h"
+#include "../astro/Moons.h"
+#include <math.h>
 #include <time.h>
 
 using astro::Planet;
@@ -56,8 +58,8 @@ void PageSolarSystem::recompute() {
 
 void PageSolarSystem::onTouch(App& app, int x, int y) {
   int third = app.contentW() / 3;
-  // Centre tap toggles sky-dome <-> orbits.
-  if (x >= third && x <= 2 * third) { _view ^= 1; _dirty = true; return; }
+  // Centre tap cycles sky-dome -> orbits -> moons & rings.
+  if (x >= third && x <= 2 * third) { _view = (_view + 1) % 3; _dirty = true; return; }
   // Bottom-left badge cycles the filter (sky-dome view only).
   if (_view == 0 && x <= 80 && y >= app.contentH() - 20) { _filter = (_filter + 1) % 3; _dirty = true; return; }
   if (_view == 1) {                         // orbits
@@ -84,10 +86,12 @@ bool PageSolarSystem::autoAdvance(App&) {
     if (vis == 0) { _view = 1; _tourN = 0; _orbSel = 0; _dirty = true; return false; }
     int g = 0; do { _sel = (_sel + 1) % kN; } while (!visible(_sel) && ++g < kN);
     if (++_tourN >= vis) { _tourN = 0; _view = 1; _orbSel = 0; }   // toured all -> orbits
-  } else {                                  // orbits: tour the visible bodies
+  } else if (_view == 1) {                  // orbits: tour the visible bodies
     int cnt = orbitVisibleCount();
     _orbSel = (_orbSel + 1) % cnt;
-    if (++_tourN >= cnt) { _tourN = 0; _view = 0; cycled = true; } // orbits done -> full cycle
+    if (++_tourN >= cnt) { _tourN = 0; _view = 2; }               // orbits done -> moons
+  } else {                                  // moons & rings: one dwell -> full cycle
+    _view = 0; cycled = true;
   }
   _dirty = true;
   return cycled;
@@ -115,6 +119,7 @@ void PageSolarSystem::draw(App& app) {
   }
 
   if (_view == 1) { drawOrbit(app); return; }
+  if (_view == 2) { drawMoons(app); return; }
 
   // --- Horizon half-dome (top ~55%) ---
   const int domeH = ch * 55 / 100;
@@ -180,7 +185,7 @@ void PageSolarSystem::drawOrbit(App& app) {
 
   g.setTextDatum(textdatum_t::top_left);
   g.setTextColor(gTheme.fg, gTheme.bg);
-  g.drawString("Orbits (top-down)  [tap mid: sky]", 4, cy0 + 1);
+  g.drawString("Orbits (top-down)  [tap mid: moons]", 4, cy0 + 1);
 
   int cx = cw / 2, cy = cy0 + (ch - 14) / 2 + 12;
   int maxR = min(cw / 2, (ch - 26) / 2) - 8;
@@ -226,4 +231,44 @@ void PageSolarSystem::drawOrbit(App& app) {
   g.setTextColor(gTheme.fg, gTheme.grid);
   static const char* kScope[] = {"inner", "mid", "all"};
   g.drawString(kScope[_orbScope], cw - 26, by + 7);
+}
+
+// Telescopic preview: Jupiter's Galilean moons (apparent E-W line) and Saturn's
+// rings (opening angle), with each planet's up/below state.
+void PageSolarSystem::drawMoons(App& app) {
+  auto& g = app.display().gfx();
+  const int cw = app.contentW(), cy0 = app.contentY();
+  const double D2R = 3.14159265358979323846 / 180.0;
+  double jd = _time.julianDate();
+  int cx = cw / 2;
+  g.setTextDatum(textdatum_t::top_left);
+  g.setTextColor(gTheme.fg, gTheme.bg);
+  g.drawString("Moons & rings  [tap mid: sky]", 4, cy0 + 1);
+
+  // --- Jupiter + Galilean moons (Io/Europa/Ganymede/Callisto strung along the equator) ---
+  int jy = cy0 + 64;
+  g.setTextColor(gTheme.dim, gTheme.bg);
+  g.drawString(String("Jupiter  ") + (_st[5].above ? "up" : "below") + "  el " + (int)round(_st[5].elDeg) + "\xF7", 4, cy0 + 18);
+  double mx[4]; astro::galileanMoons(jd, mx);
+  const double jscale = 5.0;                       // px per Jupiter radius
+  g.drawFastHLine(cx - 140, jy, 280, gTheme.grid);
+  g.fillCircle(cx, jy, 5, gTheme.warn);            // Jupiter
+  for (int i = 0; i < 4; ++i) {
+    int x = cx + (int)round(mx[i] * jscale);
+    if (x < 2 || x > cw - 2) continue;
+    g.fillCircle(x, jy, 2, gTheme.accent);
+    g.setTextColor(gTheme.dim, gTheme.bg);
+    g.drawString(astro::galileanSym(i), x - 5, jy + ((i & 1) ? 6 : -14));   // alternate up/down
+  }
+
+  // --- Saturn + rings ---
+  int sy = cy0 + 158;
+  double B = astro::saturnRingTiltDeg(jd);
+  g.setTextColor(gTheme.dim, gTheme.bg);
+  g.drawString(String("Saturn  ") + (_st[6].above ? "up" : "below") + "  rings " + (int)round(fabs(B)) + "\xF7 open", 4, sy - 44);
+  int rMaj = 28, rMin = (int)round(rMaj * fabs(sin(B * D2R)));
+  if (rMin < 1) rMin = 1;
+  g.fillCircle(cx, sy, 7, gTheme.warn);                          // planet disk
+  g.drawEllipse(cx, sy, rMaj, rMin, gTheme.fg);                  // outer ring edge
+  if (rMin >= 3) g.drawEllipse(cx, sy, (int)(rMaj * 0.6), (int)(rMin * 0.6), gTheme.dim);  // inner edge / Cassini hint
 }

@@ -29,6 +29,7 @@ private:
   void recompute();
   void draw(App& app);
   void drawOrbit(App& app);             // top-down orrery view
+  void drawMoons(App& app);             // Jupiter Galilean moons + Saturn rings (telescopic)
   bool visible(int i) const;            // passes the current filter (sky-dome)
   struct OrbBody { bool minor; int idx; };
   static constexpr int kMaxOrb = 16;
@@ -43,7 +44,7 @@ private:
   int   _sel = 0;
   int   _orbSel = 2;                     // selected orbit body (0..8, 2=Earth)
   int   _orbScope = 2;                   // orbit view: 0 inner (Me..Ma), 1 mid (..Saturn), 2 all (..Pluto)
-  int   _view = 0;                       // 0 sky-dome, 1 orbits
+  int   _view = 0;                       // 0 sky-dome, 1 orbits, 2 moons & rings
   int   _tourN = 0;                      // attract-tour: items stepped in this view
   int   _filter = 1;                    // 0 all, 1 above-horizon, 2 naked-eye
   bool  _dirty = true;
