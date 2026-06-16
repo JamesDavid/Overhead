@@ -59,9 +59,10 @@ void Settings::fillDefaults(JsonDocument& _doc) {
   _doc["refreshAvWxMin"]    = 12;     // aviation METAR/TAF refresh
   // Seed the watchlist so the Director is useful on first boot (spec §13).
   JsonArray wl = _doc["watchlist"].to<JsonArray>();
-  wl.add("ISS");
-  wl.add("SO-50");
-  wl.add("AO-91");
+  wl.add("ISS");             // "ISS (ZARYA)"
+  wl.add("SO-50");           // "SAUDISAT 1C (SO-50)"
+  wl.add("FOX-1B");          // AO-91 = "RADFXSAT (FOX-1B)"
+  wl.add("SATGUS");          // CrunchLabs "SatGus"
   _doc["satWatchlistOnly"] = true;    // Satellites selector walks the watchlist
   _doc["satMinEl"]         = 10;      // min pass elevation (deg) — kills grazers
   // Aircraft (spec §6): cloud by default; local readsb/tar1090 feeder optional.

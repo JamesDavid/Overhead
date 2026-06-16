@@ -44,7 +44,7 @@ void Director::scanPasses() {
     String pre = (const char*)(v | "");
     if (!pre.length()) continue;
     for (const auto& s : sats) {
-      if (!s.name.startsWith(pre)) continue;
+      if (!satNameMatches(s.name, pre)) continue;
       _eng.loadTle(s.name.c_str(), s.line1.c_str(), s.line2.c_str());
       // First pass whose LOS is still ahead (so a pass already in progress counts).
       time_t from = now - 1200;

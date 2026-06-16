@@ -63,7 +63,7 @@ void PageAgenda::recompute() {
       String pre = (const char*)(v | "");
       if (!pre.length()) continue;
       for (const auto& s : _tle.sats()) {
-        if (!s.name.startsWith(pre)) continue;
+        if (!satNameMatches(s.name, pre)) continue;
         _eng.loadTle(s.name.c_str(), s.line1.c_str(), s.line2.c_str());
         time_t from = now - 1200; astro::SatPass p;     // catch an in-progress pass too
         for (int k = 0; k < 3; ++k) { p = _eng.nextPass(from, (double)minEl, 40); if (!p.valid || p.los > now) break; from = p.los + 60; }

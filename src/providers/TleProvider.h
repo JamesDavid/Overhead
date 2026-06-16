@@ -19,6 +19,16 @@ struct TleEntry {
   String line2;
 };
 
+// Watchlist match: case-insensitive CONTAINS, because Celestrak puts the popular
+// designation mid-name, e.g. "SAUDISAT 1C (SO-50)", "ISS (ZARYA)". startsWith()
+// missed these. (AO-91's catalog name is "RADFXSAT (FOX-1B)" — use FOX-1B/RADFXSAT.)
+inline bool satNameMatches(const String& name, const String& term) {
+  if (!term.length()) return false;
+  String n = name; n.toUpperCase();
+  String t = term; t.toUpperCase();
+  return n.indexOf(t) >= 0;
+}
+
 enum class ProviderStatus { Loading, Ready, Stale, Error };
 
 class TleProvider {
@@ -33,7 +43,7 @@ public:
   ProviderStatus status() const { return _status; }
   uint32_t       lastFetched() const { return _lastFetched; }
 
-  static constexpr int kGroupCount = 2;   // amateur + stations
+  static constexpr int kGroupCount = 3;   // amateur + stations + SatGus (by name)
 
 private:
   void fetchGroup(int idx);

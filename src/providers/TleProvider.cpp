@@ -5,10 +5,13 @@
 #include "../core/EventBus.h"
 #include <time.h>
 
-struct GroupDef { const char* group; const char* key; };
+// query = the gp.php selector (GROUP=... or NAME=...). SatGus (CrunchLabs, NORAD
+// 62713) isn't in the amateur/stations groups, so fetch it by name.
+struct GroupDef { const char* query; const char* key; };
 static const GroupDef kGroups[TleProvider::kGroupCount] = {
-  { "amateur",  "tle_amateur"  },
-  { "stations", "tle_stations" },
+  { "GROUP=amateur",  "tle_amateur"  },
+  { "GROUP=stations", "tle_stations" },
+  { "NAME=SATGUS",    "tle_satgus"   },
 };
 
 void TleProvider::begin(Settings* s, NetClient* net, Cache* cache, EventBus* bus) {
@@ -36,8 +39,8 @@ void TleProvider::refresh(bool force) {
 }
 
 void TleProvider::fetchGroup(int idx) {
-  String url = String("https://celestrak.org/NORAD/elements/gp.php?GROUP=")
-             + kGroups[idx].group + "&FORMAT=tle";
+  String url = String("https://celestrak.org/NORAD/elements/gp.php?")
+             + kGroups[idx].query + "&FORMAT=tle";
   if (_sats.empty()) _status = ProviderStatus::Loading;
   _pendingFetches++;
 
@@ -72,7 +75,7 @@ void TleProvider::loadFromCache(int idx) {
 
 bool TleProvider::keepName(const String& name, size_t kept) const {
   if (_watch.empty()) return kept < kMaxKeep;        // no watchlist: cap to bound RAM
-  for (const auto& p : _watch) if (name.startsWith(p)) return true;
+  for (const auto& p : _watch) if (satNameMatches(name, p)) return true;
   return false;
 }
 
@@ -111,7 +114,7 @@ void TleProvider::parseInto(std::vector<TleEntry>& target, const String& tleText
 
 int TleProvider::indexOfPrefix(const String& namePrefix) const {
   for (size_t i = 0; i < _sats.size(); ++i)
-    if (_sats[i].name.startsWith(namePrefix)) return (int)i;
+    if (satNameMatches(_sats[i].name, namePrefix)) return (int)i;
   return -1;
 }
 

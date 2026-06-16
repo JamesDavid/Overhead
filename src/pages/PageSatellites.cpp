@@ -34,7 +34,7 @@ void PageSatellites::rebuildOrder() {
       String pre = (const char*)(v | "");
       if (!pre.length()) continue;
       for (size_t i = 0; i < sats.size(); ++i)
-        if (sats[i].name.startsWith(pre)) _order.push_back((int)i);
+        if (satNameMatches(sats[i].name, pre)) _order.push_back((int)i);
     }
   }
   if (_order.empty())                                   // filter off, or nothing matched
@@ -54,7 +54,7 @@ void PageSatellites::rebuildOrder() {
 void PageSatellites::focusBird(const String& namePrefix) {
   const auto& sats = _tle.sats();
   for (size_t i = 0; i < _order.size(); ++i)
-    if (sats[_order[i]].name.startsWith(namePrefix)) { selectPos((int)i); return; }
+    if (satNameMatches(sats[_order[i]].name, namePrefix)) { selectPos((int)i); return; }
 }
 
 void PageSatellites::selectPos(int pos) {
