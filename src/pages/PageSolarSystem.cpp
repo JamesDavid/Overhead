@@ -42,9 +42,16 @@ void PageSolarSystem::onTouch(App& app, int x, int y) {
   if (x >= third && x <= 2 * third) { _view ^= 1; _dirty = true; return; }
   // Bottom-left badge cycles the filter (sky-dome view only).
   if (_view == 0 && x <= 80 && y >= app.contentH() - 20) { _filter = (_filter + 1) % 3; _dirty = true; return; }
-  if (_view == 1) {                         // orbits: step Mercury..Pluto
-    if (x < third) _orbSel = (_orbSel - 1 + astro::kOrbitBodies) % astro::kOrbitBodies;
-    else           _orbSel = (_orbSel + 1) % astro::kOrbitBodies;
+  if (_view == 1) {                         // orbits
+    if (x > app.contentW() - 52 && y >= app.contentH() - 16) {   // bottom-right: inner/all
+      _orbScope ^= 1;
+      int cnt = _orbScope ? astro::kOrbitBodies : 4;
+      if (_orbSel >= cnt) _orbSel = cnt - 1;
+      _dirty = true; return;
+    }
+    int cnt = _orbScope ? astro::kOrbitBodies : 4;
+    if (x < third) _orbSel = (_orbSel - 1 + cnt) % cnt;          // step Me..(Pluto)
+    else           _orbSel = (_orbSel + 1) % cnt;
   } else {                                  // sky-dome: step visible bodies
     if (x < third)          { do { _sel = (_sel - 1 + kN) % kN; } while (!visible(_sel) && _filter); }
     else if (x > 2 * third) { do { _sel = (_sel + 1) % kN; } while (!visible(_sel) && _filter); }
@@ -143,13 +150,14 @@ void PageSolarSystem::drawOrbit(App& app) {
 
   int cx = cw / 2, cy = cy0 + (ch - 14) / 2 + 12;
   int maxR = min(cw / 2, (ch - 26) / 2) - 8;
-  double maxAu = astro::orbitMeanAu(astro::kOrbitBodies - 1);     // Pluto
+  int count = _orbScope ? astro::kOrbitBodies : 4;               // all (..Pluto) or inner
+  double maxAu = astro::orbitMeanAu(count - 1);                  // outermost ring shown
   auto rad = [&](double au) { return (int)round(sqrt(au / maxAu) * maxR); };
 
   g.fillCircle(cx, cy, 3, gTheme.warn);                          // Sun
 
   astro::HelioPos sel{};
-  for (int i = 0; i < astro::kOrbitBodies; ++i) {
+  for (int i = 0; i < count; ++i) {
     int rr = rad(astro::orbitMeanAu(i));
     g.drawCircle(cx, cy, rr, gTheme.grid);                       // orbit ring
     astro::HelioPos hp = astro::heliocentricBody(i, jd);
@@ -165,10 +173,15 @@ void PageSolarSystem::drawOrbit(App& app) {
     if (s) sel = hp;
   }
 
-  // Selected-body readout (bottom).
+  // Selected-body readout (bottom-left) + inner/all scope badge (bottom-right).
   g.setTextDatum(textdatum_t::bottom_left);
   g.setTextColor(gTheme.ok, gTheme.bg);
   char b[40];
   snprintf(b, sizeof(b), "%s  %.2f AU  lon %d", astro::orbitBodyName(_orbSel), sel.rAu, (int)round(sel.lonDeg));
   g.drawString(b, 4, cy0 + ch - 2);
+  int by = cy0 + ch - 15;
+  g.fillRect(cw - 50, by, 48, 14, gTheme.grid);
+  g.setTextDatum(textdatum_t::middle_center);
+  g.setTextColor(gTheme.fg, gTheme.grid);
+  g.drawString(_orbScope ? "all" : "inner", cw - 26, by + 7);
 }

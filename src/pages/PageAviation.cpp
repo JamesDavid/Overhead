@@ -16,6 +16,11 @@ static Color catColor(const String& c) {
   return gTheme.warn;   // IFR / LIFR
 }
 
+// Airport-map zoom: multiplier on the fetch-bbox half-ranges. ~57nm (full) down
+// to ~13nm (tight, zoomed in on the observer). Tap the top-left badge to cycle.
+static const float kMapZoom[] = { 1.0f, 0.6f, 0.38f, 0.22f };
+static constexpr int kMapZoomN = 4;
+
 static int drawWrapped(LGFX& g, const String& text, int x, int y, int maxChars, int maxLines, Color c) {
   g.setTextColor(c, gTheme.bg);
   g.setTextDatum(textdatum_t::top_left);
@@ -43,6 +48,10 @@ void PageAviation::onTouch(App& app, int x, int y) {
   if (x >= third && x <= 2 * third) {               // centre: cycle view
     _view = _view == View::Metar ? View::Map : _view == View::Map ? View::Sounding
           : _view == View::Sounding ? View::Hazards : View::Metar;
+    _needClear = _dirty = true; return;
+  }
+  if (_view == View::Map && x < 50 && y < 16) {     // top-left badge: cycle map zoom
+    _mapZoom = (_mapZoom + 1) % kMapZoomN;
     _needClear = _dirty = true; return;
   }
   int n = (int)_wx.stations().size();
@@ -122,9 +131,18 @@ void PageAviation::drawMap(App& app) {
   auto& g = app.display().gfx();
   const int cw = app.contentW(), cy0 = app.contentY(), ch = app.contentH();
   const auto& list = _wx.stations();
+  double z = kMapZoom[_mapZoom];
+  const double latR = 0.95 * z, lonR = 1.25 * z;    // half-ranges (scaled by zoom)
+
+  // Zoom badge (top-left, tappable) + hint.
+  int rNm = (int)round(latR * 60.0);                // 1 deg lat ~ 60 nm
+  g.fillRect(2, cy0, 46, 13, gTheme.grid);
   g.setTextDatum(textdatum_t::top_left);
-  g.setTextColor(gTheme.accent, gTheme.bg);
-  g.drawString("Airports  [tap mid: sounding]", 4, cy0 + 2);
+  g.setTextColor(gTheme.fg, gTheme.grid);
+  g.drawString(String("~") + rNm + "nm", 5, cy0 + 2);
+  g.setTextColor(gTheme.dim, gTheme.bg);
+  g.drawString("tap:zoom [mid:snd]", 52, cy0 + 2);
+
   if (list.empty() || !_loc.active().valid) {
     g.setTextColor(gTheme.dim, gTheme.bg);
     g.drawString(_loc.active().valid ? "no stations" : "no location", 4, cy0 + ch / 2);
@@ -132,7 +150,6 @@ void PageAviation::drawMap(App& app) {
   }
 
   double olat = _loc.active().lat, olon = _loc.active().lon;
-  const double latR = 0.95, lonR = 1.25;            // half-ranges (~ fetch bbox)
   int mapY = cy0 + 14, mapH = ch - 14 - 26;
   int cx = cw / 2, cyc = mapY + mapH / 2;
   auto SX = [&](double lon) { return cx + (int)((lon - olon) / lonR * (cw / 2 - 8)); };

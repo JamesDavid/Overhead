@@ -36,6 +36,7 @@ private:
   LocationService&    _loc;
   View  _view = View::Metar;
   int   _sel = 0;
+  int   _mapZoom = 0;          // airport-map zoom index (top-left badge cycles)
   bool  _dirty = true;
   bool  _needClear = true;
   bool  _wasEmpty = true;

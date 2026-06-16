@@ -37,6 +37,7 @@ private:
   astro::PlanetState _st[kN];
   int   _sel = 0;
   int   _orbSel = 2;                     // selected orbit body (0..8, 2=Earth)
+  int   _orbScope = 1;                   // orbit view: 0 inner (Me..Ma), 1 all (..Pluto)
   int   _view = 0;                       // 0 sky-dome, 1 orbits
   int   _filter = 1;                    // 0 all, 1 above-horizon, 2 naked-eye
   bool  _dirty = true;
