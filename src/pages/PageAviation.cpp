@@ -354,8 +354,9 @@ void PageAviation::drawSounding(App& app) {
     float tgtM = t / M2FT; const SoundingLevel* best = nullptr; float bd = 1e9;
     for (const auto& l : lv) if (l.wspd >= 0) { float d = fabsf(l.altM - tgtM); if (d < bd) { bd = d; best = &l; } }
     if (best) {
-      char b[24]; snprintf(b, sizeof(b), "%03d@%d", best->wdir, best->wspd);
-      g.drawString(b, cw - 62, pyf(best->altM * M2FT));   // y aligned to the level's altitude
+      char b[24]; snprintf(b, sizeof(b), "%dk %03d@%dkt", t / 1000, best->wdir, best->wspd);
+      g.setTextDatum(textdatum_t::middle_right);
+      g.drawString(b, cw - 2, pyf(best->altM * M2FT));    // altitude label + wind, at that altitude's y
     }
   }
   g.setTextDatum(textdatum_t::top_left);

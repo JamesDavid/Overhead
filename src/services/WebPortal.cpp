@@ -60,11 +60,11 @@ static const char kRemoteHtml[] PROGMEM = R"HTML(
 <meta name=viewport content="width=device-width,initial-scale=1">
 <title>Overhead remote</title>
 <style>body{background:#0b1018;color:#e6e8f0;font:14px system-ui;text-align:center;margin:1rem}
-img{width:100%;max-width:480px;aspect-ratio:4/3;border:1px solid #334;cursor:crosshair;touch-action:none}
+img{width:100%;max-width:480px;aspect-ratio:4/3;background:#11161f;border:1px solid #334;cursor:crosshair;touch-action:none;display:block;margin:0 auto}
 button{font-size:16px;padding:.4rem 1rem;margin:.3rem;background:#2563c0;color:#fff;border:0;border-radius:6px}
 a{color:#50aaff}</style></head><body>
 <h3>Overhead remote</h3>
-<div><img id=s alt="screen"></div>
+<div><img id=s alt="screen" width=320 height=240></div>
 <div><button onclick=sw('prev')>&#9664; prev</button>
 <button onclick=ref()>refresh</button>
 <button onclick=sw('next')>next &#9654;</button></div>
