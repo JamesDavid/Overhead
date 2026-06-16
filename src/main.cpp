@@ -173,6 +173,18 @@ void setup() {
   web.setStatusJsonProvider(fillStatusJson);
   web.begin(&settings, gHostname);
 
+  // The location resolves asynchronously a few seconds after boot; kick the
+  // location-dependent providers as soon as it does, rather than waiting for
+  // their (long) refresh interval — e.g. the sounding's is 60 min.
+  bus.subscribe([](ProviderId id) {
+    if (id != ProviderId::Location) return;
+    weatherProv.refresh(true);
+    avwxProv.refresh(true);
+    sndProv.refresh(true);
+    hazProv.refresh(true);
+    aircraftProv.poll();
+  });
+
   // Periodic maintenance.
   sched.every(60UL * 60UL * 1000UL, [] { locSvc.refresh(); }, /*runNow=*/false);          // hourly
   uint32_t tleMs = (uint32_t)settings.getInt("refreshTleHour", 12) * 3600UL * 1000UL;
