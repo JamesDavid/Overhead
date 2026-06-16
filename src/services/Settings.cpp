@@ -6,7 +6,11 @@ bool Settings::begin() {
   if (f) {
     DeserializationError err = deserializeJson(_doc, f);
     f.close();
-    if (!err) { migrate(); return true; }
+    if (!err) {
+      backfillDefaults();   // add any keys this firmware introduced (no clobber)
+      migrate();
+      return save();        // persist backfilled keys so the web form never sees blanks
+    }
     Serial.printf("[settings] parse error (%s) — reseeding\n", err.c_str());
   }
   seedDefaults();
@@ -23,6 +27,18 @@ bool Settings::save() {
 
 void Settings::seedDefaults() {
   _doc.clear();
+  fillDefaults(_doc);
+}
+
+// Copy any default key that is missing from _doc (never overwrites existing values).
+void Settings::backfillDefaults() {
+  JsonDocument def;
+  fillDefaults(def);
+  for (JsonPair kv : def.as<JsonObject>())
+    if (_doc[kv.key()].isNull()) _doc[kv.key()] = kv.value();
+}
+
+void Settings::fillDefaults(JsonDocument& _doc) {
   _doc["settingsVersion"] = kVersion;
   // Location: Auto (IP geolocation) by default (spec §6 Location, §13).
   _doc["locMode"]  = "auto";          // auto | preset | gps
@@ -89,7 +105,7 @@ void Settings::migrate() {
   if (v < 4 && String((const char*)(_doc["ambientNight"] | "")) == "Solar System")
     _doc["ambientNight"] = "Solar System,Star Map";
   _doc["settingsVersion"] = kVersion;
-  save();
+  // (begin() saves after backfill + migrate, so no save() here)
 }
 
 String Settings::getString(const char* key, const char* def) { return String((const char*)(_doc[key] | def)); }

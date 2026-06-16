@@ -46,7 +46,7 @@ function build(){let h='';for(const r of F){if(r.length==1){h+=`<h3>${r[0]}</h3>
    +`<input id=_watchlist type=text value="${(cur.watchlist||[]).join(', ')}"></label>`;
  f.innerHTML=h;}
 function save(){const o={};for(const r of F){if(r.length==1)continue;const[k,l,t]=r,e=document.getElementById('_'+k);
- o[k]=t=='c'?e.checked:t=='n'?Number(e.value):e.value;}
+ if(t=='n'){if(e.value==='')continue;o[k]=Number(e.value);}else o[k]=t=='c'?e.checked:e.value;}
  o.orreryBodies=ORRERY.filter(b=>document.getElementById('_orr_'+b).checked).join(',');
  o.watchlist=document.getElementById('_watchlist').value.split(',').map(s=>s.trim()).filter(Boolean);
  fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(o)})
@@ -122,11 +122,17 @@ bool WebPortal::begin(Settings* s, const String& hostname) {
       });
   _server.addHandler(setHandler);
 
-  // --- Debug/automation: full-res screenshot, streamed a row at a time ---
+  // --- Debug/automation: screenshot (downsampled BMP, streamed from a RAM buffer
+  // so the async task never blocks on SPI). ?fmt= probes the read-back colour order.
   _server.on("/api/screen.bmp", HTTP_GET, [this](AsyncWebServerRequest* req) {
     if (!_display) { req->send(503, "text/plain", "no display"); return; }
-    Display* disp = _display;
-    const int W = disp->width(), H = disp->height();
+    _display->requestShot();
+    uint32_t t0 = millis();
+    while (!_display->shotReady() && millis() - t0 < 800) delay(5);
+    if (!_display->shotReady()) { req->send(503, "text/plain", "capture timeout"); return; }
+
+    const int W = Display::kShotW, H = Display::kShotH;
+    const uint16_t* px = _display->shot();
     const uint32_t rowBytes = (uint32_t)W * 3, body = rowBytes * H, total = 54 + body;
     std::array<uint8_t, 54> hdr{};
     auto u32 = [&](int o, uint32_t v) { hdr[o] = v; hdr[o+1] = v>>8; hdr[o+2] = v>>16; hdr[o+3] = v>>24; };
@@ -134,24 +140,20 @@ bool WebPortal::begin(Settings* s, const String& hostname) {
     u32(18,(uint32_t)W); u32(22,(uint32_t)(-H));    // negative height = top-down
     hdr[26]=1; hdr[28]=24; u32(34,body); u32(38,2835); u32(42,2835);
 
-    auto loaded = std::make_shared<int>(-1);        // row currently in disp->rowBuf()
     AsyncWebServerResponse* res = req->beginChunkedResponse("image/bmp",
-      [disp, W, rowBytes, total, hdr, loaded](uint8_t* buf, size_t maxLen, size_t index) -> size_t {
+      [px, W, rowBytes, total, hdr](uint8_t* buf, size_t maxLen, size_t index) -> size_t {
         if (index >= total) return 0;
         size_t n = 0;
         while (n < maxLen && index + n < total) {
           uint32_t p = index + n;
           if (p < 54) { buf[n++] = hdr[p]; continue; }
           uint32_t bp = p - 54, row = bp / rowBytes, col = (bp % rowBytes) / 3, ch = (bp % rowBytes) % 3;
-          if ((int)row != *loaded) {                // UI thread reads this scanline for us
-            disp->requestRow(row);
-            uint32_t t0 = millis();
-            while (!disp->rowReady() && millis() - t0 < 250) delay(2);
-            *loaded = row;
-          }
-          uint16_t c = disp->rowBuf()[col];
-          uint8_t r8 = ((c >> 11) & 0x1f) << 3, g8 = ((c >> 5) & 0x3f) << 2, b8 = (c & 0x1f) << 3;
-          buf[n++] = ch == 0 ? b8 : ch == 1 ? g8 : r8;   // BMP is BGR
+          // This panel's read-back, after a byte-swap, packs the channels as
+          // hi5=B, mid6=R, lo5=G (verified against bg + green + white). BMP wants B,G,R.
+          uint16_t c = px[row * W + col];
+          c = (uint16_t)((c >> 8) | (c << 8));
+          uint8_t B = ((c >> 11) & 0x1f) << 3, R = ((c >> 5) & 0x3f) << 2, G = (c & 0x1f) << 3;
+          buf[n++] = ch == 0 ? B : ch == 1 ? G : R;
         }
         return n;
       });

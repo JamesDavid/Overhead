@@ -31,6 +31,8 @@ public:
 
 private:
   void seedDefaults();
+  void backfillDefaults();        // add missing default keys without clobbering
+  void fillDefaults(JsonDocument& d);
   void migrate();
 
   JsonDocument _doc;

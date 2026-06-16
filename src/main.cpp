@@ -126,6 +126,9 @@ static void fillStatusJson(JsonDocument& d) {
   d["lon"]      = l.lon;
   d["tzOffset"] = l.tzOffsetSec;
   d["netInFlight"] = (uint32_t)net.inFlight();
+  d["mode"]     = app.mode() == App::Mode::Auto ? "auto" : "manual";
+  d["pinned"]   = app.pinned();
+  d["page"]     = app.activeIndex();
 }
 
 void setup() {

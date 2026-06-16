@@ -55,14 +55,21 @@ void Display::expanderBegin() {
 }
 #endif
 
-// Read one requested scanline from the framebuffer (UI thread only — shares the
-// SPI bus with the live draw, so it must not run from the async web task).
+// Capture a downsampled framebuffer copy in one pass (UI thread only — shares the
+// SPI bus with the live draw, so it must not run from the async web task). Fast
+// (one readRect per output row), so the web handler's wait is just a tick or two.
 void Display::serviceShot() {
-  if (_rowReq < 0) return;
-  int y = _rowReq, w = _lcd.width();
-  if (w > 480) w = 480;
-  if (y >= 0 && y < _lcd.height()) _lcd.readRect(0, y, w, 1, _rowBuf);
-  _rowReady = true; _rowReq = -1;
+  if (!_shotPending) return;
+  _shotPending = false;
+  if (!_shot) { _shot = (uint16_t*)malloc(kShotW * kShotH * sizeof(uint16_t)); if (!_shot) return; }
+  static uint16_t row[480];
+  int w = _lcd.width(); if (w > 480) w = 480;
+  for (int oy = 0; oy < kShotH; ++oy) {
+    int sy = oy * _lcd.height() / kShotH;
+    _lcd.readRect(0, sy, w, 1, row);
+    for (int ox = 0; ox < kShotW; ++ox) _shot[oy * kShotW + ox] = row[ox * w / kShotW];
+  }
+  _shotReady = true;
 }
 
 void Display::setBacklight(uint8_t level) {

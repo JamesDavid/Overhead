@@ -23,19 +23,21 @@ public:
   static uint32_t largestFreeBlock();
   static uint32_t psramSize();            // 0 if no PSRAM present
 
-  // --- Debug screenshot (web /api/screen): full-res framebuffer read-back, one
-  // row at a time. The web (async) task requests row y; serviceShot() does the SPI
-  // read on the UI thread (so it never races the live draw) into rowBuf().
-  void requestRow(int y) { _rowReady = false; _rowReq = y; }
+  // --- Debug screenshot (web /api/screen): a downsampled framebuffer read-back,
+  // captured in ONE pass on the UI thread (never races the live draw, never blocks
+  // the async web task). requestShot() flags it; serviceShot() captures; shot()
+  // exposes the RGB565 buffer.
+  static constexpr int kShotW = 160, kShotH = 120;
+  void requestShot() { _shotReady = false; _shotPending = true; }
   void serviceShot();                     // call from the main loop each tick
-  bool rowReady() const { return _rowReady; }
-  const uint16_t* rowBuf() const { return _rowBuf; }
+  bool shotReady() const { return _shotReady; }
+  const uint16_t* shot() const { return _shot; }
 
 private:
   LGFX _lcd;
-  volatile int  _rowReq = -1;
-  volatile bool _rowReady = false;
-  uint16_t _rowBuf[480];                   // one scanline (max panel width)
+  uint16_t* _shot = nullptr;
+  volatile bool _shotPending = false;
+  bool _shotReady = false;
 #if BACKLIGHT_VIA_EXPANDER
   uint8_t _expanderAddr = 0;              // detected I2C expander (0 = none)
   void    expanderBegin();
