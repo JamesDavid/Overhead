@@ -60,7 +60,7 @@ static const char kRemoteHtml[] PROGMEM = R"HTML(
 <meta name=viewport content="width=device-width,initial-scale=1">
 <title>Overhead remote</title>
 <style>body{background:#0b1018;color:#e6e8f0;font:14px system-ui;text-align:center;margin:1rem}
-img{width:320px;height:240px;image-rendering:pixelated;border:1px solid #334;cursor:crosshair;touch-action:none}
+img{width:100%;max-width:480px;aspect-ratio:4/3;border:1px solid #334;cursor:crosshair;touch-action:none}
 button{font-size:16px;padding:.4rem 1rem;margin:.3rem;background:#2563c0;color:#fff;border:0;border-radius:6px}
 a{color:#50aaff}</style></head><body>
 <h3>Overhead remote</h3>
@@ -122,16 +122,11 @@ bool WebPortal::begin(Settings* s, const String& hostname) {
       });
   _server.addHandler(setHandler);
 
-  // --- Debug/automation: screenshot (downsampled BMP) ---
+  // --- Debug/automation: full-res screenshot, streamed a row at a time ---
   _server.on("/api/screen.bmp", HTTP_GET, [this](AsyncWebServerRequest* req) {
     if (!_display) { req->send(503, "text/plain", "no display"); return; }
-    _display->requestShot();                       // captured by the UI thread
-    uint32_t t0 = millis();
-    while (!_display->shotReady() && millis() - t0 < 1000) delay(5);
-    if (!_display->shotReady()) { req->send(503, "text/plain", "capture timeout"); return; }
-
-    const int W = Display::kShotW, H = Display::kShotH;
-    const uint16_t* px = _display->shot();
+    Display* disp = _display;
+    const int W = disp->width(), H = disp->height();
     const uint32_t rowBytes = (uint32_t)W * 3, body = rowBytes * H, total = 54 + body;
     std::array<uint8_t, 54> hdr{};
     auto u32 = [&](int o, uint32_t v) { hdr[o] = v; hdr[o+1] = v>>8; hdr[o+2] = v>>16; hdr[o+3] = v>>24; };
@@ -139,15 +134,22 @@ bool WebPortal::begin(Settings* s, const String& hostname) {
     u32(18,(uint32_t)W); u32(22,(uint32_t)(-H));    // negative height = top-down
     hdr[26]=1; hdr[28]=24; u32(34,body); u32(38,2835); u32(42,2835);
 
+    auto loaded = std::make_shared<int>(-1);        // row currently in disp->rowBuf()
     AsyncWebServerResponse* res = req->beginChunkedResponse("image/bmp",
-      [px, W, H, rowBytes, total, hdr](uint8_t* buf, size_t maxLen, size_t index) -> size_t {
+      [disp, W, rowBytes, total, hdr, loaded](uint8_t* buf, size_t maxLen, size_t index) -> size_t {
         if (index >= total) return 0;
         size_t n = 0;
         while (n < maxLen && index + n < total) {
           uint32_t p = index + n;
           if (p < 54) { buf[n++] = hdr[p]; continue; }
           uint32_t bp = p - 54, row = bp / rowBytes, col = (bp % rowBytes) / 3, ch = (bp % rowBytes) % 3;
-          uint16_t c = px[row * W + col];
+          if ((int)row != *loaded) {                // UI thread reads this scanline for us
+            disp->requestRow(row);
+            uint32_t t0 = millis();
+            while (!disp->rowReady() && millis() - t0 < 250) delay(2);
+            *loaded = row;
+          }
+          uint16_t c = disp->rowBuf()[col];
           uint8_t r8 = ((c >> 11) & 0x1f) << 3, g8 = ((c >> 5) & 0x3f) << 2, b8 = (c & 0x1f) << 3;
           buf[n++] = ch == 0 ? b8 : ch == 1 ? g8 : r8;   // BMP is BGR
         }

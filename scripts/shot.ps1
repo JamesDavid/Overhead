@@ -1,7 +1,7 @@
 #requires -version 5
 # Grab the device screen via the web endpoint and save an upscaled PNG.
 # Stable single-command invocation so it can be allow-listed once.
-param([string]$ip = "192.168.86.92", [int]$scale = 3)
+param([string]$ip = "192.168.86.92", [int]$scale = 2)
 $ErrorActionPreference = "Stop"
 $bmp = Join-Path $PSScriptRoot "..\.pio\shot.bmp"
 $png = Join-Path $PSScriptRoot "..\.pio\shot.png"
