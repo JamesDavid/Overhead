@@ -45,7 +45,7 @@ static void setThemeMode(Settings& s, int idx) {
 }
 
 void PageHealth::onTouch(App& app, int x, int y) {
-  if (y >= app.contentH() - 42 && y < app.contentH() - 24) {   // display-mode toggle row
+  if (y >= app.contentH() - 44 && y < app.contentH() - 26) {   // display-mode button
     setThemeMode(_settings, (themeModeIndex(_settings) + 1) % 4);
     _theme.forceReapply();                        // apply the new palette immediately
     _dirty = _needClear = true;
@@ -113,13 +113,12 @@ void PageHealth::draw(App& app) {
   prow("SpaceWx",  _swx.status(),    _swx.lastFetched());
   prow("Weather",  _wx.status(),     _wx.lastFetched());
 
-  // Display-mode toggle (tappable), just above the button row.
-  int ty = cy0 + ch - 40;
-  g.setTextDatum(textdatum_t::middle_left);
-  g.setTextColor(gTheme.dim, gTheme.bg);
-  g.drawString("Display:", x0, ty + 7);
+  // Display-mode button (tap to cycle palette), above the action buttons.
+  int ty = cy0 + ch - 44;
+  g.drawRect(2, ty, cw - 4, 18, gTheme.grid);
+  g.setTextDatum(textdatum_t::middle_center);
   g.setTextColor(gTheme.accent, gTheme.bg);
-  g.drawString(String(kThemeNames[themeModeIndex(_settings)]) + "  (tap)", x0 + 52, ty + 7);
+  g.drawString(String("Display: ") + kThemeNames[themeModeIndex(_settings)] + "  (tap)", cw / 2, ty + 9);
 
   // Button row.
   int by = cy0 + ch - 22, bw = cw / 3;
