@@ -32,6 +32,16 @@ double AircraftProvider::centerLon() const { return _ctrSet ? _ctrLon : _loc->ac
 
 void AircraftProvider::poll() {
   if (_inflight || !_loc->active().valid) return;
+  // Drop a contact set that hasn't refreshed in >60s. Two reasons: (1) don't show
+  // 30-min-old traffic as if it were current; (2) free its heap — 24 String-heavy
+  // contacts can pin the largest free block under the ~42 KB TLS floor, which makes
+  // NetClient SKIP the very fetch meant to refresh them (a starvation loop). Releasing
+  // them lifts the heap back over the floor so the next fetch can run.
+  if (!_ac.empty() && _lastFetched && (uint32_t)time(nullptr) - _lastFetched > 60) {
+    _ac.clear(); _ac.shrink_to_fit();
+    _status = ProviderStatus::Loading;
+    if (_bus) _bus->publish(ProviderId::Aircraft);
+  }
   // Throttle when the radar isn't on screen (the scheduler still calls every few
   // seconds, but there's no point fetching/fragmenting the heap if nobody's looking).
   uint32_t nowMs = millis();
