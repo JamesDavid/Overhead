@@ -27,6 +27,7 @@ public:
 private:
   static constexpr int kN = 9;          // Sun, Moon, Mercury..Neptune
   void recompute();
+  void computeRST(int idx);             // rise/set/transit of body idx over next 24h
   void draw(App& app);
   void drawOrbit(App& app);             // top-down orrery view
   void drawJupiter(App& app);           // Galilean moons, tilted to the observer's sky
@@ -42,6 +43,10 @@ private:
   Settings&        _settings;
 
   astro::PlanetState _st[kN];
+  struct RST { bool hasRise=false, hasSet=false, hasTransit=false;
+               time_t rise=0, set=0, transit=0; float transitAlt=0; };
+  RST   _rst;                            // rise/set/transit of the selected body
+  int   _rstFor = -1;                    // which body _rst was computed for
   int   _sel = 0;
   int   _orbSel = 2;                     // selected orbit body (0..8, 2=Earth)
   int   _orbScope = 2;                   // orbit view: 0 inner (Me..Ma), 1 mid (..Saturn), 2 all (..Pluto)

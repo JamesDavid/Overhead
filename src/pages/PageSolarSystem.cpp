@@ -84,6 +84,29 @@ void PageSolarSystem::recompute() {
   double lat = _loc.active().lat, lon = _loc.active().lon;
   for (int i = 0; i < kN; ++i)
     _st[i] = astro::planetState((Planet)i, jd, lat, lon);
+  computeRST(_sel);
+}
+
+// Rise / transit (culmination) / set of body idx over the next 24h, by scanning
+// its altitude in 30-min steps (rise/set interpolated within the step).
+void PageSolarSystem::computeRST(int idx) {
+  _rst = RST{}; _rstFor = idx;
+  if (idx < 0 || idx >= kN || !_time.synced() || !_loc.active().valid) return;
+  double lat = _loc.active().lat, lon = _loc.active().lon;
+  time_t now = time(nullptr);
+  const int N = 48;                                  // 30-min steps over 24h
+  float prevAlt = 0, maxAlt = -100; time_t prevT = 0, maxT = 0;
+  for (int k = 0; k <= N; ++k) {
+    time_t t = now + (time_t)k * 1800;
+    float alt = (float)astro::planetState((Planet)idx, astro::julianDate(t), lat, lon).elDeg;
+    if (alt > maxAlt) { maxAlt = alt; maxT = t; }
+    if (k > 0) {
+      if (prevAlt < 0 && alt >= 0 && !_rst.hasRise) { float f = prevAlt / (prevAlt - alt); _rst.rise = prevT + (time_t)(f * 1800); _rst.hasRise = true; }
+      if (prevAlt >= 0 && alt < 0 && !_rst.hasSet)  { float f = prevAlt / (prevAlt - alt); _rst.set  = prevT + (time_t)(f * 1800); _rst.hasSet  = true; }
+    }
+    prevAlt = alt; prevT = t;
+  }
+  if (maxAlt > 0) { _rst.transit = maxT; _rst.transitAlt = maxAlt; _rst.hasTransit = true; }
 }
 
 void PageSolarSystem::onTouch(App& app, int x, int y) {
@@ -233,7 +256,7 @@ void PageSolarSystem::draw(App& app) {
   // --- List (below the horizon) ---
   int ly = horY + 4;
   g.setTextSize(1);
-  for (int i = 0; i < kN && ly < cy0 + ch - 14; ++i) {
+  for (int i = 0; i < kN && ly < cy0 + ch - 30; ++i) {
     if (!visible(i)) continue;
     Color c = (i == _sel) ? gTheme.ok : gTheme.fg;
     g.setTextDatum(textdatum_t::top_left);
@@ -248,6 +271,21 @@ void PageSolarSystem::draw(App& app) {
     else              snprintf(b, sizeof(b), "below");
     g.drawString(b, cw - 6, ly);
     ly += 13;
+  }
+
+  // Selected body's rise / transit / set (just above the badge row).
+  if (_rstFor == _sel && _sel >= 0) {
+    auto hm = [](time_t t) { struct tm tm; localtime_r(&t, &tm); char b[8]; snprintf(b, sizeof(b), "%02d:%02d", tm.tm_hour, tm.tm_min); return String(b); };
+    String r;
+    if (!_rst.hasRise && !_rst.hasSet) r = _rst.hasTransit ? "always up" : "not up in 24h";
+    else {
+      if (_rst.hasRise)    r += "rise " + hm(_rst.rise) + " ";
+      if (_rst.hasTransit) r += "tr " + hm(_rst.transit) + " " + (int)round(_rst.transitAlt) + "\xF7 ";
+      if (_rst.hasSet)     r += "set " + hm(_rst.set);
+    }
+    g.setTextDatum(textdatum_t::top_left);
+    g.setTextColor(gTheme.accent, gTheme.bg);
+    g.drawString(String(astro::planetName((Planet)_sel)) + ": " + r, 6, cy0 + ch - 29);
   }
 
   // Filter badge (bottom-left) + orbit-view hint (bottom-right).
