@@ -90,6 +90,40 @@ Other screenshot constraints (from the no-PSRAM budget):
   ```
   CH340 is on **COM5**. Wait ~18 s for boot + WiFi rejoin, then OTA-flash normally.
 
+## Running smoothly on a limited device — efficiency findings
+
+The binding resource is **contiguous heap** (the ~42 KB TLS floor), not CPU or the
+number of requests. Findings + what's implemented:
+
+- **HTTP requests already use one serialized queue.** `NetClient` runs a single
+  core-0 `NetTask` that drains one request queue — only **one TLS session exists at
+  a time**, never concurrent. So "use a single queue" is already done; adding more
+  parallelism would be *worse* (concurrent TLS = multiple 40 KB peaks). Keep it serial.
+- **The TLS floor can't be lowered on this platform.** mbedtls' 16 KB RX/TX content
+  buffers are baked into the **precompiled** arduino-esp32 (classic `espressif32`)
+  libs; `WiFiClientSecure::setBufferSizes()` doesn't exist in 2.0.x. Shrinking them
+  needs a source/sdkconfig build (`CONFIG_MBEDTLS_SSL_IN/OUT_CONTENT_LEN`) — i.e. the
+  pioarduino/IDF path, not available here. So ~40 KB contiguous is the hard TLS cost.
+- **The 16 KB debug screenshot buffer is a major headroom consumer.** It's boot-
+  allocated (to avoid fragmentation) and permanently occupies a contiguous 16 KB —
+  right out of the band TLS needs. For *production* (no remote debugging) it would
+  free ~16 KB of headroom to gate it behind a setting. We keep it on while developing.
+- **Retained data pins the floor → starvation loop.** Holding String-heavy data
+  (e.g. 24 ADS-B contacts) under the floor makes `NetClient` skip the very fetch
+  meant to refresh it, so everything goes stale for many minutes. Fix pattern:
+  **release stale data to free heap** — `AircraftProvider::poll()` now clears (and
+  `shrink_to_fit`s) a contact set older than 60 s.
+- **Monitor memory pressure**, exposed in `/api/status`:
+  - `heapBlk` — current largest free block; `heapBlkMin` — **low-water** (the key
+    number: if it sits below ~42 K, HTTPS is being starved).
+  - `httpsSkip` — count of fetches skipped at the floor (climbing = chronic pressure).
+  - Existing: `heap` (free), `netInFlight`, per-provider status, `[loop] dt` serial log.
+- **Other levers** (cheap, not yet all applied): longer provider TTLs to fetch less
+  often; `reserve()` long-lived vectors to cut fragmentation; prefer fixed `char[]`
+  over `String` for hot/transient fields; stagger the ~12 boot fetches; cap retained
+  lists tight (TLE watchlist-only, aircraft 24, METAR 12). A heap-floor reboot in the
+  watchdog is a last resort (risks a reboot loop if pressure is chronic).
+
 ## Settings
 
 - `Settings::backfillDefaults()` re-adds any missing keys on every load. This

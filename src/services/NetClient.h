@@ -25,6 +25,7 @@ public:
   bool get(const String& url, Callback cb);   // returns false if the queue is full
   void poll();                                 // UI thread: dispatch completed jobs
   size_t inFlight() const { return _inFlight; }
+  size_t httpsSkips() const { return _httpsSkips; }   // HTTPS jobs skipped at the heap floor
 
 private:
   struct Job { String url; Callback cb; int code = 0; String body; };
@@ -36,4 +37,5 @@ private:
   QueueHandle_t  _reqQ  = nullptr;
   QueueHandle_t  _respQ = nullptr;
   volatile size_t _inFlight = 0;
+  volatile size_t _httpsSkips = 0;     // count of fetches skipped under the heap floor
 };

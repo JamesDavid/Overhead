@@ -107,12 +107,16 @@ static void splash(const char* msg) {
   g.drawString(msg, g.width() / 2, g.height() / 2 + 12);
 }
 
+static uint32_t gHeapBlkMin = 0xFFFFFFFF;   // low-water of the largest free block
+
 static void fillStatusJson(JsonDocument& d) {
   d["fw"]       = OVERHEAD_FW_VERSION;
   d["board"]    = BOARD_NAME;
   d["uptimeS"]  = (uint32_t)(millis() / 1000);
   d["heap"]     = Display::freeHeap();
   d["heapBlk"]  = Display::largestFreeBlock();
+  d["heapBlkMin"] = gHeapBlkMin;                 // worst-case contiguous block seen
+  d["httpsSkip"]  = (uint32_t)net.httpsSkips();  // fetches skipped under the TLS floor
   d["psram"]    = Display::psramSize();
   d["wifi"]     = WiFi.status() == WL_CONNECTED;
   d["ssid"]     = WiFi.SSID();
@@ -276,6 +280,10 @@ void loop() {
     if (down > 8000 && !reconnTried) { WiFi.reconnect(); reconnTried = true; Serial.println("[wd] wifi reconnect"); }
     if (down > 90000) { Serial.println("[wd] wifi down 90s -> reboot"); delay(50); ESP.restart(); }
   }
+
+  // Memory-pressure low-water: the worst contiguous block seen (vs the ~42KB TLS
+  // floor) is the key health metric on this no-PSRAM board.
+  { uint32_t blk = ESP.getMaxAllocHeap(); if (blk < gHeapBlkMin) gHeapBlkMin = blk; }
 
   // Loop-timing heartbeat: if dt spikes, the UI/touch loop is being starved.
   static uint32_t lastHb = 0, maxDt = 0;

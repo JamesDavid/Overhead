@@ -59,7 +59,8 @@ void NetClient::perform(Job* job) {
   if (job->url.startsWith("https://") &&
       heap_caps_get_largest_free_block(MALLOC_CAP_8BIT) < 42000) {
     job->code = -3;
-    Serial.printf("[net] skip (low heap) %.40s\n", job->url.c_str());
+    _httpsSkips++;
+    Serial.printf("[net] skip (low heap, %u total) %.40s\n", (unsigned)_httpsSkips, job->url.c_str());
     return;
   }
 
