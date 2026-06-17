@@ -72,8 +72,9 @@ void PageHealth::onTouch(App& app, int x, int y) {
     _swx.refresh(true); _wx.refresh(true);
   } else if (col == 1) {                          // Recalibrate touch
     _touch.calibrate(app.display());
-  } else {                                        // Reboot
-    delay(150); ESP.restart();
+  } else {                                        // Reboot (two-tap confirm)
+    if (_rebootArm && millis() - _rebootArmMs < 4000) { delay(150); ESP.restart(); }
+    else { _rebootArm = true; _rebootArmMs = millis(); }
   }
   _dirty = _needClear = true;
 }
@@ -138,11 +139,12 @@ void PageHealth::draw(App& app) {
 
   // Button row.
   int by = cy0 + ch - 22, bw = cw / 3;
-  const char* labels[] = {"Refresh", "Calibrate", "Reboot"};
+  bool arm = _rebootArm && millis() - _rebootArmMs < 4000;
+  const char* labels[] = {"Refresh", "Calibrate", arm ? "Reboot?" : "Reboot"};
   for (int i = 0; i < 3; ++i) {
     g.drawRect(i * bw + 2, by, bw - 4, 18, gTheme.grid);
     g.setTextDatum(textdatum_t::middle_center);
-    g.setTextColor(gTheme.accent, gTheme.bg);
+    g.setTextColor(i == 2 && arm ? gTheme.warn : gTheme.accent, gTheme.bg);
     g.drawString(labels[i], i * bw + bw / 2, by + 9);
   }
 }

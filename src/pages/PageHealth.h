@@ -51,4 +51,6 @@ private:
   bool _dirty = true;
   bool _needClear = true;
   uint32_t _lastDraw = 0;
+  bool _rebootArm = false;        // two-tap reboot confirm
+  uint32_t _rebootArmMs = 0;
 };

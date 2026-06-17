@@ -227,6 +227,12 @@ void PageAircraft::draw(App& app) {
     int ty = ay - (int)round(7 * cos(a.trackDeg * D2R));
     g.drawLine(ax, ay, tx, ty, c);
     g.fillCircle(ax, ay, (i == _sel) ? 3 : 2, c);
+    if (i == _sel) {                                  // label the selected blip
+      String cs = a.flight.length() ? a.flight : a.hex;
+      g.setTextDatum(textdatum_t::bottom_left);
+      g.setTextColor(gTheme.ok, gTheme.bg);
+      g.drawString(cs, ax + 4, ay - 2);
+    }
   }
 
   // Info column.
