@@ -86,10 +86,16 @@ void PageSatellites::recomputePass(time_t now) {
 void PageSatellites::recomputeGraph() {
   _graphEl.clear(); _passAz.clear();
   if (!_pass.valid || _pass.los <= _pass.aos) return;
-  const int N = 40;
-  long span = (long)_pass.los - (long)_pass.aos;
-  for (int k = 0; k <= N; ++k) {                       // az + el across the pass
-    astro::SatObservation o = _eng.observe(_pass.aos + (time_t)(span * k / N));
+  // Sample horizon-to-horizon (extend past the minEl crossings down to el<=0) so the
+  // polar view can dash the below-threshold approach/departure.
+  time_t rise = _pass.aos, set = _pass.los;
+  for (int g = 0; g < 40 && _eng.observe(rise).elDeg > 0.0; ++g) rise -= 30;
+  for (int g = 0; g < 40 && _eng.observe(set).elDeg  > 0.0; ++g) set  += 30;
+  const int N = 56;
+  long span = (long)set - (long)rise;
+  if (span <= 0) return;
+  for (int k = 0; k <= N; ++k) {                       // az + el across the full pass
+    astro::SatObservation o = _eng.observe(rise + (time_t)(span * k / N));
     _graphEl.push_back((float)o.elDeg);
     _passAz.push_back((float)o.azDeg);
   }
@@ -267,20 +273,23 @@ void PageSatellites::drawPolarView(App& app, const astro::SatObservation& o) {
     sy = cy - (int)round(rr * cos(az * D2R));
   };
   if (_passAz.size() >= 2 && _passAz.size() == _graphEl.size()) {
-    int px = -1, py = -1;
+    int me = minEl();
+    int px = -1, py = -1; float pel = -1; int aosIdx = -1, losIdx = -1;
     for (size_t i = 0; i < _passAz.size(); ++i) {
-      if (_graphEl[i] < 0) { px = -1; continue; }
-      int sx, sy; polar(_passAz[i], _graphEl[i], sx, sy);
-      if (px >= 0) g.drawLine(px, py, sx, sy, gTheme.accent);
-      px = sx; py = sy;
+      float el = _graphEl[i];
+      if (el <= 0) { px = -1; pel = el; continue; }              // below horizon: gap
+      if (el >= me) { if (aosIdx < 0) aosIdx = (int)i; losIdx = (int)i; }
+      int sx, sy; polar(_passAz[i], el, sx, sy);
+      if (px >= 0) {
+        if (el >= me && pel >= me) g.drawLine(px, py, sx, sy, gTheme.accent);   // above minEl: solid
+        else if (i & 1)            g.drawLine(px, py, sx, sy, gTheme.dim);       // below minEl: dashed
+      }
+      px = sx; py = sy; pel = el;
     }
-    int sx, sy;
     g.setTextDatum(textdatum_t::middle_left);
     g.setTextColor(gTheme.dim, gTheme.bg);
-    polar(_passAz.front(), _graphEl.front() < 0 ? 0 : _graphEl.front(), sx, sy);
-    g.fillCircle(sx, sy, 2, gTheme.ok); g.drawString("AOS", sx + 4, sy);
-    polar(_passAz.back(), _graphEl.back() < 0 ? 0 : _graphEl.back(), sx, sy);
-    g.fillCircle(sx, sy, 2, gTheme.ok); g.drawString("LOS", sx + 4, sy);
+    if (aosIdx >= 0) { int sx, sy; polar(_passAz[aosIdx], _graphEl[aosIdx], sx, sy); g.fillCircle(sx, sy, 2, gTheme.ok); g.drawString("AOS", sx + 4, sy); }
+    if (losIdx >= 0) { int sx, sy; polar(_passAz[losIdx], _graphEl[losIdx], sx, sy); g.fillCircle(sx, sy, 2, gTheme.ok); g.drawString("LOS", sx + 4, sy); }
   }
 
   if (o.elDeg > 0) {

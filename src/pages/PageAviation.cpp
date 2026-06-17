@@ -488,10 +488,13 @@ void PageAviation::drawTrends(App& app) {
   snprintf(cv, sizeof(cv), "%dhPa", pp); snprintf(cv2, sizeof(cv2), "%.2fin", pp * 0.02953f);
   sparkRow(3, "press", gP, cv, cv2, gTheme.ok);
 
-  // Conclusion from now -> +6h.
-  int dP = (gP(now + 6) != SENT && gP(now) != SENT) ? gP(now + 6) - gP(now) : 0;
+  // Conclusion over the displayed window (now -> end), so it matches the graph.
+  int Pe = SENT, Ce = SENT;
+  for (int i = now + span; i > now; --i) { if (gP(i) != SENT) { Pe = gP(i); break; } }
+  for (int i = now + span; i > now; --i) { if (gC(i) != SENT) { Ce = gC(i); break; } }
+  int dP = (Pe != SENT && gP(now) != SENT) ? Pe - gP(now) : 0;
+  int dC = (Ce != SENT && gC(now) != SENT) ? Ce - gC(now) : 0;
   int spread = (gT(now) != SENT && gD(now) != SENT) ? gT(now) - gD(now) : 99;
-  int dC = (gC(now + 6) != SENT && gC(now) != SENT) ? gC(now + 6) - gC(now) : 0;
   String concl = dP <= -2 ? "pressure falling - unsettled"
                : dP >= 2  ? "pressure rising - improving" : "pressure steady";
   if (spread <= 2)      concl += "; fog/low-cld risk";

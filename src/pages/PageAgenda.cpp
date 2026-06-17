@@ -171,23 +171,36 @@ void PageAgenda::draw(App& app) {
     if (_moonUp[h]) g.fillRect(x0, sy + sh - 4, w, 4, gTheme.mono ? rgb565(90, 22, 0) : rgb565(70, 60, 30)); // moon-up
   }
   g.drawRect(sx, sy, sw, sh, gTheme.grid);
-  // Hour ticks.
+  // Hour ticks: local time only, with a small tick marking the exact moment.
   g.setTextColor(gTheme.dim, gTheme.bg);
+  g.setTextDatum(textdatum_t::top_left);
   for (int hh = 0; hh <= 24; hh += 6) {
     int x = sx + sw * hh / kHours;
     g.drawFastVLine(x, sy, sh, gTheme.grid);
     if (hh < 24) {                                   // skip the right-edge tick (would clip)
+      g.drawFastVLine(x, sy + sh + 1, 2, gTheme.fg); // exact-time tick below the strip
       time_t t = _base + (time_t)hh * 3600; struct tm tm; localtime_r(&t, &tm);
       char lt[8]; strftime(lt, sizeof(lt), "%H:%M", &tm);
-      g.drawString((hh == 0 ? String("now") : String("+") + hh) + " " + lt, x + 1, sy + sh + 1);
+      g.setTextColor(gTheme.dim, gTheme.bg);
+      g.drawString(lt, x + 3, sy + sh + 1);
     }
   }
-  // Event markers on the strip (accent=pass, warn=launch, ok=sun/moon).
+  // Event markers on the strip (accent=pass, warn=launch, ok=sun/moon) with a short
+  // label rotated 90 CW sitting on the line.
   for (const auto& e : _events) {
     int hoff = (int)((e.t - _base) / 3600);
     if (hoff < 0 || hoff >= kHours) continue;
     int x = sx + sw * hoff / kHours;
-    g.drawFastVLine(x, sy, sh, e.kind == 1 ? gTheme.warn : e.kind == 2 ? gTheme.ok : gTheme.accent);
+    Color ec = e.kind == 1 ? gTheme.warn : e.kind == 2 ? gTheme.ok : gTheme.accent;
+    g.drawFastVLine(x, sy, sh, ec);
+    String tag = e.label; int spc = tag.indexOf(' '); if (spc > 0) tag = tag.substring(0, spc);
+    g.setTextDatum(textdatum_t::top_left);           // stacked vertical chars down the line
+    g.setTextColor(ec);                              // transparent bg: don't box out the shading
+    for (int ci = 0; ci < (int)tag.length(); ++ci) {
+      int yy = sy + 2 + ci * 8;
+      if (yy > sy + sh - 7) break;
+      g.drawString(String(tag[ci]), x + 2, yy);
+    }
   }
 
   // --- Legend ---
