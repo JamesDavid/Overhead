@@ -51,8 +51,22 @@ void PageAircraft::onTouch(App& app, int x, int y) {
   if (handleChipTap(app, x, y)) return;            // top centre-selector chips
   if (handleRadiusTap(app, x, y)) return;          // bottom-left range badge
   if (handleGroundTap(app, x, y)) return;          // ground-filter badge (right of it)
-  int n = (int)_ap.aircraft().size();
+  const auto& list = _ap.aircraft();
+  int n = (int)list.size();
   if (n == 0) { _sel = -1; return; }
+  // Tap on (near) a radar blip selects it.
+  if (_rR > 0 && x < app.contentW() / 2) {
+    int ty = y + app.contentY();                    // onTouch y is content-relative
+    int best = -1, bestd2 = 15 * 15;
+    for (int i = 0; i < n; ++i) {
+      float rr = list[i].distNm / _rMaxR * _rR; if (rr > _rR) rr = _rR;
+      int ax = _rCx + (int)round(rr * sin(list[i].bearingDeg * D2R));
+      int ay = _rCy - (int)round(rr * cos(list[i].bearingDeg * D2R));
+      int d2 = (ax - x) * (ax - x) + (ay - ty) * (ay - ty);
+      if (d2 < bestd2) { bestd2 = d2; best = i; }
+    }
+    if (best >= 0) { _sel = best; _needClear = _dirty = true; return; }
+  }
   int third = app.contentW() / 3;
   if (x < third)          { _sel = (_sel <= 0 ? n - 1 : _sel - 1); _needClear = true; }
   else if (x > 2 * third) { _sel = (_sel + 1) % n;                 _needClear = true; }
@@ -190,6 +204,7 @@ void PageAircraft::draw(App& app) {
   int R = size / 2 - 12;
   int cx = 8 + R + 8, cy = top + (ch - chipH) / 2;
   float maxR = _ap.radiusNm();
+  _rCx = cx; _rCy = cy; _rR = R; _rMaxR = maxR;     // remember for tap-on-blip
   g.fillRect(cx - R - 4, cy - R - 10, 2 * R + 8, 2 * R + 20, gTheme.bg);
 
   g.drawCircle(cx, cy, R, gTheme.grid);

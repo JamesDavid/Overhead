@@ -50,4 +50,7 @@ private:
   static constexpr int kMaxChips = 8;
   int    _chipX[kMaxChips] = {0}, _chipW[kMaxChips] = {0}, _chipCount = 0;
   String _chipIcao[kMaxChips];
+
+  int    _rCx = 0, _rCy = 0, _rR = 0;     // radar geometry (set in draw, for tap-on-blip)
+  float  _rMaxR = 0;
 };
