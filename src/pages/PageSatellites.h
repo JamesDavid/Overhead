@@ -63,6 +63,7 @@ private:
   astro::SatPass _pass;
   std::vector<TrackPt> _track;
   std::vector<float>   _graphEl;       // elevation samples aos..los
+  std::vector<float>   _passAz;        // matching azimuth samples (for the polar arc)
 
   View     _view     = View::Polar;
   bool     _dirty    = true;

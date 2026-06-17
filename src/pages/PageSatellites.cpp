@@ -78,18 +78,21 @@ void PageSatellites::reloadSelected() {
 }
 
 void PageSatellites::recomputePass(time_t now) {
-  if (!_loaded) { _pass = astro::SatPass{}; _graphEl.clear(); return; }
+  if (!_loaded) { _pass = astro::SatPass{}; _graphEl.clear(); _passAz.clear(); return; }
   _pass = _eng.nextPass(now, (double)minEl(), 60);
   recomputeGraph();
 }
 
 void PageSatellites::recomputeGraph() {
-  _graphEl.clear();
+  _graphEl.clear(); _passAz.clear();
   if (!_pass.valid || _pass.los <= _pass.aos) return;
   const int N = 40;
   long span = (long)_pass.los - (long)_pass.aos;
-  for (int k = 0; k <= N; ++k)
-    _graphEl.push_back((float)_eng.elevationAt(_pass.aos + (time_t)(span * k / N)));
+  for (int k = 0; k <= N; ++k) {                       // az + el across the pass
+    astro::SatObservation o = _eng.observe(_pass.aos + (time_t)(span * k / N));
+    _graphEl.push_back((float)o.elDeg);
+    _passAz.push_back((float)o.azDeg);
+  }
 }
 
 void PageSatellites::recomputeTrack(time_t now) {
@@ -256,6 +259,29 @@ void PageSatellites::drawPolarView(App& app, const astro::SatObservation& o) {
   g.setTextDatum(textdatum_t::middle_center);
   g.drawString("N", cx, cy - R - 6); g.drawString("S", cx, cy + R + 6);
   g.drawString("E", cx + R + 6, cy); g.drawString("W", cx - R - 6, cy);
+
+  // Predicted pass arc: the az/el trajectory the satellite traces from AOS to LOS.
+  auto polar = [&](float az, float el, int& sx, int& sy) {
+    double rr = R * (90.0 - el) / 90.0;
+    sx = cx + (int)round(rr * sin(az * D2R));
+    sy = cy - (int)round(rr * cos(az * D2R));
+  };
+  if (_passAz.size() >= 2 && _passAz.size() == _graphEl.size()) {
+    int px = -1, py = -1;
+    for (size_t i = 0; i < _passAz.size(); ++i) {
+      if (_graphEl[i] < 0) { px = -1; continue; }
+      int sx, sy; polar(_passAz[i], _graphEl[i], sx, sy);
+      if (px >= 0) g.drawLine(px, py, sx, sy, gTheme.accent);
+      px = sx; py = sy;
+    }
+    int sx, sy;
+    g.setTextDatum(textdatum_t::middle_left);
+    g.setTextColor(gTheme.dim, gTheme.bg);
+    polar(_passAz.front(), _graphEl.front() < 0 ? 0 : _graphEl.front(), sx, sy);
+    g.fillCircle(sx, sy, 2, gTheme.ok); g.drawString("AOS", sx + 4, sy);
+    polar(_passAz.back(), _graphEl.back() < 0 ? 0 : _graphEl.back(), sx, sy);
+    g.fillCircle(sx, sy, 2, gTheme.ok); g.drawString("LOS", sx + 4, sy);
+  }
 
   if (o.elDeg > 0) {
     double rr = R * (90.0 - o.elDeg) / 90.0;
