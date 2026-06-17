@@ -11,6 +11,14 @@
 
 static constexpr double D2R = 3.14159265358979323846 / 180.0;
 
+// Decode an emergency transponder code; nullptr if it's a routine squawk.
+static const char* squawkAlert(const String& sq) {
+  if (sq == "7700") return "EMERGENCY";
+  if (sq == "7600") return "RADIO FAIL";
+  if (sq == "7500") return "HIJACK";
+  return nullptr;
+}
+
 void PageAircraft::onEnter(App& app) {
   _dirty = _needClear = true;
   _ap.setForeground(true);   // full-rate polling + an immediate refresh on entry
@@ -198,11 +206,31 @@ void PageAircraft::draw(App& app) {
   }
   if (_sel >= (int)list.size()) _sel = list.size() - 1;
 
+  // Emergency-squawk alert strip (full width, below the chips). The page clears
+  // fully when the emergency state flips so a cleared strip leaves no residue.
+  int emIdx = -1;
+  for (int i = 0; i < (int)list.size(); ++i) if (squawkAlert(list[i].squawk)) { emIdx = i; break; }
+  if ((emIdx >= 0) != _wasEmerg) { g.fillRect(0, cy0, cw, ch, gTheme.bg); _wasEmerg = (emIdx >= 0); }
+  int alertH = 0;
+  if (emIdx >= 0) {
+    const Aircraft& e = list[emIdx];
+    int ay0 = cy0 + chipH;
+    g.fillRect(0, ay0, cw, 14, gTheme.warn);
+    g.setTextDatum(textdatum_t::middle_left);
+    g.setTextColor(gTheme.bg, gTheme.warn);
+    g.setTextSize(1);
+    g.drawString(String("! ") + e.squawk + " " + squawkAlert(e.squawk) + ": " +
+                 (e.flight.length() ? e.flight : e.hex) + "  " + (int)round(e.distNm) + "nm",
+                 4, ay0 + 7);
+    alertH = 15;
+  }
+  top += alertH;
+
   // Radar on the left. Clear just the circle's bbox each tick (blips move);
   // the info column on the right redraws in place (padded) so it stays stable.
-  int size = min(ch - 8 - chipH, cw / 2 - 8);
+  int size = min(ch - 8 - chipH - alertH, cw / 2 - 8);
   int R = size / 2 - 12;
-  int cx = 8 + R + 8, cy = top + (ch - chipH) / 2;
+  int cx = 8 + R + 8, cy = top + (ch - chipH - alertH) / 2;
   float maxR = _ap.radiusNm();
   _rCx = cx; _rCy = cy; _rR = R; _rMaxR = maxR;     // remember for tap-on-blip
   g.fillRect(cx - R - 4, cy - R - 10, 2 * R + 8, 2 * R + 20, gTheme.bg);
@@ -221,12 +249,14 @@ void PageAircraft::draw(App& app) {
     float rr = a.distNm / maxR * R; if (rr > R) rr = R;
     int ax = cx + (int)round(rr * sin(a.bearingDeg * D2R));
     int ay = cy - (int)round(rr * cos(a.bearingDeg * D2R));
-    Color c = (i == _sel) ? gTheme.ok : (a.onGround ? gTheme.dim : gTheme.accent);
+    bool emerg = squawkAlert(a.squawk) != nullptr;
+    Color c = emerg ? gTheme.warn : (i == _sel) ? gTheme.ok : (a.onGround ? gTheme.dim : gTheme.accent);
     // Heading tick in the track direction.
     int tx = ax + (int)round(7 * sin(a.trackDeg * D2R));
     int ty = ay - (int)round(7 * cos(a.trackDeg * D2R));
     g.drawLine(ax, ay, tx, ty, c);
     g.fillCircle(ax, ay, (i == _sel) ? 3 : 2, c);
+    if (emerg) g.drawCircle(ax, ay, 6, gTheme.warn);  // ring an emergency contact
     if (i == _sel) {                                  // label the selected blip
       String cs = a.flight.length() ? a.flight : a.hex;
       g.setTextDatum(textdatum_t::bottom_left);
@@ -264,8 +294,8 @@ void PageAircraft::draw(App& app) {
     line(String("gs ") + (int)a.gsKt + " kt  trk " + (int)a.trackDeg, gTheme.fg);
     line(String("dist ") + (int)round(a.distNm) + " nm  brg " + (int)round(a.bearingDeg), gTheme.fg);
     if (a.squawk.length()) {
-      bool emerg = (a.squawk == "7700" || a.squawk == "7600" || a.squawk == "7500");
-      line(String("squawk ") + a.squawk, emerg ? gTheme.warn : gTheme.dim);
+      const char* em = squawkAlert(a.squawk);
+      line(String("squawk ") + a.squawk + (em ? String("  ") + em : String()), em ? gTheme.warn : gTheme.dim);
     }
   }
 

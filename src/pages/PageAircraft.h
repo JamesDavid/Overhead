@@ -45,6 +45,7 @@ private:
   bool  _dirty = true;
   bool  _needClear = true;   // full-clear only on structural change (anti-flicker)
   bool  _wasEmpty = true;    // track empty<->populated to clear only on transition
+  bool  _wasEmerg = false;   // track emergency-squawk presence (clear strip on change)
   uint32_t _lastDraw = 0;
 
   static constexpr int kMaxChips = 8;

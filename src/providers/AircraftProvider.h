@@ -42,6 +42,12 @@ public:
   bool           local() const { return _local; }
   float          radiusNm() const { return _radiusNm; }
   bool           hideGround() const { return _hideGround; }
+  // Any contact squawking a 75/76/7700 emergency code (for a cross-tab alert).
+  bool           hasEmergency() const {
+    for (const auto& a : _ac)
+      if (a.squawk == "7700" || a.squawk == "7600" || a.squawk == "7500") return true;
+    return false;
+  }
 
 private:
   void parse(const String& body);
