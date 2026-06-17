@@ -36,7 +36,7 @@ const F=[
  ['nightAmbientAlt','night ambient sun-alt','n'],['inactivitySec','inactivity->auto (s)','n'],
  ['Aircraft'],['adsbMode','mode','sel',['cloud','local']],['adsbHost','local host','t'],['adsbRadiusNm','radius (nm)','n'],
  ['Refresh'],['refreshLaunchMin','launches (min)','n'],['refreshTleHour','TLE (h)','n'],['refreshSpaceWxMin','space wx (min)','n'],['refreshWeatherMin','weather (min)','n'],
- ['Network'],['hostname','mDNS name (x.local)','t'],
+ ['Network'],['hostname','mDNS name (x.local)','t'],['debugShots','remote screenshots (uses 16KB)','c'],
  ['Web/OTA'],['otaUser','user','t'],['otaPass','password','t'],
 ];
 const ORRERY=['Roadster','Psyche','Ceres','Vesta'];  // selectable minor bodies (astro catalog)

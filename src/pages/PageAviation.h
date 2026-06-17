@@ -6,6 +6,7 @@ class AviationWxProvider;
 class SoundingProvider;
 class HazardProvider;
 class WeatherProvider;
+class PressureMapProvider;
 class LocationService;
 
 // pages/PageAviation — aviation weather "brief" (spec §14). Three views toggled
@@ -15,8 +16,8 @@ class LocationService;
 class PageAviation : public Page {
 public:
   PageAviation(AviationWxProvider& wx, SoundingProvider& snd, HazardProvider& haz,
-               WeatherProvider& wxo, LocationService& loc)
-    : _wx(wx), _snd(snd), _haz(haz), _wxo(wxo), _loc(loc) {}
+               WeatherProvider& wxo, PressureMapProvider& pmap, LocationService& loc)
+    : _wx(wx), _snd(snd), _haz(haz), _wxo(wxo), _pmap(pmap), _loc(loc) {}
 
   const char* title() const override { return "Aviation"; }
   void focusSpeci();              // Director: jump to the SPECI station's METAR view
@@ -27,7 +28,7 @@ public:
   bool autoAdvance(App& app) override;
 
 private:
-  enum class View { Metar, Map, Taf, Sounding, Hazards, Trends };
+  enum class View { Metar, Map, Taf, Sounding, Hazards, Trends, Pressure };
   void draw(App& app);
   void drawMetar(App& app);
   void drawMap(App& app);
@@ -35,12 +36,15 @@ private:
   void drawSounding(App& app);
   void drawHazards(App& app);
   void drawTrends(App& app);
+  void drawPressure(App& app);
 
   AviationWxProvider& _wx;
   SoundingProvider&   _snd;
   HazardProvider&     _haz;
   WeatherProvider&    _wxo;    // Open-Meteo hourly series (area trends)
+  PressureMapProvider& _pmap;  // major-airport METAR pressure/cloud map
   LocationService&    _loc;
+  bool  _presCloud = false;    // pressure-map mode: false=pressure, true=cloud
   View  _view = View::Map;     // Map is the default Aviation view (then Metar/Sounding/Hazards)
   int   _sel = 0;
   int   _mapZoom = 0;          // airport-map zoom index (top-left badge cycles)

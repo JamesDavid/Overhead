@@ -8,7 +8,8 @@
   static constexpr int kBlChannel = 7;   // LEDC channel for the backlight PWM
 #endif
 
-bool Display::begin() {
+bool Display::begin(bool enableShots) {
+  _shotsEnabled = enableShots;
 #if BACKLIGHT_VIA_EXPANDER
   // CrowPanel: the I2C expander gates LCD reset + backlight, so it must come
   // up before/around the panel (crowpanel-5in.md §4). Wire owns I2C_NUM_0;
@@ -29,7 +30,10 @@ bool Display::begin() {
   ledcAttachPin(PIN_TFT_BL, kBlChannel);
 #endif
   setBacklight(255);
-  _jpg = (uint8_t*)malloc(kJpgMax);   // screenshot buffer — once, while the heap is fresh
+  // Screenshot buffer — once, while the heap is fresh. Gated by a setting: on a
+  // no-PSRAM board this 16 KB permanently sits in the band TLS needs, so leaving it
+  // off (production, no remote screenshots) frees the heap floor for HTTPS.
+  if (_shotsEnabled) _jpg = (uint8_t*)malloc(kJpgMax);
   return true;
 }
 

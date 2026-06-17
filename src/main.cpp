@@ -46,6 +46,7 @@
 #include "pages/PageStarMap.h"
 #include "pages/PageMissions.h"
 #include "providers/MarsProvider.h"
+#include "providers/PressureMapProvider.h"
 #include "pages/PageAviation.h"
 #if ASTRO_SELFTEST
 #include "astro/SelfTest.h"
@@ -78,6 +79,7 @@ static AviationWxProvider avwxProv;
 static SoundingProvider sndProv;
 static HazardProvider   hazProv;
 static MarsProvider     marsProv;
+static PressureMapProvider pmapProv;
 // --- pages ---
 static String          gHostname;
 static PageAgenda*     agendaPage = nullptr;
@@ -155,7 +157,7 @@ void setup() {
   settings.begin();
   cache.begin();
 
-  if (!display.begin()) Serial.println("[display] init FAILED");
+  if (!display.begin(settings.getBool("debugShots", true))) Serial.println("[display] init FAILED");
   touch.begin(display);
 
 #if ASTRO_SELFTEST
@@ -189,6 +191,7 @@ void setup() {
   sndProv.begin(&settings, &net, &cache, &bus, &locSvc);
   hazProv.begin(&settings, &net, &cache, &bus, &locSvc);
   marsProv.begin(&settings, &net, &cache, &bus);
+  pmapProv.begin(&settings, &net, &cache, &locSvc);
 
   web.setStatusJsonProvider(fillStatusJson);
   web.setDebug(&app, &display);     // /api/screen.bmp, /api/tap, /api/swipe
@@ -224,12 +227,13 @@ void setup() {
   sched.every(60UL * 60UL * 1000UL, [] { sndProv.refresh(); }, /*runNow=*/false);   // hourly sounding
   sched.every(15UL * 60UL * 1000UL, [] { hazProv.refresh(); }, /*runNow=*/false);   // hazards
   sched.every(6UL * 60UL * 60UL * 1000UL, [] { marsProv.refresh(); }, /*runNow=*/false);  // rovers ~6h
+  sched.every(45UL * 60UL * 1000UL, [] { pmapProv.refresh(); }, /*runNow=*/false);         // pressure map
 
   // UI carousel, ground->space order: Launches, Aircraft, Satellites, Diagnostics.
   agendaPage = new PageAgenda(timeSvc, locSvc, weatherProv, tleProv, launchProv, settings);
   launchesPage = new PageLaunches(launchProv, timeSvc);
   aircraftPage = new PageAircraft(aircraftProv, avwxProv, locSvc, settings);
-  aviationPage = new PageAviation(avwxProv, sndProv, hazProv, weatherProv, locSvc);
+  aviationPage = new PageAviation(avwxProv, sndProv, hazProv, weatherProv, pmapProv, locSvc);
   satsPage = new PageSatellites(tleProv, locSvc, timeSvc, settings);
   solarPage = new PageSolarSystem(timeSvc, locSvc, settings);
   starPage = new PageStarMap(timeSvc, locSvc);

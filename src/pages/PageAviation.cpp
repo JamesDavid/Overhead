@@ -6,6 +6,8 @@
 #include "../providers/SoundingProvider.h"
 #include "../providers/HazardProvider.h"
 #include "../providers/WeatherProvider.h"
+#include "../providers/PressureMapProvider.h"
+#include "../assets/Coastline.h"
 #include "../services/LocationService.h"
 #include <math.h>
 #include <functional>
@@ -56,12 +58,15 @@ void PageAviation::onTouch(App& app, int x, int y) {
   if (x >= third && x <= 2 * third) {               // centre: cycle view (Map first)
     _view = _view == View::Map ? View::Metar : _view == View::Metar ? View::Taf
           : _view == View::Taf ? View::Sounding : _view == View::Sounding ? View::Hazards
-          : _view == View::Hazards ? View::Trends : View::Map;
+          : _view == View::Hazards ? View::Trends : _view == View::Trends ? View::Pressure : View::Map;
     _needClear = _dirty = true; return;
   }
   if (_view == View::Map && x < 50 && y < 16) {     // top-left badge: cycle map zoom
     _mapZoom = (_mapZoom + 1) % kMapZoomN;
     _needClear = _dirty = true; return;
+  }
+  if (_view == View::Pressure && x < 60 && y < 16) { // top-left badge: pressure<->cloud
+    _presCloud = !_presCloud; _needClear = _dirty = true; return;
   }
   int n = (int)_wx.stations().size();
   if (n && (_view == View::Metar || _view == View::Map || _view == View::Taf)) {   // edges step stations
@@ -73,12 +78,12 @@ void PageAviation::onTouch(App& app, int x, int y) {
 bool PageAviation::autoAdvance(App&) {
   bool cycled = false;
   auto nextView = [&]() {
-    bool wasLast = (_view == View::Trends);
+    bool wasLast = (_view == View::Pressure);
     _view = _view == View::Map ? View::Metar : _view == View::Metar ? View::Taf
           : _view == View::Taf ? View::Sounding : _view == View::Sounding ? View::Hazards
-          : _view == View::Hazards ? View::Trends : View::Map;
+          : _view == View::Hazards ? View::Trends : _view == View::Trends ? View::Pressure : View::Map;
     _tourN = 0; _sel = 0;
-    if (wasLast) cycled = true;            // Trends -> Map = full cycle
+    if (wasLast) cycled = true;            // Pressure -> Map = full cycle
   };
   int n = (int)_wx.stations().size();
   if ((_view == View::Metar || _view == View::Map || _view == View::Taf) && n > 0) {
@@ -106,7 +111,8 @@ void PageAviation::draw(App& app) {
   else if (_view == View::Taf)      drawTaf(app);
   else if (_view == View::Sounding) drawSounding(app);
   else if (_view == View::Hazards)  drawHazards(app);
-  else                              drawTrends(app);
+  else if (_view == View::Trends)   drawTrends(app);
+  else                              drawPressure(app);
 }
 
 void PageAviation::drawMetar(App& app) {
@@ -503,4 +509,64 @@ void PageAviation::drawTrends(App& app) {
   g.setTextDatum(textdatum_t::bottom_left);
   g.setTextColor(gTheme.accent, gTheme.bg);
   g.drawString(concl.substring(0, (cw - 8) / 6), 4, cy0 + ch - 2);
+}
+
+// Makeshift synoptic map from major-airport METARs: each station plotted on a
+// region coastline, coloured by sea-level pressure (blue high / red low) with the
+// max/min flagged H/L, or by cloud cover (top-left badge toggles). Not a real WPC
+// frontal analysis, but a recognisable high/low pattern from a feed we already use.
+void PageAviation::drawPressure(App& app) {
+  auto& g = app.display().gfx();
+  const int cw = app.contentW(), cy0 = app.contentY(), ch = app.contentH();
+  const auto& pts = _pmap.points();
+  bool world = _pmap.worldwide();
+
+  g.setTextDatum(textdatum_t::top_left); g.setTextSize(1);
+  g.fillRect(2, cy0 + 2, 52, 12, gTheme.grid);                 // mode badge
+  g.setTextColor(gTheme.fg, gTheme.grid); g.drawString(_presCloud ? "cloud" : "hPa", 6, cy0 + 3);
+  g.setTextColor(gTheme.fg, gTheme.bg);
+  g.drawString(String(world ? "World " : "US ") + (_presCloud ? "cloud" : "pressure") + "  [tap mid: metar]", 60, cy0 + 3);
+
+  if (pts.empty()) {
+    g.setTextColor(gTheme.dim, gTheme.bg);
+    g.drawString(_pmap.status() == ProviderStatus::Error ? "pressure feed down" : "loading...", 6, cy0 + ch / 2);
+    return;
+  }
+
+  double w0 = world ? -180 : -126, w1 = world ? 180 : -66, a0 = world ? -60 : 24, a1 = world ? 78 : 50;
+  int mx = 2, my = cy0 + 16, mw = cw - 4, mh = ch - 16 - 12;
+  auto SX = [&](double lon) { return mx + (int)((lon - w0) / (w1 - w0) * mw); };
+  auto SY = [&](double lat) { return my + (int)((a1 - lat) / (a1 - a0) * mh); };
+  g.drawRect(mx, my, mw, mh, gTheme.grid);
+  for (int i = 1; i < kCoastlineCount; ++i) {                  // coastline within the bbox
+    const CoastPt& a = kCoastline[i - 1]; const CoastPt& b = kCoastline[i];
+    if (a.lon == 999 || b.lon == 999 || abs(a.lon - b.lon) > 180) continue;
+    if (a.lon < w0 || a.lon > w1 || b.lon < w0 || b.lon > w1 || a.lat < a0 || a.lat > a1 || b.lat < a0 || b.lat > a1) continue;
+    g.drawLine(SX(a.lon), SY(a.lat), SX(b.lon), SY(b.lat), gTheme.dim);
+  }
+
+  int hi = -1, lo = -1, hv = -9999, lv = 9999;
+  for (size_t i = 0; i < pts.size(); ++i) {
+    int p = pts[i].hpa; if (p < 0) continue;
+    if (p > hv) { hv = p; hi = (int)i; }
+    if (p < lv) { lv = p; lo = (int)i; }
+  }
+  for (size_t i = 0; i < pts.size(); ++i) {
+    const PressurePt& p = pts[i];
+    int x = SX(p.lon), y = SY(p.lat);
+    if (x < mx || x > mx + mw || y < my || y > my + mh) continue;
+    Color c = _presCloud ? (p.cloud >= 70 ? gTheme.dim : p.cloud >= 30 ? gTheme.accent : gTheme.ok)
+                         : (p.hpa >= 1019 ? gTheme.accent : p.hpa <= 1009 ? gTheme.warn : gTheme.fg);
+    g.fillCircle(x, y, 2, c);
+    char b[8]; if (_presCloud) snprintf(b, sizeof(b), "%d", p.cloud); else snprintf(b, sizeof(b), "%02d", p.hpa % 100);
+    g.setTextDatum(textdatum_t::middle_left); g.setTextColor(c, gTheme.bg);
+    g.drawString(b, x + 3, y);
+  }
+  if (!_presCloud) {                                           // H / L markers
+    if (hi >= 0) { g.setTextDatum(textdatum_t::middle_center); g.setTextColor(gTheme.accent, gTheme.bg); g.drawString("H", SX(pts[hi].lon), SY(pts[hi].lat) - 8); }
+    if (lo >= 0) { g.setTextDatum(textdatum_t::middle_center); g.setTextColor(gTheme.warn,   gTheme.bg); g.drawString("L", SX(pts[lo].lon), SY(pts[lo].lat) - 8); }
+  }
+  g.setTextDatum(textdatum_t::bottom_left); g.setTextColor(gTheme.dim, gTheme.bg);
+  if (!_presCloud) g.drawString(String("H ") + hv + "  L " + lv + " hPa  blue=high red=low", 4, cy0 + ch - 1);
+  else             g.drawString("cloud %  green clear / blue part / dim overcast", 4, cy0 + ch - 1);
 }

@@ -10,7 +10,7 @@ class Display {
 public:
   // Panel init + board-default rotation + backlight on. On the CrowPanel this
   // also brings up the I2C I/O expander that gates the backlight.
-  bool begin();
+  bool begin(bool enableShots = true);
 
   LGFX& gfx() { return _lcd; }            // raw device (bring-up / Renderer)
 
@@ -39,6 +39,7 @@ private:
   static constexpr int kJpgMax = 16000;   // output cap (keeps largest free block > TLS floor)
   uint8_t* _jpg = nullptr;
   size_t   _jpgLen = 0;
+  bool     _shotsEnabled = true;          // gate the 16KB buffer (production frees it)
   volatile bool _shotPending = false;
   volatile bool _shotReady = false;
 #if BACKLIGHT_VIA_EXPANDER
