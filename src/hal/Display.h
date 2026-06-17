@@ -34,6 +34,7 @@ public:
   size_t jpegLen() const { return _jpgLen; }
 
 private:
+  int encodeJpeg(int quality);            // -> JPEG size in _jpg, or 0 if it overflowed
   LGFX _lcd;
   static constexpr int kJpgMax = 16000;   // output cap (keeps largest free block > TLS floor)
   uint8_t* _jpg = nullptr;

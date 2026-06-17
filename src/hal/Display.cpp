@@ -57,23 +57,18 @@ void Display::expanderBegin() {
 }
 #endif
 
-// JPEG-encode the framebuffer MCU-by-MCU (UI thread only — shares the SPI bus with
-// the live draw). Buffer is allocated here and freed by the web task after streaming.
-void Display::serviceShot() {
-  if (!_shotPending) return;
-  _shotPending = false;
-  _jpgLen = 0;
-  if (!_jpg) { _shotReady = true; return; }            // boot allocation failed
-
+// Encode the framebuffer at a given JPEG quality into _jpg; returns the byte size,
+// or 0 if it overflowed the buffer (so the caller can retry at lower quality).
+int Display::encodeJpeg(int quality) {
   static JPEGENC enc;                                  // static: keep the ~4 KB struct off the stack
   JPEGENCODE jpe;
   int W = _lcd.width(), H = _lcd.height();
   if (enc.open(_jpg, kJpgMax) != JPEGE_SUCCESS ||
-      enc.encodeBegin(&jpe, W, H, JPEGE_PIXEL_RGB888, JPEGE_SUBSAMPLE_420, JPEGE_Q_MED) != JPEGE_SUCCESS) {
-    _shotReady = true; return;
-  }
+      enc.encodeBegin(&jpe, W, H, JPEGE_PIXEL_RGB888, JPEGE_SUBSAMPLE_420, (uint8_t)quality) != JPEGE_SUCCESS)
+    return 0;
   static uint16_t blk[16 * 16];
   static uint8_t  mcu[16 * 16 * 3];
+  bool ok = true;
   while (jpe.y < H) {
     int bw = jpe.cx, bh = jpe.cy;
     _lcd.readRect(jpe.x, jpe.y, bw, bh, blk);
@@ -87,9 +82,21 @@ void Display::serviceShot() {
         p[1] = (c & 0x1f) << 3;          // G
         p[2] = ((c >> 5) & 0x3f) << 2;   // R
       }
-    if (enc.addMCU(&jpe, mcu, 16 * 3) != JPEGE_SUCCESS) break;
+    if (enc.addMCU(&jpe, mcu, 16 * 3) != JPEGE_SUCCESS) { ok = false; break; }  // buffer full
   }
-  _jpgLen = enc.close();
+  int sz = enc.close();
+  return (ok && jpe.y >= H) ? sz : 0;     // 0 = overflowed/incomplete -> retry lower quality
+}
+
+// UI thread only (shares the SPI bus with the live draw). Busy screens (big T-minus,
+// dense lists) blow past the buffer at medium quality, so fall back to low.
+void Display::serviceShot() {
+  if (!_shotPending) return;
+  _shotPending = false;
+  _jpgLen = 0;
+  if (!_jpg) { _shotReady = true; return; }            // boot allocation failed
+  _jpgLen = encodeJpeg(JPEGE_Q_MED);
+  if (_jpgLen == 0) _jpgLen = encodeJpeg(JPEGE_Q_LOW);
   _shotReady = true;
 }
 

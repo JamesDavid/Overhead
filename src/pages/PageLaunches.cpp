@@ -16,16 +16,32 @@ static bool precise(const String& p) {
   return p.length() == 0 || p == "Second" || p == "Minute" || p == "Hour";
 }
 
-void PageLaunches::onData(App& app, ProviderId id) {
-  if (id == ProviderId::Launch) {
-    int n = (int)_lp.launches().size();
-    if (_sel >= n) _sel = n ? n - 1 : 0;
+// Build the visible launch index list for the current time-window + TBD filter.
+void PageLaunches::rebuildFilter() {
+  _filtered.clear();
+  const long win[] = {86400L, 604800L, 2592000L, 0L};   // 24h, 7d, 30d, all
+  long w = win[_window];
+  time_t now = time(nullptr);
+  const auto& list = _lp.launches();
+  for (int i = 0; i < (int)list.size(); ++i) {
+    const Launch& l = list[i];
+    if (l.net == 0) { if (!_hideTBD) _filtered.push_back(i); continue; }   // NET TBD
+    if (w == 0 || (long)(l.net - now) <= w) _filtered.push_back(i);
   }
+  if (_sel >= (int)_filtered.size()) _sel = _filtered.empty() ? 0 : (int)_filtered.size() - 1;
+}
+
+void PageLaunches::onData(App& app, ProviderId id) {
+  if (id == ProviderId::Launch) rebuildFilter();
   _dirty = _needClear = true;
 }
 
 void PageLaunches::onTouch(App& app, int x, int y) {
-  int n = (int)_lp.launches().size();
+  if (y >= app.contentH() - 18) {                    // bottom filter chips
+    if (x < 44)      { _window = (_window + 1) % 4; rebuildFilter(); _sel = 0; _needClear = _dirty = true; return; }
+    else if (x < 92) { _hideTBD = !_hideTBD;        rebuildFilter(); _sel = 0; _needClear = _dirty = true; return; }
+  }
+  int n = (int)_filtered.size();
   if (n == 0) return;
   int third = app.contentW() / 3;
   if (x < third)          { _sel = (_sel - 1 + n) % n; _needClear = true; }
@@ -34,7 +50,7 @@ void PageLaunches::onTouch(App& app, int x, int y) {
 }
 
 bool PageLaunches::autoAdvance(App&) {
-  int n = (int)_lp.launches().size();      // single view: tour the upcoming launches
+  int n = (int)_filtered.size();           // single view: tour the filtered launches
   if (n <= 0) return true;
   _sel = (_sel + 1) % n; _needClear = _dirty = true;
   return _sel == 0;                        // wrapped = full cycle
@@ -57,15 +73,18 @@ void PageLaunches::drawMessage(App& app, const char* msg) {
 }
 
 void PageLaunches::draw(App& app) {
+  rebuildFilter();
   const auto& list = _lp.launches();
-  if (list.empty()) {
-    drawMessage(app, _lp.status() == ProviderStatus::Error ? "launch fetch failed"
-                   : _lp.status() == ProviderStatus::Loading ? "loading launches..."
-                   : "no upcoming launches");
+  if (_filtered.empty()) {
+    drawMessage(app, list.empty()
+                  ? (_lp.status() == ProviderStatus::Error ? "launch fetch failed"
+                     : _lp.status() == ProviderStatus::Loading ? "loading launches..." : "no upcoming launches")
+                  : "none in this window");
+    drawBadges(app);
     return;
   }
-  if (_sel >= (int)list.size()) _sel = 0;
-  const Launch& l = list[_sel];
+  if (_sel >= (int)_filtered.size()) _sel = 0;
+  const Launch& l = list[_filtered[_sel]];
 
   auto& g = app.display().gfx();
   const int cw = app.contentW(), cy0 = app.contentY(), ch = app.contentH();
@@ -94,7 +113,7 @@ void PageLaunches::draw(App& app) {
   line(String("@ ") + l.location, gTheme.accent);
   line(l.provider + (l.vehicle.length() ? "  -  " + l.vehicle : String()), gTheme.fg);
   line(l.pad + (l.mission.length() ? "  -  " + l.mission : String()), gTheme.dim);
-  line(String(_sel + 1) + "/" + list.size() + (_lp.usingFallback() ? "  (RLL)" : ""), gTheme.dim);
+  line(String(_sel + 1) + "/" + _filtered.size() + (_lp.usingFallback() ? "  (RLL)" : ""), gTheme.dim);
 
   // T-minus right under the index line (left-aligned); the list fills the rest.
   g.setTextDatum(textdatum_t::top_left);
@@ -123,9 +142,9 @@ void PageLaunches::draw(App& app) {
   // Upcoming list fills the remaining space.
   g.drawFastHLine(x0, y, cw - 2 * x0, gTheme.grid); y += 4;
   g.setTextSize(1);
-  for (int i = 0; i < (int)list.size() && y < cy0 + ch - 12; ++i) {
-    if (i == _sel) continue;
-    const Launch& u = list[i];
+  for (int fi = 0; fi < (int)_filtered.size() && y < cy0 + ch - 16; ++fi) {
+    if (fi == _sel) continue;
+    const Launch& u = list[_filtered[fi]];
     long s = (long)u.net - (long)now; if (s < 0) s = 0;
     char tm[12];
     if (u.net == 0) snprintf(tm, sizeof(tm), "TBD");
@@ -141,4 +160,19 @@ void PageLaunches::draw(App& app) {
     g.drawString(tm, cw - x0, y);
     y += 13;
   }
+  drawBadges(app);
+}
+
+void PageLaunches::drawBadges(App& app) {
+  auto& g = app.display().gfx();
+  int y = app.contentY() + app.contentH() - 16;
+  static const char* win[] = {"24h", "7d", "30d", "all"};
+  g.setTextSize(1);
+  g.setTextDatum(textdatum_t::middle_left);
+  g.fillRect(2, y, 40, 14, gTheme.grid);
+  g.setTextColor(gTheme.fg, gTheme.grid);
+  g.drawString(win[_window], 6, y + 7);
+  g.fillRect(44, y, 46, 14, gTheme.grid);
+  g.setTextColor(_hideTBD ? gTheme.dim : gTheme.fg, gTheme.grid);
+  g.drawString(_hideTBD ? "-TBD" : "+TBD", 48, y + 7);
 }
