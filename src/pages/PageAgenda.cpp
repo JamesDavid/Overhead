@@ -155,7 +155,10 @@ void PageAgenda::draw(App& app) {
   const int sy = cy0 + 16, sh = 64;
   g.setTextDatum(textdatum_t::top_left);
   g.setTextColor(gTheme.fg, gTheme.bg);
-  g.drawString("Sky Window  (next 24h)", sx, cy0 + 2);
+  { struct tm tmh; time_t nb = _base; localtime_r(&nb, &tmh);   // context by time of day
+    const char* ctx = (tmh.tm_hour >= 18 || tmh.tm_hour < 5) ? "Tonight"
+                    : (tmh.tm_hour < 12) ? "Today" : "This evening";
+    g.drawString(String(ctx) + "  -  Sky Window (24h)", sx, cy0 + 2); }
 
   for (int h = 0; h < kHours; ++h) {
     int x0 = sx + sw * h / kHours, x1 = sx + sw * (h + 1) / kHours;
