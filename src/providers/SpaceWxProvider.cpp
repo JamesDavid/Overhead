@@ -131,10 +131,12 @@ bool SpaceWxProvider::parseKp(const String& body) {
   if (err) { Serial.printf("[spacewx] kp parse err: %s\n", err.c_str()); return false; }
   JsonArray rows = doc.as<JsonArray>();
   if (rows.isNull() || rows.size() < 2) { Serial.println("[spacewx] kp: not an array"); return false; }
-  // Scan backward for the most recent row with a real Kp. The feed comes either as
-  // array-of-arrays ([time, Kp, ...], row[0] a header) or array-of-objects
-  // ({"kp_index":..} / {"Kp":..}); the latest slots are often blank.
-  for (int i = (int)rows.size() - 1; i >= 0; --i) {
+  // Walk forward, collecting every numeric Kp (the feed is array-of-arrays
+  // [time, Kp, ...] with a header row, or array-of-objects {"kp_index":..}/{"Kp":..};
+  // trailing slots are often blank). The last numeric is the latest Kp; keep the
+  // most recent kKpHist values for the sparkline.
+  _kpHistN = 0;
+  for (size_t i = 0; i < rows.size(); ++i) {
     JsonVariant row = rows[i];
     float v = -1;
     if (row.is<JsonArray>()) {
@@ -146,9 +148,10 @@ bool SpaceWxProvider::parseKp(const String& body) {
     }
     if (v < 0) continue;
     _kp = v;
-    Serial.printf("[spacewx] Kp=%.1f (row %d/%u)\n", _kp, i, (unsigned)rows.size());
-    return true;
+    if (_kpHistN < kKpHist) _kpHist[_kpHistN++] = v;
+    else { for (int j = 1; j < kKpHist; ++j) _kpHist[j - 1] = _kpHist[j]; _kpHist[kKpHist - 1] = v; }
   }
-  Serial.printf("[spacewx] kp: no numeric row; body: %.110s\n", body.c_str());
-  return false;
+  if (_kpHistN == 0) { Serial.printf("[spacewx] kp: no numeric row; body: %.110s\n", body.c_str()); return false; }
+  Serial.printf("[spacewx] Kp=%.1f (%d hist)\n", _kp, _kpHistN);
+  return true;
 }

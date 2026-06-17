@@ -16,6 +16,9 @@ public:
   void refresh(bool force = false);
 
   float kp()  const { return _kp; }      // 0..9, -1 unknown
+  static constexpr int kKpHist = 24;     // ~3 days of 3-hourly Kp
+  const float* kpHist() const { return _kpHist; }
+  int   kpHistN() const { return _kpHistN; }
   int   sfi() const { return _sfi; }     // solar flux units, -1 unknown
   const String& flareClass() const { return _flare; }  // GOES X-ray, e.g. "M1.2"; "" unknown
   int   windSpeed() const { return _windKms; }         // solar wind km/s, -1 unknown
@@ -37,6 +40,8 @@ private:
   EventBus*  _bus = nullptr;
 
   float _kp = -1;
+  float _kpHist[kKpHist] = {0};
+  int   _kpHistN = 0;
   int   _sfi = -1;
   String _flare;
   int   _windKms = -1;

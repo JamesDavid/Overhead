@@ -59,6 +59,19 @@ void PageSpaceWx::draw(App& app) {
   g.setTextColor(gTheme.fg, gTheme.bg);
   g.setTextSize(2); g.drawString(String("Kp ") + (kp < 0 ? String("?") : String(kp, 1)), 6, y);
   g.setTextSize(1); g.setTextColor(kc, gTheme.bg); g.drawString(kl, 120, y + 6);
+  // Kp history sparkline (3-hourly, ~3 days) as mini bars, top-right.
+  int kn = _wx.kpHistN(); const float* kh = _wx.kpHist();
+  if (kn >= 2) {
+    int sx = 188, sw = cw - sx - 6, sh = 16, sy = y;
+    g.drawRect(sx, sy, sw, sh, gTheme.grid);
+    int bin = (sw - 2) / kn; if (bin < 1) bin = 1;
+    for (int i = 0; i < kn; ++i) {
+      int bx = sx + 1 + (sw - 2) * i / kn;
+      int bh = (int)(kh[i] / 9.0f * (sh - 2)); if (bh < 1) bh = 1;
+      Color bc = kh[i] >= 5 ? gTheme.warn : kh[i] >= 4 ? gTheme.accent : gTheme.ok;
+      g.fillRect(bx, sy + sh - 1 - bh, bin > 1 ? bin - 1 : 1, bh, bc);
+    }
+  }
   y += 22;
   int barW = cw - 12;
   g.drawRect(6, y, barW, 8, gTheme.grid);
