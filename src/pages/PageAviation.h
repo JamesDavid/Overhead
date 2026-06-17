@@ -44,7 +44,7 @@ private:
   WeatherProvider&    _wxo;    // Open-Meteo hourly series (area trends)
   PressureMapProvider& _pmap;  // major-airport METAR pressure/cloud map
   LocationService&    _loc;
-  bool  _presCloud = false;    // pressure-map mode: false=pressure, true=cloud
+  int   _presMode = 0;         // pressure-map mode: 0=hPa, 1=inHg, 2=cloud
   View  _view = View::Map;     // Map is the default Aviation view (then Metar/Sounding/Hazards)
   int   _sel = 0;
   int   _mapZoom = 0;          // airport-map zoom index (top-left badge cycles)

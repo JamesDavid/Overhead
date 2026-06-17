@@ -143,6 +143,8 @@ static void fillStatusJson(JsonDocument& d) {
   d["adsbN"]    = (int)aircraftProv.aircraft().size();
   d["tle"]      = (int)tleProv.status();
   d["avwxN"]    = (int)avwxProv.stations().size();
+  d["pmap"]     = (int)pmapProv.points().size();   // pressure-map stations loaded
+  d["marsSol"]  = marsProv.perseverance().maxSol;  // -1 if rover feed not loaded
   d["kp"]       = spaceWxProv.kp();
   d["sfi"]      = spaceWxProv.sfi();
 }

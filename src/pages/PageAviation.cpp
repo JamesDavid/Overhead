@@ -65,8 +65,8 @@ void PageAviation::onTouch(App& app, int x, int y) {
     _mapZoom = (_mapZoom + 1) % kMapZoomN;
     _needClear = _dirty = true; return;
   }
-  if (_view == View::Pressure && x < 60 && y < 16) { // top-left badge: pressure<->cloud
-    _presCloud = !_presCloud; _needClear = _dirty = true; return;
+  if (_view == View::Pressure && x < 60 && y < 16) { // top-left badge: hPa->inHg->cloud
+    _presMode = (_presMode + 1) % 3; _needClear = _dirty = true; return;
   }
   int n = (int)_wx.stations().size();
   if (n && (_view == View::Metar || _view == View::Map || _view == View::Taf)) {   // edges step stations
@@ -521,11 +521,13 @@ void PageAviation::drawPressure(App& app) {
   const auto& pts = _pmap.points();
   bool world = _pmap.worldwide();
 
+  bool cloud = (_presMode == 2);
+  const char* ml = _presMode == 0 ? "hPa" : _presMode == 1 ? "inHg" : "cloud";
   g.setTextDatum(textdatum_t::top_left); g.setTextSize(1);
   g.fillRect(2, cy0 + 2, 52, 12, gTheme.grid);                 // mode badge
-  g.setTextColor(gTheme.fg, gTheme.grid); g.drawString(_presCloud ? "cloud" : "hPa", 6, cy0 + 3);
+  g.setTextColor(gTheme.fg, gTheme.grid); g.drawString(ml, 6, cy0 + 3);
   g.setTextColor(gTheme.fg, gTheme.bg);
-  g.drawString(String(world ? "World " : "US ") + (_presCloud ? "cloud" : "pressure") + "  [tap mid: metar]", 60, cy0 + 3);
+  g.drawString(String(world ? "World " : "US ") + (cloud ? "cloud" : "pressure") + "  [tap mid: metar]", 60, cy0 + 3);
 
   if (pts.empty()) {
     g.setTextColor(gTheme.dim, gTheme.bg);
@@ -555,18 +557,30 @@ void PageAviation::drawPressure(App& app) {
     const PressurePt& p = pts[i];
     int x = SX(p.lon), y = SY(p.lat);
     if (x < mx || x > mx + mw || y < my || y > my + mh) continue;
-    Color c = _presCloud ? (p.cloud >= 70 ? gTheme.dim : p.cloud >= 30 ? gTheme.accent : gTheme.ok)
-                         : (p.hpa >= 1019 ? gTheme.accent : p.hpa <= 1009 ? gTheme.warn : gTheme.fg);
+    Color c = cloud ? (p.cloud >= 70 ? gTheme.dim : p.cloud >= 30 ? gTheme.accent : gTheme.ok)
+                    : (p.hpa >= 1019 ? gTheme.accent : p.hpa <= 1009 ? gTheme.warn : gTheme.fg);
     g.fillCircle(x, y, 2, c);
-    char b[8]; if (_presCloud) snprintf(b, sizeof(b), "%d", p.cloud); else snprintf(b, sizeof(b), "%02d", p.hpa % 100);
+    char b[8];
+    if (cloud)               snprintf(b, sizeof(b), "%d", p.cloud);
+    else if (_presMode == 1) snprintf(b, sizeof(b), "%02d", (int)lround(p.hpa * 0.02953f * 100) % 100);  // inHg*100 last 2
+    else                     snprintf(b, sizeof(b), "%02d", p.hpa % 100);
     g.setTextDatum(textdatum_t::middle_left); g.setTextColor(c, gTheme.bg);
     g.drawString(b, x + 3, y);
   }
-  if (!_presCloud) {                                           // H / L markers
+  if (!cloud) {                                                // H / L markers
     if (hi >= 0) { g.setTextDatum(textdatum_t::middle_center); g.setTextColor(gTheme.accent, gTheme.bg); g.drawString("H", SX(pts[hi].lon), SY(pts[hi].lat) - 8); }
     if (lo >= 0) { g.setTextDatum(textdatum_t::middle_center); g.setTextColor(gTheme.warn,   gTheme.bg); g.drawString("L", SX(pts[lo].lon), SY(pts[lo].lat) - 8); }
   }
+  // Observer location marker.
+  if (_loc.active().valid) {
+    double ox = _loc.active().lon, oy = _loc.active().lat;
+    if (ox >= w0 && ox <= w1 && oy >= a0 && oy <= a1) {
+      int x = SX(ox), y = SY(oy);
+      g.drawFastHLine(x - 3, y, 7, gTheme.ok); g.drawFastVLine(x, y - 3, 7, gTheme.ok);
+    }
+  }
   g.setTextDatum(textdatum_t::bottom_left); g.setTextColor(gTheme.dim, gTheme.bg);
-  if (!_presCloud) g.drawString(String("H ") + hv + "  L " + lv + " hPa  blue=high red=low", 4, cy0 + ch - 1);
-  else             g.drawString("cloud %  green clear / blue part / dim overcast", 4, cy0 + ch - 1);
+  if (cloud)               g.drawString("cloud %  green clear / blue part / dim overcast", 4, cy0 + ch - 1);
+  else if (_presMode == 1) g.drawString(String("H ") + String(hv * 0.02953f, 2) + "  L " + String(lv * 0.02953f, 2) + " inHg  blue=high red=low", 4, cy0 + ch - 1);
+  else                     g.drawString(String("H ") + hv + "  L " + lv + " hPa  blue=high red=low", 4, cy0 + ch - 1);
 }
