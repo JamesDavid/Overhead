@@ -13,6 +13,7 @@ enum class ProviderId : uint8_t {
   Aircraft,    // AircraftProvider (milestone 5)
   SpaceWx,     // SpaceWxProvider  (milestone 8)
   Weather,     // WeatherProvider  (milestone 10)
+  Mars,        // MarsProvider (rover summaries)
   _count
 };
 
@@ -25,6 +26,7 @@ inline const char* providerName(ProviderId id) {
     case ProviderId::Aircraft: return "Aircraft";
     case ProviderId::SpaceWx:  return "SpaceWx";
     case ProviderId::Weather:  return "Weather";
+    case ProviderId::Mars:     return "Mars";
     default:                   return "?";
   }
 }

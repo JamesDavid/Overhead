@@ -174,6 +174,9 @@ hazards, SPECI Director badge. Remaining:
   light-time + heliocentric distance. Mostly static facts refreshed occasionally +
   a light status feed; light on heap. Strongly on-mission (bring far missions to the
   bedside). (See also M6 "live spacecraft" panel.)
+  - **Rover/space imagery (PSRAM boards only):** NASA mars-photos latest photo + APOD
+    would be amazing on the bedside, but JPEG download + decode + a full framebuffer
+    needs PSRAM — gate to CrowPanel. No-PSRAM CYD stays text-only (rover summary feed).
 - **Domain-based data release** — when in a heap-hungry domain (Aircraft), release
   String-heavy data from cold domains (TLE/METAR) + drop their poll rate; trigger on
   `heapBlkMin` near the floor; no-PSRAM only.

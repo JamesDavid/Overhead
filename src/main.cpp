@@ -44,6 +44,8 @@
 #include "pages/PageSpaceWx.h"
 #include "pages/PageAgenda.h"
 #include "pages/PageStarMap.h"
+#include "pages/PageMissions.h"
+#include "providers/MarsProvider.h"
 #include "pages/PageAviation.h"
 #if ASTRO_SELFTEST
 #include "astro/SelfTest.h"
@@ -75,6 +77,7 @@ static WeatherProvider weatherProv;
 static AviationWxProvider avwxProv;
 static SoundingProvider sndProv;
 static HazardProvider   hazProv;
+static MarsProvider     marsProv;
 // --- pages ---
 static String          gHostname;
 static PageAgenda*     agendaPage = nullptr;
@@ -185,6 +188,7 @@ void setup() {
   avwxProv.begin(&settings, &net, &cache, &bus, &locSvc);
   sndProv.begin(&settings, &net, &cache, &bus, &locSvc);
   hazProv.begin(&settings, &net, &cache, &bus, &locSvc);
+  marsProv.begin(&settings, &net, &cache, &bus);
 
   web.setStatusJsonProvider(fillStatusJson);
   web.setDebug(&app, &display);     // /api/screen.bmp, /api/tap, /api/swipe
@@ -219,6 +223,7 @@ void setup() {
   sched.every(avMs, [] { avwxProv.refresh(); }, /*runNow=*/false);
   sched.every(60UL * 60UL * 1000UL, [] { sndProv.refresh(); }, /*runNow=*/false);   // hourly sounding
   sched.every(15UL * 60UL * 1000UL, [] { hazProv.refresh(); }, /*runNow=*/false);   // hazards
+  sched.every(6UL * 60UL * 60UL * 1000UL, [] { marsProv.refresh(); }, /*runNow=*/false);  // rovers ~6h
 
   // UI carousel, ground->space order: Launches, Aircraft, Satellites, Diagnostics.
   agendaPage = new PageAgenda(timeSvc, locSvc, weatherProv, tleProv, launchProv, settings);
@@ -241,6 +246,7 @@ void setup() {
   app.addPage(satsPage);
   app.addPage(spaceWxPage);
   app.addPage(solarPage);
+  app.addPage(new PageMissions(timeSvc, locSvc, marsProv));
   app.addPage(starPage);
   app.addPage(healthPage);
   app.setInactivityMs((uint32_t)settings.getInt("inactivitySec", 90) * 1000UL);
