@@ -11,6 +11,7 @@ class TleProvider;
 class LaunchProvider;
 class SpaceWxProvider;
 class AviationWxProvider;
+class WeatherProvider;
 class PageSatellites;
 class PageAviation;
 
@@ -27,6 +28,7 @@ public:
   void setSpaceWx(SpaceWxProvider* wx) { _spacewx = wx; }
   void setAviation(AviationWxProvider* a) { _avwx = a; }
   void setAviationPage(PageAviation* p) { _avPage = p; }
+  void setWeather(WeatherProvider* w) { _wx = w; }
   void tick(uint32_t nowMs);
 
 private:
@@ -40,6 +42,7 @@ private:
   LaunchProvider*  _launch = nullptr;
   SpaceWxProvider* _spacewx = nullptr;
   AviationWxProvider* _avwx = nullptr;
+  WeatherProvider* _wx = nullptr;
   PageSatellites*  _satPage = nullptr;
   PageAviation*    _avPage = nullptr;
 
@@ -50,6 +53,7 @@ private:
   double   _passMaxEl = 0;
   bool     _passVisible = false;  // bright sat, sunlit at TCA, observer in darkness
   bool     _passRadio = false;    // amateur/radio-workable satellite
+  int      _passCloud = -1;       // cloud cover % at TCA (-1 unknown)
   String   _focusedBird;          // bird already pre-focused on the page
 
   uint32_t _lastScanMs = 0;

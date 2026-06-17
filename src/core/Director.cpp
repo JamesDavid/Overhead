@@ -7,6 +7,7 @@
 #include "../providers/LaunchProvider.h"
 #include "../providers/SpaceWxProvider.h"
 #include "../providers/AviationWxProvider.h"
+#include "../providers/WeatherProvider.h"
 #include "../pages/PageSatellites.h"
 #include "../pages/PageAviation.h"
 #include "../astro/Sun.h"
@@ -32,7 +33,7 @@ void Director::begin(App* app, Settings* s, TimeService* time, LocationService* 
 
 // Find the soonest pass still in progress or upcoming across watchlisted birds.
 void Director::scanPasses() {
-  _passAos = 0; _passLos = 0; _passBird = ""; _passMaxEl = 0; _passVisible = false; _passRadio = false;
+  _passAos = 0; _passLos = 0; _passBird = ""; _passMaxEl = 0; _passVisible = false; _passRadio = false; _passCloud = -1;
   if (!_loc->active().valid || _tle->sats().empty() || !_time->synced()) return;
   double lat = _loc->active().lat, lon = _loc->active().lon;
   _eng.setObserver(lat, lon, 0);
@@ -60,6 +61,7 @@ void Director::scanPasses() {
         bool dark = astro::sunAltitudeDeg(astro::julianDate(p.tca), lat, lon) < -6.0;
         _passVisible = brightSat(s.name) && dark && _eng.observe(p.tca).sunlit;
         _passRadio = radioSat(s.name);
+        if (_wx) _passCloud = _wx->cloudCoverAt(p.tca);   // viewability gate
       }
       break;                                   // one match per watchlist entry
     }
@@ -110,7 +112,7 @@ void Director::tick(uint32_t nowMs) {
     long dt = (long)(_passAos - now);
     String a = _passBird + " " + (int)lround(_passMaxEl) + "\xF7 "
              + (dt > 0 ? "in " + String(dt / 60 + 1) + "m" : "NOW");
-    if (_passVisible) a += " VIS";
+    if (_passVisible) a += (_passCloud >= 70) ? " VIS(cloud)" : " VIS";   // overcast = not worth it
     if (_passRadio)   a += " RF";
     _app->setAlert(a);
     bool onSat = (_app->activeIndex() == satIdx);
