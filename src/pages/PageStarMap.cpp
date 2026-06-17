@@ -137,11 +137,17 @@ void PageStarMap::updateTour(App& app, uint32_t nowMs) {
 }
 
 void PageStarMap::tick(App& app, uint32_t nowMs) {
-  if (_tour) {                                     // animate at ~14 fps while touring
+  if (_tour) {
     updateTour(app, nowMs);
-    if (!_tour) { _dirty = true; }                 // tour just ended -> redraw full sky
-    else if (nowMs - _lastDraw < 70) return;
-    _lastDraw = nowMs; _dirty = false; draw(app); return;
+    if (_tour) {                                   // still touring
+      // Skip the redraw entirely when the frame is unchanged (the static hold
+      // phase) so it doesn't strobe; cap fps during the zoom motion.
+      if (_t == _drawnT && _tourCon == _drawnCon) return;
+      if (nowMs - _lastDraw < 60) return;
+      _drawnT = _t; _drawnCon = _tourCon; _lastDraw = nowMs;
+      draw(app); return;
+    }
+    _dirty = true;                                 // tour just ended -> redraw full sky
   }
   if (!_dirty && nowMs - _lastDraw < 30000) return; // sky rotates slowly
   _dirty = false; _lastDraw = nowMs;
@@ -151,12 +157,14 @@ void PageStarMap::tick(App& app, uint32_t nowMs) {
 void PageStarMap::draw(App& app) {
   auto& g = app.display().gfx();
   const int cw = app.contentW(), cy0 = app.contentY(), ch = app.contentH();
-  g.fillRect(0, cy0, cw, ch, gTheme.bg);
+  g.startWrite();                       // batch the whole frame in one SPI transaction
+  g.fillRect(0, cy0, cw, ch, gTheme.bg);  // (composes fast -> far less tour strobe)
 
   if (!_time.synced() || !_loc.active().valid) {
     g.setTextDatum(textdatum_t::middle_center);
     g.setTextColor(gTheme.dim, gTheme.bg);
     g.drawString(_time.synced() ? "no location" : "waiting for time sync...", cw / 2, cy0 + ch / 2);
+    g.endWrite();
     return;
   }
 
@@ -303,4 +311,5 @@ void PageStarMap::draw(App& app) {
   g.fillRect(cw - 46, by, 42, 14, gTheme.grid);
   g.setTextColor(_showSS ? gTheme.ok : gTheme.dim, gTheme.grid);
   g.drawString(_showSS ? "SS on" : "SS off", cw - 42, by + 7);
+  g.endWrite();
 }

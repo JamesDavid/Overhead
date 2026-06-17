@@ -43,4 +43,6 @@ private:
   uint8_t  _phase = 0;           // 0 zoom-in, 1 hold, 2 zoom-out
   uint32_t _phaseMs = 0;
   float    _t = 0.0f;            // 0 = full sky, 1 = fully zoomed on _tourCon
+  float    _drawnT = -2.0f;      // last-drawn t / con: skip redraw when unchanged
+  int      _drawnCon = -2;       // (so the static hold phase doesn't flicker)
 };
