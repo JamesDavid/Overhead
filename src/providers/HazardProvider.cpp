@@ -7,6 +7,28 @@
 #include <ArduinoJson.h>
 #include <time.h>
 
+// AWC hazard codes -> plain phrases.
+static String hazPhrase(String c) {
+  c.toUpperCase();
+  if (c.indexOf("CONV") >= 0 || c == "TS")              return "Thunderstorms";
+  if (c.indexOf("TURB") >= 0)                            return "Turbulence";
+  if (c.indexOf("ICE") >= 0 || c.indexOf("ICING") >= 0)  return "Icing";
+  if (c.indexOf("MT") >= 0 && c.indexOf("OBSC") >= 0)    return "Mtn obscuration";
+  if (c.indexOf("IFR") >= 0)                             return "IFR cloud/vis";
+  if (c.indexOf("ASH") >= 0)                             return "Volcanic ash";
+  if (c.indexOf("LLWS") >= 0 || c.indexOf("SHEAR") >= 0) return "Low-level wind shear";
+  if (c.indexOf("WIND") >= 0)                            return "Strong surface wind";
+  if (c.indexOf("OBSC") >= 0)                            return "Obscuration";
+  return c.length() ? c : String("Hazard");
+}
+static String sevPhrase(String s) {
+  s.toUpperCase();
+  if (s.indexOf("SEV") >= 0) return "severe ";
+  if (s.indexOf("MOD") >= 0) return "moderate ";
+  if (s.indexOf("LGT") >= 0 || s.indexOf("LT ") >= 0) return "light ";
+  return "";
+}
+
 void HazardProvider::begin(Settings* s, NetClient* net, Cache* cache, EventBus* bus, LocationService* loc) {
   _s = s; _net = net; _cache = cache; _bus = bus; _loc = loc;
   refresh(false);
@@ -50,12 +72,14 @@ void HazardProvider::fetchAirsig() {
           }
           if (olat < mnLa - 0.7 || olat > mxLa + 0.7 || olon < mnLo - 0.7 || olon > mxLo + 0.7) continue;
           Hazard h; h.pirep = false;
-          String hdr = String((const char*)(o["airSigmetType"] | "AIRMET")) + " "
-                     + (const char*)(o["hazard"] | "?") + " " + (const char*)(o["severity"] | "")
-                     + " " + (int)(o["altitudeLow1"] | 0) + "-" + (int)(o["altitudeHi1"] | 0) + "ft";
+          String typ = (const char*)(o["airSigmetType"] | "AIRMET");
+          int lo = o["altitudeLow1"] | 0, hi = o["altitudeHi1"] | 0;
+          String alt = (lo || hi) ? "  " + String(lo) + "-" + String(hi) + "ft" : "";
+          String hdr = sevPhrase((const char*)(o["severity"] | "")) + hazPhrase((const char*)(o["hazard"] | ""))
+                     + alt + "  (" + typ + ")";
           String raw = (const char*)(o["rawAirSigmet"] | "");
           raw.replace("\n", " ");
-          h.text = raw.length() ? hdr + " - " + raw.substring(0, 90) : hdr;
+          h.text = raw.length() ? hdr + " - " + raw.substring(0, 70) : hdr;
           _airsig.push_back(h);
           if (_airsig.size() >= 8) break;
         }
