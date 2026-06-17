@@ -27,6 +27,7 @@ private:
   LocationService& _loc;
   float _magLimit = 3.0f;
   bool  _labels = true;
+  bool  _showSS = true;          // overlay Sun/Moon/planets + ecliptic
   bool  _dirty = true;
   uint32_t _lastDraw = 0;
 };

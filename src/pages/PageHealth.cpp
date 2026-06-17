@@ -70,6 +70,7 @@ void PageHealth::onTouch(App& app, int x, int y) {
   if (col == 0) {                                 // Refresh all
     _tle.refresh(true); _launch.refresh(true); _air.poll();
     _swx.refresh(true); _wx.refresh(true);
+    _refreshMs = millis();
   } else if (col == 1) {                          // Recalibrate touch
     _touch.calibrate(app.display());
   } else {                                        // Reboot (two-tap confirm)
@@ -127,6 +128,12 @@ void PageHealth::draw(App& app) {
   prow("Aircraft", _air.status(),    _air.lastFetched());
   prow("SpaceWx",  _swx.status(),    _swx.lastFetched());
   prow("Weather",  _wx.status(),     _wx.lastFetched());
+
+  if (millis() - _refreshMs < 2500) {             // brief "refreshing" toast
+    g.setTextDatum(textdatum_t::middle_center);
+    g.setTextColor(gTheme.ok, gTheme.bg);
+    g.drawString("refreshing providers...", cw / 2, cy0 + ch - 52);
+  }
 
   // Display-mode + brightness buttons (tap to cycle), above the action buttons.
   int ty = cy0 + ch - 44, hw = cw / 2;

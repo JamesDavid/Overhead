@@ -30,6 +30,9 @@ void PageStarMap::onTouch(App& app, int x, int y) {
     _magLimit = (_magLimit >= 4.0f) ? 2.0f : _magLimit + 1.0f;
     _dirty = true; return;
   }
+  if (x >= app.contentW() - 46 && y >= app.contentH() - 20) {   // bottom-right: SS overlay
+    _showSS = !_showSS; _dirty = true; return;
+  }
   int third = app.contentW() / 3;
   if (x >= third && x <= 2 * third) { _labels = !_labels; _dirty = true; }
 }
@@ -90,7 +93,7 @@ void PageStarMap::draw(App& app) {
   }
 
   // Ecliptic — the path the Sun/Moon/planets travel along.
-  {
+  if (_showSS) {
     const double eps = astro::DEG2RAD * 23.4393;
     int px = -1, py = -1;
     for (int dd = 0; dd <= 360; dd += 6) {
@@ -122,7 +125,7 @@ void PageStarMap::draw(App& app) {
   }
 
   // Sun / Moon / planets, projected the same way (azimuthal). Distinct colours.
-  for (int i = 0; i < 9; ++i) {
+  for (int i = 0; _showSS && i < 9; ++i) {
     astro::PlanetState p = astro::planetState((astro::Planet)i, jd, _loc.active().lat, _loc.active().lon);
     if (!p.above) continue;
     double rr = R * (90.0 - p.elDeg) / 90.0;
@@ -144,4 +147,8 @@ void PageStarMap::draw(App& app) {
   g.setTextColor(gTheme.fg, gTheme.grid);
   g.setTextSize(1);
   g.drawString(String("mag<=") + String(_magLimit, 0) + (_labels ? " +lbl" : ""), 8, by + 7);
+  // Badge: solar-system overlay toggle (bottom-right).
+  g.fillRect(cw - 46, by, 42, 14, gTheme.grid);
+  g.setTextColor(_showSS ? gTheme.ok : gTheme.dim, gTheme.grid);
+  g.drawString(_showSS ? "SS on" : "SS off", cw - 42, by + 7);
 }

@@ -53,4 +53,5 @@ private:
   uint32_t _lastDraw = 0;
   bool _rebootArm = false;        // two-tap reboot confirm
   uint32_t _rebootArmMs = 0;
+  uint32_t _refreshMs = 0;        // "refreshing..." toast
 };
