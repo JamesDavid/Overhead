@@ -557,19 +557,19 @@ void PageAviation::drawPressure(App& app) {
     const PressurePt& p = pts[i];
     int x = SX(p.lon), y = SY(p.lat);
     if (x < mx || x > mx + mw || y < my || y > my + mh) continue;
-    Color c = cloud ? (p.cloud >= 70 ? gTheme.dim : p.cloud >= 30 ? gTheme.accent : gTheme.ok)
-                    : (p.hpa >= 1019 ? gTheme.accent : p.hpa <= 1009 ? gTheme.warn : gTheme.fg);
-    g.fillCircle(x, y, 2, c);
-    if (!cloud && p.cloud >= 40)                              // pressure mode: overlay cloud as a ring
-      g.drawCircle(x, y, 4, p.cloud >= 70 ? gTheme.fg : gTheme.dim);  // overcast=bright, broken=dim
-    String id = p.icao; if (id.length() == 4 && id[0] == 'K') id = id.substring(1);  // drop US K
+    Color cc = p.cloud < 30 ? gTheme.ok : p.cloud < 70 ? gTheme.accent : gTheme.warn;   // cloud band
+    Color pc = p.hpa >= 1019 ? gTheme.accent : p.hpa <= 1009 ? gTheme.warn : gTheme.fg; // pressure band
+    g.fillCircle(x, y, 2, cloud ? cc : pc);
+    if (!cloud) g.drawCircle(x, y, 4, cc);                   // colour-coded cloud ring
+    String id = p.icao; if (id.length() == 4 && id[0] == 'K') id = id.substring(1);     // drop US K
     g.setTextDatum(textdatum_t::top_left);
-    g.setTextColor(gTheme.dim, gTheme.bg); g.drawString(id, x + 3, y - 9);   // id above
+    g.setTextColor(gTheme.dim, gTheme.bg); g.drawString(id, x + 3, y - 9);              // id
+    if (!cloud) { g.setTextColor(cc, gTheme.bg); g.drawString(String(p.cloud) + "%", x + 3 + ((int)id.length() + 1) * 6, y - 9); }  // cloud% after id
     char b[12];
     if (cloud)               snprintf(b, sizeof(b), "%d%%", p.cloud);
-    else if (_presMode == 1) snprintf(b, sizeof(b), "%.2f", p.hpa * 0.02953f); // full inHg (e.g. 30.15)
-    else                     snprintf(b, sizeof(b), "%d", p.hpa);              // full hPa (e.g. 1013)
-    g.setTextColor(c, gTheme.bg); g.drawString(b, x + 3, y - 1);              // readout below id
+    else if (_presMode == 1) snprintf(b, sizeof(b), "%.2f", p.hpa * 0.02953f);  // full inHg
+    else                     snprintf(b, sizeof(b), "%d", p.hpa);               // full hPa
+    g.setTextColor(cloud ? cc : pc, gTheme.bg); g.drawString(b, x + 3, y - 1);  // readout
   }
   if (!cloud) {                                                // H / L markers
     if (hi >= 0) { g.setTextDatum(textdatum_t::middle_center); g.setTextColor(gTheme.accent, gTheme.bg); g.drawString("H", SX(pts[hi].lon), SY(pts[hi].lat) - 8); }
