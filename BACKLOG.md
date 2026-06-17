@@ -4,6 +4,21 @@ Deferred polish — cut from the first pass to keep momentum. Pick up later.
 (Bugs/blocking work go in commits, not here.) Items shipped are removed; this list
 is the *remaining* work as of the latest sweep.
 
+## UX shell — "desk-clock" reorganization (do in a BRANCH; big, don't disrupt main)
+The vision: make it the best air-&-space *desk clock*, not a flat 9-tab carousel.
+- **"Now" home face** — the resting/default view: big local time + date, sun/moon +
+  day-night, and the single most-relevant thing right now (next pass / launch /
+  clear-dark window), fed by the Director. Day = clean clock; night = "observatory"
+  (the existing dark/red star-map + orrery rotation).
+- **3x3 quick-jump grid** — tap the clock/status to open a grid that jumps by domain
+  instead of swiping linearly. Group the tabs: Sky tonight (Agenda/Solar System/Star
+  Map), Things moving (Satellites/Launches/Aircraft), Conditions (Aviation/Space Wx).
+- **Health as a corner-glyph MODAL OVERLAY** (with Settings/Location) — off the
+  carousel. (Supersedes the M1/M11 app-shell + Health-overlay notes below.)
+- Ties into the memory strategy: keep the active *domain* hot, let other domains
+  release String-heavy data (TLE/METAR/aircraft) + drop to low-rate polling on
+  no-PSRAM boards, triggered by `heapBlkMin` near the floor.
+
 ## M0 — bring-up / HAL
 - Verify 4" CYD (ST7796) + CrowPanel panels on real hardware (only 2.8" CYD verified).
 - CrowPanel: confirm RGB porch timings, I2C-expander backlight, GT911 coexistence on hw.
@@ -137,5 +152,24 @@ hazards, SPECI Director badge. Remaining:
 - LESSON: Settings::backfillDefaults() now adds missing keys on every load, because a
   stale settings.json + the web form's Save-all once blanked focusEnabled/inactivitySec/
   dim*/lead-times to 0/false — do NOT let the form write keys that weren't loaded.
+
+## New feature ideas (this session's stream-of-consciousness, not yet built)
+- **Web settings UI revamp**: set geolocation on a *map*; pick satellites from a
+  checkbox/preset list (not name-search); checkbox the trackable celestial bodies
+  (Roadster/Psyche/asteroids); editable mDNS hostname. (task)
+- **Aviation surface-fronts map** — Tier 1: parse the WPC Coded Surface Bulletin for
+  H/L pressure centres (+mb) and plot labelled markers on the coastline map. Tier 2:
+  front polylines (cold/warm/stationary), region-filtered + vertex-capped (heap).
+- **Solar System "upcoming showers/comets" page** — list all upcoming meteor showers
+  (and comets) in date order even if far out, with per-location visibility notes;
+  promote to the Agenda when within a few days (the Agenda already shows the next one).
+- **Aircraft flight trails** — accumulate recent observed positions per hex and draw
+  fading tracks (the ADS-B point feed has no history). Adds retained heap → gate on
+  no-PSRAM pressure.
+- **Production memory toggle** — gate the 16 KB debug-screenshot buffer behind a
+  setting; off frees ~16 KB of contiguous heap (lifts HTTPS over the TLS floor).
+- **Domain-based data release** — when in a heap-hungry domain (Aircraft), release
+  String-heavy data from cold domains (TLE/METAR) + drop their poll rate; trigger on
+  `heapBlkMin` near the floor; no-PSRAM only.
 
 <!-- new milestones append below as they land -->
