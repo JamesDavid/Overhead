@@ -89,6 +89,23 @@ void PageStarMap::draw(App& app) {
       g.drawLine(ax, ay, bx, by, gTheme.grid);
   }
 
+  // Ecliptic — the path the Sun/Moon/planets travel along.
+  {
+    const double eps = astro::DEG2RAD * 23.4393;
+    int px = -1, py = -1;
+    for (int dd = 0; dd <= 360; dd += 6) {
+      double lam = dd * astro::DEG2RAD;
+      astro::Equatorial eq{ atan2(sin(lam) * cos(eps), cos(lam)), asin(sin(eps) * sin(lam)) };
+      astro::Horizontal h = astro::equatorialToHorizontal(eq, latRad, lst);
+      double alt = h.altRad * astro::RAD2DEG;
+      if (alt <= 0) { px = -1; continue; }
+      double rr = R * (90.0 - alt) / 90.0;
+      int sx = cx + (int)round(rr * sin(h.azRad)), sy = cy - (int)round(rr * cos(h.azRad));
+      if (px >= 0) g.drawLine(px, py, sx, sy, gTheme.grid);
+      px = sx; py = sy;
+    }
+  }
+
   // Stars (brightest first so labels favour them).
   for (int k = 0; k < kStarCount; ++k) {
     const Star& s = kStars[k];

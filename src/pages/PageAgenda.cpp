@@ -124,6 +124,16 @@ void PageAgenda::tick(App& app, uint32_t nowMs) {
   draw(app);
 }
 
+void PageAgenda::onTouch(App& app, int x, int y) {
+  if (_events.empty() || _listN == 0) return;
+  int row = (y + app.contentY() - _listY0) / 13;            // which Upcoming row
+  if (row < 0 || row >= _listN || row >= (int)_events.size()) return;
+  const char* tab = _events[row].kind == 1 ? "Launches"
+                  : _events[row].kind == 2 ? "Solar System" : "Satellites";
+  int idx = app.pageIndexByTitle(tab);
+  if (idx >= 0) app.setPage(idx);
+}
+
 void PageAgenda::draw(App& app) {
   auto& g = app.display().gfx();
   const int cw = app.contentW(), cy0 = app.contentY(), ch = app.contentH();
@@ -194,8 +204,10 @@ void PageAgenda::draw(App& app) {
   // --- Event list ---
   g.setTextColor(gTheme.dim, gTheme.bg);
   g.drawString("Upcoming", sx, y); y += 13;
+  _listY0 = y; _listN = 0;                          // remember list geometry for tap-to-jump
   for (const auto& e : _events) {
     if (y > cy0 + ch - 12) break;
+    _listN++;
     struct tm tm; time_t t = e.t; localtime_r(&t, &tm);
     char hm[8]; snprintf(hm, sizeof(hm), "%02d:%02d", tm.tm_hour, tm.tm_min);
     g.setTextDatum(textdatum_t::top_left);

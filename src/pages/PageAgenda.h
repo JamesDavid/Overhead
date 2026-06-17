@@ -28,6 +28,7 @@ public:
   // the location changes — otherwise it runs on every provider publish and starves
   // the UI/touch loop.
   void onData(App& app, ProviderId id) override { _dirty = true; if (id == ProviderId::Location) _computed = false; }
+  void onTouch(App& app, int x, int y) override;   // tap an event -> jump to its tab
   void tick(App& app, uint32_t nowMs) override;
 
 private:
@@ -56,4 +57,5 @@ private:
   bool  _computed = false;
   uint32_t _lastRecompute = 0;
   uint32_t _lastDraw = 0;
+  int   _listY0 = 0, _listN = 0;     // upcoming-list geometry for tap-to-jump
 };
