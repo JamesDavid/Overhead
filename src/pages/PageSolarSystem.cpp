@@ -6,12 +6,24 @@
 #include "../services/LocationService.h"
 #include "../services/Settings.h"
 #include "../astro/Moons.h"
+#include "../astro/Time.h"
 #include <math.h>
 #include <time.h>
 
 using astro::Planet;
 
 static const char* kAbbrev[9] = { "Su", "Mo", "Me", "Ve", "Ma", "Ju", "Sa", "Ur", "Ne" };
+
+// Parallactic angle q (deg): the tilt of the celestial-equator E-W direction
+// relative to the local vertical (zenith up) at the body's position — i.e. how the
+// face of a planet appears rotated when seen from the observer's latitude/sky.
+// q = atan2(sin H, tan(lat)cos(dec) - sin(dec)cos H), H = LST - RA (hour angle).
+static double parallacticDeg(const astro::PlanetState& st, double latDeg, double lstR) {
+  const double D2R = 3.14159265358979323846 / 180.0;
+  double H   = lstR - st.raDeg * D2R;
+  double dec = st.decDeg * D2R, lat = latDeg * D2R;
+  return atan2(sin(H), tan(lat) * cos(dec) - sin(dec) * cos(H)) / D2R;
+}
 
 static const char* moonPhaseName(double deg) {
   if (deg <  22.5) return "New";
@@ -74,8 +86,8 @@ void PageSolarSystem::recompute() {
 
 void PageSolarSystem::onTouch(App& app, int x, int y) {
   int third = app.contentW() / 3;
-  // Centre tap cycles sky-dome -> orbits -> moons & rings.
-  if (x >= third && x <= 2 * third) { _view = (_view + 1) % 3; _dirty = true; return; }
+  // Centre tap cycles sky-dome -> orbits -> Jupiter -> Saturn.
+  if (x >= third && x <= 2 * third) { _view = (_view + 1) % kViews; _dirty = true; return; }
   // Bottom-left badge cycles the filter (sky-dome view only).
   if (_view == 0 && x <= 80 && y >= app.contentH() - 20) {
     _filter = (_filter + 1) % 3; _settings.set("ssShowFilter", (long)_filter); _settings.save();
@@ -109,8 +121,10 @@ bool PageSolarSystem::autoAdvance(App&) {
   } else if (_view == 1) {                  // orbits: tour the visible bodies
     int cnt = orbitVisibleCount();
     _orbSel = (_orbSel + 1) % cnt;
-    if (++_tourN >= cnt) { _tourN = 0; _view = 2; }               // orbits done -> moons
-  } else {                                  // moons & rings: one dwell -> full cycle
+    if (++_tourN >= cnt) { _tourN = 0; _view = 2; }               // orbits done -> Jupiter
+  } else if (_view == 2) {                  // Jupiter -> Saturn
+    _view = 3;
+  } else {                                  // Saturn: one dwell -> full cycle
     _view = 0; cycled = true;
   }
   _dirty = true;
@@ -144,8 +158,9 @@ void PageSolarSystem::draw(App& app) {
     return;
   }
 
-  if (_view == 1) { drawOrbit(app); return; }
-  if (_view == 2) { drawMoons(app); return; }
+  if (_view == 1) { drawOrbit(app);   return; }
+  if (_view == 2) { drawJupiter(app); return; }
+  if (_view == 3) { drawSaturn(app);  return; }
 
   // --- Horizon half-dome (top ~55%) ---
   const int domeH = ch * 55 / 100;
@@ -212,7 +227,7 @@ void PageSolarSystem::drawOrbit(App& app) {
 
   g.setTextDatum(textdatum_t::top_left);
   g.setTextColor(gTheme.fg, gTheme.bg);
-  g.drawString("Orbits (top-down)  [tap mid: moons]", 4, cy0 + 1);
+  g.drawString("Orbits (top-down)  [tap mid: Jupiter]", 4, cy0 + 1);
 
   int cx = cw / 2, cy = cy0 + (ch - 14) / 2 + 12;
   int maxR = min(cw / 2, (ch - 26) / 2) - 8;
@@ -260,42 +275,99 @@ void PageSolarSystem::drawOrbit(App& app) {
   g.drawString(kScope[_orbScope], cw - 26, by + 7);
 }
 
-// Telescopic preview: Jupiter's Galilean moons (apparent E-W line) and Saturn's
-// rings (opening angle), with each planet's up/below state.
-void PageSolarSystem::drawMoons(App& app) {
+// Telescopic Jupiter: the four Galilean moons strung along Jupiter's equator, the
+// whole line rotated by the parallactic angle so it matches how the system actually
+// appears in the observer's sky (zenith up) at this moment and latitude.
+void PageSolarSystem::drawJupiter(App& app) {
   auto& g = app.display().gfx();
-  const int cw = app.contentW(), cy0 = app.contentY();
+  const int cw = app.contentW(), ch = app.contentH(), cy0 = app.contentY();
   const double D2R = 3.14159265358979323846 / 180.0;
   double jd = _time.julianDate();
-  int cx = cw / 2;
+  double lstR = astro::lstRad(jd, _loc.active().lon);
+  double q = parallacticDeg(_st[5], _loc.active().lat, lstR) * D2R;   // sky tilt
+  double cq = cos(q), sq = sin(q);
+
   g.setTextDatum(textdatum_t::top_left);
   g.setTextColor(gTheme.fg, gTheme.bg);
-  g.drawString("Moons & rings  [tap mid: sky]", 4, cy0 + 1);
-
-  // --- Jupiter + Galilean moons (Io/Europa/Ganymede/Callisto strung along the equator) ---
-  int jy = cy0 + 64;
+  g.drawString("Jupiter - Galilean moons  [tap mid: Saturn]", 4, cy0 + 1);
   g.setTextColor(gTheme.dim, gTheme.bg);
-  g.drawString(String("Jupiter  ") + (_st[5].above ? "up" : "below") + "  el " + (int)round(_st[5].elDeg) + "\xF7", 4, cy0 + 18);
+  g.drawString(String(_st[5].above ? "up" : "below horizon") + "   el " + (int)round(_st[5].elDeg)
+               + "\xF7  az " + (int)round(_st[5].azDeg) + "\xF7", 4, cy0 + 16);
+
+  int cx = cw / 2, cyc = cy0 + ch / 2;
   double mx[4]; astro::galileanMoons(jd, mx);
-  const double jscale = 5.0;                       // px per Jupiter radius
-  g.drawFastHLine(cx - 140, jy, 280, gTheme.grid);
-  g.fillCircle(cx, jy, 5, gTheme.warn);            // Jupiter
+  const double jscale = 5.2;                        // px per Jupiter radius (Callisto ~26 Rj)
+  // Equatorial line, rotated to the sky. (Screen y is down, so subtract the y-part.)
+  double L = 145;
+  g.drawLine(cx - (int)round(L * cq), cyc + (int)round(L * sq),
+             cx + (int)round(L * cq), cyc - (int)round(L * sq), gTheme.grid);
+  g.fillCircle(cx, cyc, 6, gTheme.warn);            // Jupiter
   for (int i = 0; i < 4; ++i) {
-    int x = cx + (int)round(mx[i] * jscale);
+    double r = mx[i] * jscale;                      // signed offset along the equator
+    int x = cx + (int)round(r * cq), y = cyc - (int)round(r * sq);
     if (x < 2 || x > cw - 2) continue;
-    g.fillCircle(x, jy, 2, gTheme.accent);
+    g.fillCircle(x, y, 2, gTheme.accent);
     g.setTextColor(gTheme.dim, gTheme.bg);
-    g.drawString(astro::galileanSym(i), x - 5, jy + ((i & 1) ? 6 : -14));   // alternate up/down
+    // Stagger labels perpendicular to the line so they don't collide with it.
+    int lx = x + (int)round(8 * sq), ly = y + (int)round(8 * cq) - 4;
+    g.drawString(astro::galileanSym(i), lx - 5, ly);
   }
-
-  // --- Saturn + rings ---
-  int sy = cy0 + 158;
-  double B = astro::saturnRingTiltDeg(jd);
+  // Legend (top-left): full names keyed to the graph syms, with each moon's live
+  // elongation in Jupiter radii (E/W side of the disk). Drawn last to stay on top.
+  g.setTextDatum(textdatum_t::top_left);
+  int ly = cy0 + 32;
+  for (int i = 0; i < 4; ++i) {
+    g.setTextColor(gTheme.accent, gTheme.bg);
+    char b[28];
+    snprintf(b, sizeof(b), "%-9s %4.1f Rj %c", astro::galileanName(i), fabs(mx[i]), mx[i] >= 0 ? 'W' : 'E');
+    g.drawString(b, 6, ly); ly += 12;
+  }
+  g.setTextDatum(textdatum_t::bottom_left);
   g.setTextColor(gTheme.dim, gTheme.bg);
-  g.drawString(String("Saturn  ") + (_st[6].above ? "up" : "below") + "  rings " + (int)round(fabs(B)) + "\xF7 open", 4, sy - 44);
-  int rMaj = 28, rMin = (int)round(rMaj * fabs(sin(B * D2R)));
-  if (rMin < 1) rMin = 1;
-  g.fillCircle(cx, sy, 7, gTheme.warn);                          // planet disk
-  g.drawEllipse(cx, sy, rMaj, rMin, gTheme.fg);                  // outer ring edge
-  if (rMin >= 3) g.drawEllipse(cx, sy, (int)(rMaj * 0.6), (int)(rMin * 0.6), gTheme.dim);  // inner edge / Cassini hint
+  g.drawString(String("zenith up \xB7 field tilt ") + (int)round(q / D2R) + "\xF7 for your sky", 4, cy0 + ch - 2);
+}
+
+// Telescopic Saturn: disk + ring ellipse. The ring opening B sets the ellipse's
+// minor axis; the parallactic angle rotates the whole ring to the observer's sky.
+void PageSolarSystem::drawSaturn(App& app) {
+  auto& g = app.display().gfx();
+  const int cw = app.contentW(), ch = app.contentH(), cy0 = app.contentY();
+  const double D2R = 3.14159265358979323846 / 180.0;
+  double jd = _time.julianDate();
+  double lstR = astro::lstRad(jd, _loc.active().lon);
+  double q = parallacticDeg(_st[6], _loc.active().lat, lstR) * D2R;   // sky tilt
+  double B = astro::saturnRingTiltDeg(jd);
+
+  g.setTextDatum(textdatum_t::top_left);
+  g.setTextColor(gTheme.fg, gTheme.bg);
+  g.drawString("Saturn - rings  [tap mid: sky]", 4, cy0 + 1);
+  g.setTextColor(gTheme.dim, gTheme.bg);
+  g.drawString(String(_st[6].above ? "up" : "below horizon") + "   el " + (int)round(_st[6].elDeg)
+               + "\xF7  az " + (int)round(_st[6].azDeg) + "\xF7", 4, cy0 + 16);
+  g.drawString(String("rings ") + (int)round(fabs(B)) + "\xF7 open  (" + (B >= 0 ? "north" : "south") + " face)", 4, cy0 + 28);
+
+  int cx = cw / 2, cyc = cy0 + ch / 2;
+  double rMaj = 70, rMin = rMaj * fabs(sin(B * D2R));
+  if (rMin < 2) rMin = 2;
+  double cq = cos(q), sq = sin(q);
+  // Parametric ring ellipse rotated by the parallactic angle (LGFX drawEllipse has
+  // no rotation): major axis = ring plane (E-W), minor = opening. Draw outer + inner
+  // (Cassini hint) edges as point-to-point segments.
+  auto ringEllipse = [&](double a, double b, Color c) {
+    int px = 0, py = 0;
+    for (int t = 0; t <= 360; t += 12) {
+      double ex = a * cos(t * D2R), ey = b * sin(t * D2R);       // ellipse, math coords
+      int sx = cx + (int)round(ex * cq - ey * sq);               // rotate, then to screen
+      int sy = cyc - (int)round(ex * sq + ey * cq);
+      if (t > 0) g.drawLine(px, py, sx, sy, c);
+      px = sx; py = sy;
+    }
+  };
+  ringEllipse(rMaj, rMin, gTheme.fg);                            // outer ring edge
+  g.fillCircle(cx, cyc, 9, gTheme.warn);                         // planet disk
+  ringEllipse(rMaj, rMin, gTheme.fg);                            // redraw front arc over disk
+  if (rMin >= 5) ringEllipse(rMaj * 0.62, rMin * 0.62, gTheme.dim);  // Cassini division hint
+  g.setTextDatum(textdatum_t::bottom_left);
+  g.setTextColor(gTheme.dim, gTheme.bg);
+  g.drawString(String("zenith up \xB7 field tilt ") + (int)round(q / D2R) + "\xF7 for your sky", 4, cy0 + ch - 2);
 }
