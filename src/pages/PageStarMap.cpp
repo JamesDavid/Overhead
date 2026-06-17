@@ -309,7 +309,7 @@ void PageStarMap::draw(App& app) {
   // of its on-screen member stars).
   if (_zoom && _zoomT > 0.5f) {
     for (int ci = 0; ci < kConCount; ++ci) {
-      long sxs = 0, sys = 0; int n = 0;
+      long sxs = 0; int n = 0, miny = 99999;
       for (const char* nm : kCons[ci].stars) {
         if (!nm) break;
         const Star* s = findStar(nm); if (!s) continue;
@@ -317,12 +317,15 @@ void PageStarMap::draw(App& app) {
         if (!project(*s, jd, latRad, lst, cx, cy, R, px, py, alt)) continue;
         int tx, ty; xf(px, py, tx, ty);
         if (tx < 0 || tx > cw || ty < cy0 || ty > cy0 + ch) continue;   // on-screen only
-        sxs += tx; sys += ty; n++;
+        sxs += tx; if (ty < miny) miny = ty; n++;
       }
       if (n >= 2) {
+        // Place the name above the figure's topmost star so it doesn't sit on the
+        // star labels (which extend up-right from each star).
+        int ny = miny - 14; if (ny < cy0 + 11) ny = cy0 + 11;
         g.setTextDatum(textdatum_t::middle_center);
         g.setTextColor(gTheme.warn, gTheme.bg);
-        g.drawString(kCons[ci].name, sxs / n, sys / n);
+        g.drawString(kCons[ci].name, (int)(sxs / n), ny);
       }
     }
   }
