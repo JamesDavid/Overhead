@@ -18,7 +18,7 @@ public:
     : _time(time), _loc(loc), _settings(settings) {}
 
   const char* title() const override { return "Solar System"; }
-  void onEnter(App& app) override { _dirty = true; }
+  void onEnter(App& app) override;
   void onData(App& app, ProviderId id) override { _dirty = true; }
   void onTouch(App& app, int x, int y) override;
   void tick(App& app, uint32_t nowMs) override;

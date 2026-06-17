@@ -25,6 +25,22 @@ static const char* moonPhaseName(double deg) {
   return "New";
 }
 
+// Small drawn moon-phase disk (waxing lit on the right). phaseDeg: 0 new..180 full..360.
+static void drawMoonPhase(LGFX& g, int cx, int cy, int r, double phaseDeg) {
+  const double D2R = 3.14159265358979323846 / 180.0;
+  double c = cos(phaseDeg * D2R);
+  g.fillCircle(cx, cy, r, gTheme.grid);                  // dark disk
+  for (int y = -r; y <= r; ++y) {
+    int w = (int)round(sqrt((double)(r * r - y * y)));
+    int xt = (int)round(w * c);                          // terminator x on this scanline
+    int x1, x2;
+    if (phaseDeg < 180) { x1 = xt;  x2 = w; }            // waxing: right limb lit
+    else                { x1 = -w;  x2 = -xt; }          // waning: left limb lit
+    if (x2 >= x1) g.drawFastHLine(cx + x1, cy + y, x2 - x1 + 1, gTheme.fg);
+  }
+  g.drawCircle(cx, cy, r, gTheme.dim);
+}
+
 // Build the orbit-view body list: planets for the current scope (inner = Me..Ma,
 // all = Me..Pluto) plus the minor bodies enabled in settings ("orreryBodies" CSV).
 // In the inner scope only close minors (a <= 1.8 AU, e.g. Starman) are shown.
@@ -61,10 +77,14 @@ void PageSolarSystem::onTouch(App& app, int x, int y) {
   // Centre tap cycles sky-dome -> orbits -> moons & rings.
   if (x >= third && x <= 2 * third) { _view = (_view + 1) % 3; _dirty = true; return; }
   // Bottom-left badge cycles the filter (sky-dome view only).
-  if (_view == 0 && x <= 80 && y >= app.contentH() - 20) { _filter = (_filter + 1) % 3; _dirty = true; return; }
+  if (_view == 0 && x <= 80 && y >= app.contentH() - 20) {
+    _filter = (_filter + 1) % 3; _settings.set("ssShowFilter", (long)_filter); _settings.save();
+    _dirty = true; return;
+  }
   if (_view == 1) {                         // orbits
     if (x > app.contentW() - 52 && y >= app.contentH() - 16) {   // bottom-right: inner/all
       _orbScope = (_orbScope + 1) % 3;                    // inner -> mid -> all
+      _settings.set("orbScope", (long)_orbScope); _settings.save();
       int cnt = orbitVisibleCount();
       if (_orbSel >= cnt) _orbSel = cnt - 1;
       _dirty = true; return;
@@ -95,6 +115,12 @@ bool PageSolarSystem::autoAdvance(App&) {
   }
   _dirty = true;
   return cycled;
+}
+
+void PageSolarSystem::onEnter(App&) {
+  _dirty = true;
+  _filter   = (int)_settings.getInt("ssShowFilter", 1);   // persisted show-filter + orbit scope
+  _orbScope = (int)_settings.getInt("orbScope", 2);
 }
 
 void PageSolarSystem::tick(App& app, uint32_t nowMs) {
@@ -137,7 +163,8 @@ void PageSolarSystem::draw(App& app) {
     int x = (int)(_st[i].azDeg / 360.0 * cw);
     int y = horY - (int)(_st[i].elDeg / 90.0 * (domeH - 10)) - 4;
     Color c = (i == _sel) ? gTheme.ok : (i == 0 ? gTheme.warn : gTheme.accent);
-    g.fillCircle(x, y, (i == _sel) ? 3 : 2, c);
+    if (i == 1) drawMoonPhase(g, x, y, 4, astro::moonPhaseDeg(_time.julianDate()));  // Moon shows its phase
+    else        g.fillCircle(x, y, (i == _sel) ? 3 : 2, c);
     g.setTextDatum(textdatum_t::middle_left);
     g.setTextColor(c, gTheme.bg);
     g.drawString(kAbbrev[i], x + 5, y);

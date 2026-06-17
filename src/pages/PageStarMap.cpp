@@ -7,6 +7,7 @@
 #include "../assets/StarCatalog.h"
 #include "../astro/Time.h"
 #include "../astro/Coords.h"
+#include "../astro/SolarSystem.h"
 #include <math.h>
 #include <string.h>
 
@@ -100,6 +101,22 @@ void PageStarMap::draw(App& app) {
       g.setTextDatum(textdatum_t::bottom_left);
       g.setTextColor(gTheme.dim, gTheme.bg);
       g.drawString(s.name, sx + 4, sy - 1);
+    }
+  }
+
+  // Sun / Moon / planets, projected the same way (azimuthal). Distinct colours.
+  for (int i = 0; i < 9; ++i) {
+    astro::PlanetState p = astro::planetState((astro::Planet)i, jd, _loc.active().lat, _loc.active().lon);
+    if (!p.above) continue;
+    double rr = R * (90.0 - p.elDeg) / 90.0;
+    int sx = cx + (int)round(rr * sin(p.azDeg * astro::DEG2RAD));
+    int sy = cy - (int)round(rr * cos(p.azDeg * astro::DEG2RAD));
+    Color c = (i == 0) ? gTheme.warn : (i == 1) ? gTheme.fg : gTheme.ok;   // Sun / Moon / planets
+    g.fillCircle(sx, sy, i <= 1 ? 3 : 2, c);
+    if (_labels) {
+      g.setTextDatum(textdatum_t::bottom_left);
+      g.setTextColor(c, gTheme.bg);
+      g.drawString(astro::planetName((astro::Planet)i), sx + 4, sy - 1);
     }
   }
 
