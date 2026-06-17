@@ -7,7 +7,9 @@
 #include "../services/Settings.h"
 #include "../astro/Moons.h"
 #include "../astro/Time.h"
+#include "../assets/StarCatalog.h"
 #include <math.h>
+#include <string.h>
 #include <time.h>
 
 using astro::Planet;
@@ -93,6 +95,11 @@ void PageSolarSystem::onTouch(App& app, int x, int y) {
     _filter = (_filter + 1) % 3; _settings.set("ssShowFilter", (long)_filter); _settings.save();
     _dirty = true; return;
   }
+  // Bottom-right badge toggles the star/constellation overlay (sky-dome view only).
+  if (_view == 0 && x >= app.contentW() - 58 && y >= app.contentH() - 20) {
+    _stars = !_stars; _settings.set("ssShowStars", _stars); _settings.save();
+    _dirty = true; return;
+  }
   if (_view == 1) {                         // orbits
     if (x > app.contentW() - 52 && y >= app.contentH() - 16) {   // bottom-right: inner/all
       _orbScope = (_orbScope + 1) % 3;                    // inner -> mid -> all
@@ -135,6 +142,7 @@ void PageSolarSystem::onEnter(App&) {
   _dirty = true;
   _filter   = (int)_settings.getInt("ssShowFilter", 1);   // persisted show-filter + orbit scope
   _orbScope = (int)_settings.getInt("orbScope", 2);
+  _stars    = _settings.getBool("ssShowStars", false);
 }
 
 void PageSolarSystem::tick(App& app, uint32_t nowMs) {
@@ -172,6 +180,43 @@ void PageSolarSystem::draw(App& app) {
   g.drawString("E", cw / 4, horY - 1);
   g.drawString("S", cw / 2, horY - 1);
   g.drawString("W", cw * 3 / 4, horY - 1);
+
+  // Optional Star Map overlay: stars + constellation lines projected into the dome
+  // (azimuth across the width, elevation up). Drawn before the planets so the
+  // planet dots stay on top.
+  if (_stars) {
+    double jd = _time.julianDate();
+    double latRad = _loc.active().lat * astro::DEG2RAD;
+    double lst = astro::lstRad(jd, _loc.active().lon);
+    auto proj = [&](float raH, float decD, int& sx, int& sy) -> bool {
+      astro::Equatorial eq{ raH * 15.0 * astro::DEG2RAD, decD * astro::DEG2RAD };
+      astro::Horizontal h = astro::equatorialToHorizontal(eq, latRad, lst);
+      double el = h.altRad * astro::RAD2DEG;
+      if (el <= 0) return false;
+      double az = h.azRad * astro::RAD2DEG; if (az < 0) az += 360;
+      sx = (int)(az / 360.0 * cw);
+      sy = horY - (int)(el / 90.0 * (domeH - 10)) - 4;
+      return true;
+    };
+    for (int i = 0; i < kStarLineCount; ++i) {       // constellation lines
+      const Star *a = nullptr, *b = nullptr;
+      for (int k = 0; k < kStarCount; ++k) {
+        if (!strcmp(kStars[k].name, kStarLines[i].a)) a = &kStars[k];
+        if (!strcmp(kStars[k].name, kStarLines[i].b)) b = &kStars[k];
+      }
+      if (!a || !b) continue;
+      int ax, ay, bx, by;
+      if (proj(a->raHours, a->decDeg, ax, ay) && proj(b->raHours, b->decDeg, bx, by) &&
+          abs(ax - bx) < cw / 2)                      // skip the az wraparound seam
+        g.drawLine(ax, ay, bx, by, gTheme.grid);
+    }
+    for (int k = 0; k < kStarCount; ++k) {            // star dots (brighter = bigger)
+      if (kStars[k].mag > 3.5f) continue;
+      int sx, sy;
+      if (proj(kStars[k].raHours, kStars[k].decDeg, sx, sy))
+        g.fillCircle(sx, sy, kStars[k].mag < 1.5f ? 2 : 1, gTheme.dim);
+    }
+  }
 
   for (int i = 0; i < kN; ++i) {
     if (!_st[i].above) continue;
@@ -212,9 +257,11 @@ void PageSolarSystem::draw(App& app) {
   g.setTextDatum(textdatum_t::middle_left);
   g.setTextColor(gTheme.fg, gTheme.grid);
   g.drawString(String("show ") + fl, 8, by + 7);
-  g.setTextDatum(textdatum_t::middle_right);
-  g.setTextColor(gTheme.dim, gTheme.bg);
-  g.drawString("tap mid: orbits", cw - 6, by + 7);
+  // Bottom-right: star/constellation overlay toggle.
+  g.fillRect(cw - 56, by, 52, 14, gTheme.grid);
+  g.setTextDatum(textdatum_t::middle_center);
+  g.setTextColor(_stars ? gTheme.ok : gTheme.dim, gTheme.grid);
+  g.drawString(_stars ? "stars on" : "stars off", cw - 30, by + 7);
 }
 
 // Top-down orrery: Sun at centre, sqrt-scaled orbit rings (so the inner planets

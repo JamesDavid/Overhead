@@ -49,6 +49,7 @@ private:
   static constexpr int kViews = 4;
   int   _tourN = 0;                      // attract-tour: items stepped in this view
   int   _filter = 1;                    // 0 all, 1 above-horizon, 2 naked-eye
+  bool  _stars = false;                 // overlay Star Map stars + constellations on the sky-dome
   bool  _dirty = true;
   uint32_t _lastDraw = 0;
 };
