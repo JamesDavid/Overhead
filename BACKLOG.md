@@ -43,22 +43,21 @@ is the *remaining* work as of the latest sweep.
 - Nearest-airport + likely-frequency (bundle OurAirports subset in LittleFS) — the
   headline ham/SDR feature; needs a generated dataset.
 - More filter chips: altitude band, category (airliner/GA/heli/mil), emergency-only.
-  (Hide-on-ground + range steps + recenter-on-nearby-airport are done.)
-- Tap-on-blip selection (currently tap edges to step); callsign labels on the radar.
+  (Hide-on-ground + range steps + recenter-on-nearby-airport + tap-on-blip are done.)
+- Callsign labels on the radar blips.
 - Local-feeder auto-discovery / mDNS; adsb.lol secondary source.
 - Flicker: radar still clears its circle bbox each tick — per-blip erase or a PSRAM sprite.
 
 ## M6 — Solar System
-- **Moons** of Jupiter/Saturn (Galilean + Titan): at orrery scale they're sub-pixel,
-  so do a planet-zoom INSET view (centre-tap a giant planet -> its moon system).
+- **Saturn's moons** (Titan/Rhea/Dione/Tethys) on the moons & rings view — needs its
+  own satellite theory (Meeus ch.46) or a calibrated circular model. (Jupiter's
+  Galilean moons + Saturn's ring-opening are done + verified vs Horizons.)
 - **Live spacecraft** (Psyche probe, Voyager 1/2, Lucy): non-Keplerian / off-scale, so
   a small "missions" text panel (heliocentric distance + one-way light-time) fed by
   JPL Horizons, rather than plotted dots. (Asteroids Ceres/Vesta/16 Psyche + Starman
   are already plotted from baked elements.)
 - Periodically refresh the baked Roadster/asteroid elements (drift over years).
 - Rise/set + transit times per body (currently instantaneous alt/az only).
-- Moon phase ICON (drawn crescent/gibbous) rather than the phase name.
-- Persist the show-filter (all/up/eye) + orbit scope (inner/mid/all) in Settings.
 
 ## Cross-cutting — rendering
 - Anti-flicker via _needClear + in-place padded text + blip-erase. Next: optional LGFX
@@ -103,7 +102,7 @@ hazards, SPECI Director badge. Remaining:
 ## M9 — Star Map
 - Expand the catalog (PC-generated to mag ~5.5, ~1000-1600 stars) bundled in LittleFS;
   current is ~40 brightest in flash. Measure render time on no-PSRAM.
-- More constellation lines + labels; planets/Moon/Sun plotted on the chart.
+- More constellation lines + labels. (Sun/Moon/planets are now plotted on the chart.)
 - Pan/zoom (+/- buttons), magnitude limit persisted; gridlines / ecliptic.
 
 ## M10 — Agenda + observability
