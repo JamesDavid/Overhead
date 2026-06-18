@@ -4,95 +4,24 @@ Deferred polish — cut from the first pass to keep momentum. Pick up later.
 (Bugs/blocking work go in commits, not here.) Items shipped are removed; this list
 is the *remaining* work as of the latest sweep.
 
-## UX shell — "desk-clock" reorganization (do in a BRANCH; big, don't disrupt main)
-The vision: make it the best air-&-space *desk clock*, not a flat 9-tab carousel.
-Additive — the existing pages + Director logic stay; this adds a home page + an
-overlay nav layer on top.
+## UX shell — desk-clock (SHIPPED via overlay, Jun 2026)
+Built as a device-wide **clock-mode overlay** (tap the time in the status strip)
+rather than a separate home page: a big clock stamped on top of the live page —
+parked static lower-right on data pages (sat pass / aircraft / launches / agenda
+keep running underneath), or hopped to a random corner every ~10 s on calm pages
+for burn-in; sprite-rendered (no flicker/scramble), with 24h/AM-PM + digital/analog-
+ball toggles inside the box and a date complication. Plus the **3×3 quick-jump
+grid** (tap the status dots) where every tile shows a live micro-status (next AOS +
+sat, T-minus + mission, nearest METAR, planets/constellations up, Kp, problems...),
+word-wrapped. A per-page `clockKeepLive()` hint drives the static-vs-hop choice;
+the Director still interrupts / auto-switches.
 
-### "Now" home face (new default/resting page = `PageHome`)
-Big clock + the single most-relevant thing right now, fed by the Director. The device
-returns here when idle (instead of the ambient tab tour).
-
-```
-+------------------------------------------+
-| @6:14^ 19:42v   ( 19% waning   Wed Jun 18|  sun/moon + date strip
-|                                          |
-|              21:47                        |  BIG time (center, ~64px)
-|                                          |
-|  > NEXT  ISS pass 22:14  (in 27m)        |  Director "right now" card
-|          max 61 deg . SW->NE . 6 min     |
-|  o clear & dark until 00:30              |  secondary line (observing window)
-|                              [s] [o] [h] |  corner glyphs: settings/loc/health
-+------------------------------------------+
-            tap center -> grid
-```
-- **Day** = clean clock (dark or a light palette); **night** = "observatory": red
-  dark-adapt palette + a faint rotating starfield/orrery behind the clock (reuse the
-  Star Map / orrery renderers), dimmed backlight.
-- The NEXT card = whatever the Director scores highest (pass / launch T-minus /
-  clear-dark window / aircraft emergency) — same scoring that drives auto-switch
-  today, surfaced as a card instead of a tab jump.
-
-### 3x3 quick-jump grid (tap the clock -> `GridOverlay` modal)
-Jump by domain instead of swiping linearly. Rows grouped by theme; each cell shows a
-live micro-status + the Director attention dot.
-
-```
-+-------------+-------------+-------------+
-|   Agenda    | Solar System|  Star Map   |  -- SKY TONIGHT
-|  tonight    |  orbits     |  1600 stars |
-+-------------+-------------+-------------+
-| Satellites .|  Launches   |  Aircraft ! |  -- THINGS MOVING
-|  ISS 27m    |  T-2d       |  8 near     |
-+-------------+-------------+-------------+
-|  Aviation   |  Space Wx   |   Health    |  -- CONDITIONS / SYS
-|  VFR        |  Kp3        |  ok         |
-+-------------+-------------+-------------+
-   . = pass imminent     ! = emergency squawk
-```
-- Each cell = icon + label + one live token (next-pass countdown, T-minus, contact
-  count, flight category, Kp...). Tap a cell -> that tab; back/outside -> clock.
-- Attention dot pulses when a domain wants you (pass lead-time, SPECI, emergency) -
-  same triggers as today's tab badges.
-- 8 content tabs + Health = the 9 cells (Missions already folded into Solar System).
-
-### Ambient / rest behavior (no user input)
-The home face becomes the rest state, so the Director no longer tours tabs by default
-(a bedside clock shouldn't strobe all night). New `restMode` setting:
-- `clock` (default day) — sit on the home face; the NEXT card refreshes as the Director
-  re-scores. Calm + glanceable.
-- `observatory` (default night) — home-face *background* becomes the live rotating
-  star-map/orrery (reuse the existing sky/orrery tour); the inspire-a-kid mode.
-- `tour` — current behavior: cycle every content tab on `tourDwellSec` (kiosk).
-Director **interrupts fire in all modes**: imminent pass / launch T-0 / aircraft
-emergency / SPECI still auto-switch to that tab + banner, then fall back to the rest
-mode when the event passes. `focusEnabled` / `tourDwellSec` carry over.
-
-### Clock page — incremental first step (do this before the full reorg)
-Lower-risk way in: a separate `PageClock` reached by **tapping the time** in the status
-bar, with the rest modes (clock / observatory) *internal* to that page (centre-tap
-cycles them). No change to current behavior - purely an added page.
-- **Auto-pin on enter, unpin on exit** (reuse the existing pin): park on it and the
-  Director won't tour away; swipe off and normal behavior resumes. Keep it OUT of the
-  ambient tour rotation so AUTO never lands there on its own.
-- **Don't let the pin silently swallow interrupts.** Options (pick one):
-  (a) surface the Director's alert ON the clock face (banner/card) and let a tap jump
-      to that tab - user stays in control, never yanked;
-  (b) a special clock-only pin that shows the alert but doesn't auto-switch-then-bounce
-      back to the clock (the jarring there-and-back).
-  Lean (a): clock face shows "ISS pass in 4m -> tap" and a tap navigates (which also
-  unpins). Best of both - calm by default, one tap to act, no involuntary bounce.
-- If it feels good on the device, promote it to the *default* home face later.
-
-### Pieces
-- **`PageHome`** default page + night-observatory background; Director returns here.
-- **`GridOverlay`** modal opened by centre-tap on Home (and/or a status-bar tap).
-- **Health / Settings / Location -> corner-glyph overlays** (off the carousel).
-- Existing pages stay as grid destinations; swipe optional/retired.
-- Ties into the memory strategy: keep the active *domain* hot, let cold domains release
-  String-heavy data (TLE/METAR/aircraft) + drop to low-rate polling on no-PSRAM boards,
-  triggered by `heapBlkMin` near the floor.
-- Supersedes the M1/M11 app-shell + Health-overlay notes below.
+Not built (small, optional — promote later if wanted):
+- A `PageHome` "Now" card surfacing the Director's single highest-scored item
+  (pass / launch / clear-dark window) as a card instead of a tab jump.
+- `restMode = observatory`: a faint live rotating star-map/orrery *behind* the clock
+  at night (reuse the Star Map / orrery renderers) — the inspire-a-kid mode.
+- Settings / Health / Location as corner-glyph overlays off the carousel (see M11).
 
 ## M0 — bring-up / HAL
 - Verify 4" CYD (ST7796) + CrowPanel panels on real hardware (only 2.8" CYD verified).
@@ -114,14 +43,6 @@ cycles them). No change to current behavior - purely an added page.
 - Turn ASTRO_SELFTEST off in release builds.
 
 ## M3 — Satellites
-- **TLE age can read very old** — not a cache bug: TLEs persist in LittleFS with
-  fetchedAt + a 12h TTL (already "update only as needed", survives reboot). The age
-  grows because the refresh fetch is SKIPPED when heap is below the ~42KB TLS floor
-  (httpsSkip>0, e.g. with the debug-screenshot buffer on). Fix is heap (debugShots off /
-  seed-then-enable), not caching. Refinement: on boot don't force a fetch just because
-  the clock isn't NTP-synced yet (current `!clockValid` forces stale) — if a cache entry
-  exists, trust it until the post-sync TTL check, so a recent reboot skips the HTTP call.
-  Same for launches. Surface "last updated" per feed on Health.
 - On-device watchlist editing (now editable via the web watchlist field; add an
   on-screen add/remove). Matching is case-insensitive CONTAINS (so "SO-50" finds
   "SAUDISAT 1C (SO-50)"); designations with no catalog-name token need the real name
@@ -265,8 +186,9 @@ hazards, SPECI Director badge. Remaining:
 ## M10 — Agenda + observability
 - Sky Window: moon illumination shading intensity; precip overlay; finer (30-min) buckets.
   (Local-time labels on the +6/+12/+18 ticks done; tapping an event jumps to its tab.)
-- Pre-focus the target on jump (pass -> select that bird, not just the Satellites tab).
-- Context title Today/Tonight by time of day; meteor-shower peak markers.
+- Context title Today/Tonight by time of day.
+  (Tonight's visible planets + constellations now replace the far-off meteor
+  countdown; tapping an event pre-focuses the exact bird/launch — both done.)
 
 ## M11 — System/Health
 - **Saved locations + easy switching.** A user list of places they use the device
@@ -292,26 +214,21 @@ hazards, SPECI Director badge. Remaining:
 ## No-PSRAM RAM budget (CYD) — the binding constraint
 - TLS needs a ~40 KB contiguous block; NetClient SKIPS an HTTPS fetch when the largest
   free block < 42 KB (avoids the OOM heap-corruption crash) — providers serve stale + retry.
-- The screenshot JPEG buffer (16 KB) is allocated ONCE at boot (fresh heap); a runtime
-  malloc/free of that size fragments the heap and drops the largest block below the TLS
-  floor (it starved aircraft/spacewx — that's why it's boot-allocated now).
+- The screenshot JPEG buffer (16 KB) is now LAZY-allocated on the first screenshot
+  request, not at boot — so the largest-free-block floor stays clear of the TLS band
+  until/unless a remote screenshot is actually taken (raised it 34 KB -> 57 KB and
+  stopped the httpsSkip that made TLE/feeds go stale).
 - TLEs retained WATCHLIST-ONLY (full lists ~18 KB of Strings froze TLS). Aircraft cap 24,
   METAR cap 12. On the PSRAM CrowPanel, keep full lists + a sprite double-buffer (board-conditional).
 - Boot fires ~12 HTTPS jobs serially — consider staggering to cut heap contention.
-- **Two-phase boot: "updater" mode then "viewer" mode (no-PSRAM fix for stale data).**
-  On a fresh boot the heap is unfragmented (largest block well above the 42KB TLS floor),
-  so HTTPS works. Idea: boot into a minimal UPDATER mode — WiFi + NTP only, NO 16KB
-  screenshot buffer, no heavy pages/web server — and bulk-refresh every feed into the
-  LittleFS cache (TLEs, launches, METAR, space wx, ...) while heap is clean. Then reboot
-  into the full VIEWER mode (remote/screenshots/UI) which serves the now-warm cache and
-  rarely needs to fetch. Re-enter updater mode occasionally "as needed" (cache TTL
-  expired) via a scheduled reboot — gate this whole scheme to no-PSRAM boards (PSRAM
-  boards have heap to fetch live). Solves the httpsSkip staleness (TLE age, feeds) at the
-  root. Watch: reboot cost (~boot time), and a flag in NVS/RTC-mem to pick the mode.
-  - Division of labour: updater pre-caches the SLOW-changing feeds (TLEs, launch
-    schedule, space-wx history) so VIEWER mode spends its one scarce TLS slot only on the
-    genuinely LIVE feeds — ADS-B aircraft, METAR/aviation, current space wx. That keeps
-    the live stuff live without the slow bulk fetches contending for the heap.
+- **Two-phase boot: updater -> viewer (DONE, Jun 2026).** Gated by the `bootUpdater`
+  setting (off by default): a lean boot brings up only WiFi/NTP/net + the cacheable
+  providers (TLE/Launch/SpaceWx) — no UI, no live feeds, no screenshot buffer — refreshes
+  whatever's stale, then reboots into the viewer (cache fresh, RTC keeps the clock valid
+  so the providers skip re-fetching). Re-evaluates each boot and can chip across several
+  update boots, with a cycle guard so it can't loop. Currently optional since the lazy
+  screenshot buffer already keeps the viewer above the TLS floor. Possible refinement:
+  one data-type per update boot for the very leanest phase; a scheduled re-enter on TTL.
 - LESSON: Settings::backfillDefaults() now adds missing keys on every load, because a
   stale settings.json + the web form's Save-all once blanked focusEnabled/inactivitySec/
   dim*/lead-times to 0/false — do NOT let the form write keys that weren't loaded.
@@ -351,6 +268,20 @@ live mission panel) folded into the Solar System tab. Real Natural Earth coastli
 country/state borders + Mars/Moon feature maps (tools/gen_worldmap.py). Web settings
 revamp, debug-screenshot memory toggle, makeshift METAR pressure/cloud map, rise/set +
 transit per body, upcoming meteor-showers page, naked-eye visibility.
+
+## Shipped this sweep (late Jun 2026) — removed from the lists above
+- **Clock-mode overlay** (tap the time): static lower-right on live pages, corner-hop on
+  calm pages, sprite-rendered, 24h/AM-PM + digital/analog-ball toggles + date. Replaces
+  the desk-clock-shell plan (see top section).
+- **3×3 grid live tiles** — each surfaces its key live token (next AOS+sat, T-minus+
+  mission, nearest METAR, planets/constellations up, Kp, health), word-wrapped.
+- **Heap floor fix** — lazy screenshot buffer (34->57 KB largest block); providers now
+  report Ready from a fresh persisted cache + restore lastFetched across reboots (fixes
+  "TLE ancient"). **Two-phase boot** updater built (gated).
+- **Agenda** — tap focuses the exact bird/launch; tonight's visible planets +
+  constellations replace the far-off meteor countdown. Aircraft auto-selects + cycles.
+  Satellites dropped the redundant pass az/el graph view.
+- **Remote** — `/remote` up/down scroll buttons + 2×2 layout; bigger screenshot.
 
 ## Web UI overhaul + user-friendly configuration (backlog, Jun 2026)
 A proper settings web app instead of the single scroll form, plus friendlier config:
