@@ -68,6 +68,22 @@ Director **interrupts fire in all modes**: imminent pass / launch T-0 / aircraft
 emergency / SPECI still auto-switch to that tab + banner, then fall back to the rest
 mode when the event passes. `focusEnabled` / `tourDwellSec` carry over.
 
+### Clock page — incremental first step (do this before the full reorg)
+Lower-risk way in: a separate `PageClock` reached by **tapping the time** in the status
+bar, with the rest modes (clock / observatory) *internal* to that page (centre-tap
+cycles them). No change to current behavior - purely an added page.
+- **Auto-pin on enter, unpin on exit** (reuse the existing pin): park on it and the
+  Director won't tour away; swipe off and normal behavior resumes. Keep it OUT of the
+  ambient tour rotation so AUTO never lands there on its own.
+- **Don't let the pin silently swallow interrupts.** Options (pick one):
+  (a) surface the Director's alert ON the clock face (banner/card) and let a tap jump
+      to that tab - user stays in control, never yanked;
+  (b) a special clock-only pin that shows the alert but doesn't auto-switch-then-bounce
+      back to the clock (the jarring there-and-back).
+  Lean (a): clock face shows "ISS pass in 4m -> tap" and a tap navigates (which also
+  unpins). Best of both - calm by default, one tap to act, no involuntary bounce.
+- If it feels good on the device, promote it to the *default* home face later.
+
 ### Pieces
 - **`PageHome`** default page + night-observatory background; Director returns here.
 - **`GridOverlay`** modal opened by centre-tap on Home (and/or a status-bar tap).
