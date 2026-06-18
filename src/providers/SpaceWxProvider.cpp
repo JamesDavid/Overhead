@@ -33,7 +33,10 @@ static int extractSfi(JsonVariant root) {
 void SpaceWxProvider::begin(Settings* s, NetClient* net, Cache* cache, EventBus* bus) {
   _s = s; _net = net; _cache = cache; _bus = bus;
   String body; CacheMeta m;
-  if (_cache->get("swx_kp", body, m) && parseKp(body)) _status = ProviderStatus::Stale;
+  if (_cache->get("swx_kp", body, m) && parseKp(body)) {
+    _status = ProviderStatus::Stale;
+    _lastFetched = m.fetchedAt;                   // persist freshness across reboots
+  }
   if (_cache->get("swx_sfi", body, m)) { JsonDocument d; if (!deserializeJson(d, body)) _sfi = extractSfi(d); }
   refresh(false);
 }
@@ -44,6 +47,7 @@ void SpaceWxProvider::refresh(bool force) {
   CacheMeta m = _cache->stat("swx_kp");
   bool stale = force || !m.found || now < 1600000000UL || (now - m.fetchedAt) > ttl;
   if (stale) { fetchKp(); fetchSfi(); fetchXray(); fetchWind(); fetchMag(); }
+  else if (_kp >= 0) _status = ProviderStatus::Ready;   // fresh persisted cache is ready
 }
 
 // Latest GOES X-ray flare class (e.g. "M1.2"); tiny single-element array.

@@ -31,11 +31,15 @@ void TleProvider::refresh(bool force) {
   uint32_t now = (uint32_t)time(nullptr);
   bool clockValid = now > 1600000000UL;
 
+  bool anyStale = false;
   for (int i = 0; i < kGroupCount; ++i) {
     CacheMeta m = _cache->stat(kGroups[i].key);
     bool stale = force || !m.found || !clockValid || (now - m.fetchedAt) > ttl;
-    if (stale) fetchGroup(i);
+    if (stale) { anyStale = true; fetchGroup(i); }
   }
+  // A fresh persisted cache is "ready" — don't mislabel it Stale just because we
+  // didn't need to fetch this session (the data survives reboots in LittleFS).
+  if (!anyStale && !_sats.empty()) _status = ProviderStatus::Ready;
 }
 
 void TleProvider::fetchGroup(int idx) {
@@ -69,8 +73,10 @@ void TleProvider::fetchGroup(int idx) {
 
 void TleProvider::loadFromCache(int idx) {
   String body; CacheMeta m;
-  if (_cache->get(kGroups[idx].key, body, m) && body.length())
+  if (_cache->get(kGroups[idx].key, body, m) && body.length()) {
     parseInto(_groupSats[idx], body);
+    if (m.fetchedAt > _lastFetched) _lastFetched = m.fetchedAt;   // persist freshness across reboots
+  }
 }
 
 bool TleProvider::keepName(const String& name, size_t kept) const {

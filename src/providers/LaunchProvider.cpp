@@ -23,7 +23,10 @@ void LaunchProvider::begin(Settings* s, NetClient* net, Cache* cache, EventBus* 
   _s = s; _net = net; _cache = cache; _bus = bus;
 
   String body; CacheMeta m;                       // last-good from cache first
-  if (_cache->get(kCacheKey, body, m) && parseLL2(body)) _status = ProviderStatus::Stale;
+  if (_cache->get(kCacheKey, body, m) && parseLL2(body)) {
+    _status = ProviderStatus::Stale;
+    _lastFetched = m.fetchedAt;                   // persist freshness across reboots
+  }
   refresh(false);
 }
 
@@ -34,6 +37,7 @@ void LaunchProvider::refresh(bool force) {
   bool clockValid = now > 1600000000UL;
   bool stale = force || !m.found || !clockValid || (now - m.fetchedAt) > ttl;
   if (stale) fetchLL2();
+  else if (!_launches.empty()) _status = ProviderStatus::Ready;   // fresh persisted cache is ready
 }
 
 void LaunchProvider::fetchLL2() {
