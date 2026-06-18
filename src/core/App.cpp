@@ -186,6 +186,10 @@ void App::tick(uint32_t nowMs) {
     int d = _injSwipe; _injSwipe = 0; _lastInteractMs = nowMs; _mode = Mode::Manual;
     if (d < 0) prevPage(); else nextPage();
   }
+  if (_injScroll) {
+    int dy = _injScroll; _injScroll = 0; _lastInteractMs = nowMs; _mode = Mode::Manual;
+    if (_active >= 0 && !_grid) _pages[_active]->onScroll(*this, dy);
+  }
 
   // Touch: distinguish a horizontal swipe (carousel page change) from a tap
   // (delivered to the active page). Hold/pin + the Director arrive later.

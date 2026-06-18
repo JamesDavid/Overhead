@@ -94,10 +94,15 @@ img{width:100%;max-width:480px;height:auto;background:#11161f;border:1px solid #
 button{font-size:16px;padding:.4rem 1rem;margin:.3rem;background:#2563c0;color:#fff;border:0;border-radius:6px}
 a{color:#50aaff}</style></head><body>
 <h3>Overhead remote</h3>
-<div><img id=s alt="screen" width=320 height=240></div>
-<div><button onclick=sw('prev')>&#9664; prev</button>
+<table style="margin:0 auto;border-collapse:collapse">
+<tr><td><img id=s alt="screen" width=320 height=240></td>
+<td style="vertical-align:middle">
+<button style="margin:0;display:block" onclick=sw('up')>&#9650;</button>
+<button style="margin:0;display:block" onclick=sw('down')>&#9660;</button></td></tr>
+<tr><td><button onclick=sw('prev')>&#9664; prev</button>
 <button onclick=ref()>refresh</button>
-<button onclick=sw('next')>next &#9654;</button></div>
+<button onclick=sw('next')>next &#9654;</button></td>
+<td></td></tr></table>
 <p id=m>tap the screen to interact</p>
 <p><a href=/>settings</a></p>
 <script>
@@ -190,7 +195,9 @@ bool WebPortal::begin(Settings* s, const String& hostname) {
   _server.on("/api/swipe", HTTP_GET, [this](AsyncWebServerRequest* req) {
     if (!_app) { req->send(503); return; }
     String d = req->hasParam("dir") ? req->getParam("dir")->value() : String("next");
-    _app->injectSwipe((d == "prev" || d == "left") ? -1 : 1);
+    if      (d == "up")   _app->injectScroll(-30);     // vertical scroll (e.g. agenda list)
+    else if (d == "down") _app->injectScroll(30);
+    else                  _app->injectSwipe((d == "prev" || d == "left") ? -1 : 1);
     req->send(200, "application/json", "{\"ok\":true}");
   }).setAuthentication(_apiUser.c_str(), _apiPass.c_str());
 

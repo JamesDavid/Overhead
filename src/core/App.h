@@ -43,6 +43,7 @@ public:
   void setAlert(const String& s);       // Director cross-tab alert in the status strip
   void injectTap(int x, int y) { _injTapX = x; _injTapY = y; }   // debug: synthetic touch
   void injectSwipe(int dir) { _injSwipe = dir; }                 // debug: -1 prev, +1 next
+  void injectScroll(int dy) { _injScroll = dy; }                 // debug: vertical scroll (dy<0 up, dy>0 down)
   void setInactivityMs(uint32_t ms) { _inactivityMs = ms; }
   uint32_t idleMs(uint32_t now) const { return now - _lastInteractMs; }
 
@@ -92,6 +93,7 @@ private:
   uint32_t _switchBannerMs = 0;
   volatile int _injTapX = -1, _injTapY = -1;   // pending injected touch (debug web API)
   volatile int _injSwipe = 0;                  // pending injected swipe (-1/+1)
+  volatile int _injScroll = 0;                 // pending injected vertical scroll (dy)
 
   bool     _grid = false;              // 3x3 quick-jump grid overlay is showing
   Mode     _mode = Mode::Auto;
