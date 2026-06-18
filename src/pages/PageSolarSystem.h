@@ -22,6 +22,7 @@ public:
   void onEnter(App& app) override;
   void onData(App& app, ProviderId id) override { _dirty = true; }
   void onTouch(App& app, int x, int y) override;
+  void cycleView(int dir) override;            // up/down swipe: step the 8 sub-views
   void tick(App& app, uint32_t nowMs) override;
   bool autoAdvance(App& app) override;
   String gridStatus() override;          // Moon illumination %

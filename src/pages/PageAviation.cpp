@@ -65,6 +65,18 @@ void PageAviation::focusSpeci() {
     if (st[i].raw.startsWith("SPECI")) { _sel = i; _view = View::Metar; _needClear = _dirty = true; return; }
 }
 
+void PageAviation::stepView(int dir) {
+  static const View order[] = { View::Map, View::Metar, View::Taf, View::Sounding, View::Hazards, View::Trends, View::Pressure };
+  const int n = 7;
+  int cur = 0; for (int i = 0; i < n; ++i) if (order[i] == _view) { cur = i; break; }
+  cur = (cur + dir + n) % n; _view = order[cur];
+  if (_view == View::Taf && !enterTaf()) { cur = (cur + dir + n) % n; _view = order[cur]; }  // skip empty TAF
+  _pZoom = false; _pZoomT = 0; _pZoomDir = 0;
+  _needClear = _dirty = true;
+}
+
+void PageAviation::cycleView(int dir) { stepView(dir); }   // up/down swipe -> next/prev view
+
 bool PageAviation::enterTaf() {
   const auto& st = _wx.stations(); int n = (int)st.size();
   if (_sel >= 0 && _sel < n && st[_sel].taf.length()) return true;   // current field already has one
@@ -87,13 +99,14 @@ void PageAviation::onData(App& app, ProviderId id) {
 
 void PageAviation::onTouch(App& app, int x, int y) {
   int third = app.contentW() / 3;
-  if (x >= third && x <= 2 * third) {               // centre: cycle view (Map first)
-    _view = _view == View::Map ? View::Metar : _view == View::Metar ? View::Taf
-          : _view == View::Taf ? View::Sounding : _view == View::Sounding ? View::Hazards
-          : _view == View::Hazards ? View::Trends : _view == View::Trends ? View::Pressure : View::Map;
-    if (_view == View::Taf && !enterTaf()) _view = View::Sounding;    // skip TAF if no field has one
-    _pZoom = false; _pZoomT = 0; _pZoomDir = 0;        // leaving the pressure map -> reset its zoom
-    _needClear = _dirty = true; return;
+  if (x >= third && x <= 2 * third) {               // centre tap
+    if (_view == View::Pressure) {                  // pressure map: zoom on the map centre
+      int my = app.contentY() + 16, mh = app.contentH() - 16 - 12;
+      int fx = app.contentW() / 2, fy = my + mh / 2;
+      if (!_pZoom) { _pZoom = true; _pFx = fx; _pFy = fy; _pZoomDir = 1; } else _pZoomDir = -1;
+      _pZoomMs = millis(); _needClear = _dirty = true; return;
+    }
+    stepView(+1); return;                           // other views: advance (up/down swipe also cycles)
   }
   if (_view == View::Map && x < 50 && y < 16) {     // top-left badge: cycle map zoom
     _mapZoom = (_mapZoom + 1) % kMapZoomN;

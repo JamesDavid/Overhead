@@ -120,6 +120,8 @@ void PageLaunches::rebuildFilter() {
   if (_sel >= (int)_filtered.size()) _sel = _filtered.empty() ? 0 : (int)_filtered.size() - 1;
 }
 
+void PageLaunches::cycleView(int) { _map = !_map; _needClear = _dirty = true; }
+
 void PageLaunches::onEnter(App& app) {
   rebuildFilter();
   String f = app.takeFocus();                  // Agenda tap -> select the exact launch

@@ -26,6 +26,7 @@ public:
   void onEnter(App& app) override;
   void onData(App& app, ProviderId id) override;
   void onTouch(App& app, int x, int y) override;
+  void cycleView(int dir) override;           // up/down swipe -> next/prev view
   void tick(App& app, uint32_t nowMs) override;
   bool autoAdvance(App& app) override;
   String gridStatus() override;          // nearest METAR: cat + temp/wind
@@ -40,6 +41,7 @@ private:
   void drawHazards(App& app);
   void drawTrends(App& app);
   void drawPressure(App& app);
+  void stepView(int dir);                // advance the view (+1 next, -1 prev), skipping empty TAF
   bool enterTaf();                       // point _sel at a TAF-bearing field; false if none have one
   int  nextTaf(int from, int dir) const; // next station index with a TAF (wrapping), or -1
 

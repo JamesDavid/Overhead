@@ -23,6 +23,7 @@ public:
   const char* title() const override { return "Launches"; }
   bool clockKeepLive() const override { return true; }   // T-minus keeps counting under the clock
   void onEnter(App& app) override;
+  void cycleView(int dir) override;            // up/down swipe: card <-> map
   void onData(App& app, ProviderId id) override;
   void onTouch(App& app, int x, int y) override;
   void tick(App& app, uint32_t nowMs) override;

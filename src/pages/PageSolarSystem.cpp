@@ -259,6 +259,11 @@ void PageSolarSystem::onEnter(App&) {
   _stars    = _settings.getBool("ssShowStars", false);
 }
 
+void PageSolarSystem::cycleView(int dir) {
+  _view = (_view + dir + kViews) % kViews;
+  _dirty = true;
+}
+
 String PageSolarSystem::gridStatus() {
   if (!_time.synced() || !_loc.active().valid) return String();
   double jd = _time.julianDate(), lat = _loc.active().lat, lon = _loc.active().lon;

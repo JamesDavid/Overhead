@@ -27,6 +27,7 @@ public:
   void onEnter(App& app) override;
   void onData(App& app, ProviderId id) override;
   void onTouch(App& app, int x, int y) override;
+  void cycleView(int dir) override;            // up/down swipe: Polar <-> Ground
   void tick(App& app, uint32_t nowMs) override;
   String gridStatus() override;
   bool autoAdvance(App& app) override;

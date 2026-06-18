@@ -25,7 +25,12 @@ public:
   virtual void onExit(App& app) {}
   virtual void tick(App& app, uint32_t nowMs) {}   // dirty-rect redraws
   virtual void onTouch(App& app, int x, int y) {}
-  virtual void onScroll(App& app, int dy) {}       // vertical swipe (dy<0 up, dy>0 down)
+  // Step this page's sub-view (+1 next, -1 prev). Pages with multiple views
+  // override just this; they get up/down-swipe view navigation for free via the
+  // default onScroll below. Pages that scroll content (e.g. Agenda) override
+  // onScroll instead and keep vertical swipe for scrolling.
+  virtual void cycleView(int dir) {}
+  virtual void onScroll(App& app, int dy) { cycleView(dy < 0 ? 1 : -1); }  // up = next view, down = prev
   virtual void onData(App& app, ProviderId id) {}  // EventBus delivery
   virtual String gridStatus() { return String(); }  // one live token for the 3x3 grid tile
 
