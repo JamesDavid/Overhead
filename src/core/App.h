@@ -52,6 +52,7 @@ public:
 
   void openGrid();                       // show the 3x3 quick-jump grid (page taps open it)
   bool gridOpen() const { return _grid; }
+  void setPin(bool on) { _pinned = on; _statusDirty = true; }   // pages can pin (clock rests)
 
 private:
   void drawStatus();

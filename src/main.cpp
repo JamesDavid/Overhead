@@ -29,6 +29,7 @@
 #include "services/Provisioning.h"
 #include "services/WebPortal.h"
 #include "services/AirportDB.h"
+#include "pages/PageClock.h"
 #include "providers/TleProvider.h"
 #include "providers/LaunchProvider.h"
 #include "providers/AircraftProvider.h"
@@ -256,6 +257,7 @@ void setup() {
   app.addPage(solarPage);
   app.addPage(starPage);
   app.addPage(healthPage);
+  app.addPage(new PageClock(timeSvc, locSvc, settings));   // last; reached by tapping the time
   app.setInactivityMs((uint32_t)settings.getInt("inactivitySec", 90) * 1000UL);
   app.begin();
 

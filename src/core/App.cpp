@@ -141,6 +141,8 @@ void App::tapAt(int x, int y) {
     return;
   }
   if (y < contentY()) {                                      // status strip
+    if (x < 48) { int ci = pageIndexByTitle("Clock");        // tap the clock -> Clock page
+                  if (ci >= 0) { setPage(ci); return; } }
     if (dotsHit(x)) { openGrid(); return; }                  // tap the page dots -> grid
     if (_pinned) _pinned = false;
     else _mode = (_mode == Mode::Auto) ? Mode::Manual : Mode::Auto;
