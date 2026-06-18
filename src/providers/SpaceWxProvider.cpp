@@ -45,7 +45,7 @@ void SpaceWxProvider::refresh(bool force) {
   uint32_t ttl = (uint32_t)_s->getInt("refreshSpaceWxMin", 20) * 60UL;
   uint32_t now = (uint32_t)time(nullptr);
   CacheMeta m = _cache->stat("swx_kp");
-  bool stale = force || !m.found || now < 1600000000UL || (now - m.fetchedAt) > ttl;
+  bool stale = force || !m.found || (now >= 1600000000UL && (now - m.fetchedAt) > ttl);  // trust cache pre-NTP
   if (stale) { fetchKp(); fetchSfi(); fetchXray(); fetchWind(); fetchMag(); }
   else if (_kp >= 0) _status = ProviderStatus::Ready;   // fresh persisted cache is ready
 }

@@ -255,6 +255,11 @@ void setup() {
   // location-dependent providers as soon as it does, rather than waiting for
   // their (long) refresh interval — e.g. the sounding's is 60 min.
   bus.subscribe([](ProviderId id) {
+    if (id == ProviderId::Time) {            // NTP just landed -> proper TTL re-check now the clock is valid
+      tleProv.refresh(false);
+      launchProv.refresh(false);
+      spaceWxProv.refresh(false);
+    }
     if (id != ProviderId::Location) return;
     weatherProv.refresh(true);
     avwxProv.refresh(true);

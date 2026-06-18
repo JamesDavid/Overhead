@@ -34,7 +34,10 @@ void TleProvider::refresh(bool force) {
   bool anyStale = false;
   for (int i = 0; i < kGroupCount; ++i) {
     CacheMeta m = _cache->stat(kGroups[i].key);
-    bool stale = force || !m.found || !clockValid || (now - m.fetchedAt) > ttl;
+    // Trust a present cache until the clock is valid — don't force a boot fetch
+    // just because NTP hasn't landed yet (that fetch can httpsSkip-fail and flip a
+    // fresh cache to Stale). Re-checked properly on the Time-sync event.
+    bool stale = force || !m.found || (clockValid && (now - m.fetchedAt) > ttl);
     if (stale) { anyStale = true; fetchGroup(i); }
   }
   // A fresh persisted cache is "ready" — don't mislabel it Stale just because we

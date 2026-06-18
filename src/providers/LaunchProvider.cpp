@@ -35,7 +35,7 @@ void LaunchProvider::refresh(bool force) {
   uint32_t now = (uint32_t)time(nullptr);
   CacheMeta m = _cache->stat(kCacheKey);
   bool clockValid = now > 1600000000UL;
-  bool stale = force || !m.found || !clockValid || (now - m.fetchedAt) > ttl;
+  bool stale = force || !m.found || (clockValid && (now - m.fetchedAt) > ttl);  // trust cache pre-NTP
   if (stale) fetchLL2();
   else if (!_launches.empty()) _status = ProviderStatus::Ready;   // fresh persisted cache is ready
 }
