@@ -47,13 +47,15 @@ static String tMinus(time_t net, time_t now) {
 // the active site/company filters. Also collects the distinct sites/companies in
 // the window so the chips can cycle through what's actually upcoming.
 void PageLaunches::rebuildFilter() {
-  const long win = 604800L;                       // 7 days
+  static const long kWin[4] = { 86400L, 604800L, 2592000L, 0L };   // 24h, 7d, 30d, all
+  long win = kWin[_winIdx];
   time_t now = time(nullptr);
   const auto& list = _lp.launches();
   auto inWindow = [&](const Launch& l) {
-    if (l.net == 0) return false;                 // hide NET-TBD
+    if (l.net == 0) return !_hideTbd;             // NET-TBD: shown only if TBD not hidden
     long dt = (long)l.net - (long)now;
-    return dt <= win && dt >= -3600;              // upcoming within 7d (keep just-launched 1h)
+    if (dt < -3600) return false;                 // already launched (keep just-launched 1h)
+    return _winIdx == 3 || dt <= win;             // "all" = any future, else within window
   };
 
   _sites.clear(); _orgs.clear();
@@ -85,8 +87,11 @@ void PageLaunches::onData(App& app, ProviderId id) {
 void PageLaunches::onTouch(App& app, int x, int y) {
   const int cw = app.contentW(), ch = app.contentH();
   if (y >= ch - 18) {                                  // bottom filter chips
-    if (x < cw / 2) _siteVal = cycleVal(_sites, _siteVal);
-    else            _orgVal  = cycleVal(_orgs,  _orgVal);
+    int xs = 96, ws = (cw - xs - 2) / 2;
+    if      (x < 42)      _winIdx  = (_winIdx + 1) % 4;        // time window
+    else if (x < xs)      _hideTbd = !_hideTbd;                // TBD show/hide
+    else if (x < xs + ws) _siteVal = cycleVal(_sites, _siteVal);
+    else                  _orgVal  = cycleVal(_orgs,  _orgVal);
     rebuildFilter(); _sel = 0; _needClear = _dirty = true; return;
   }
   int third = cw / 3;
@@ -290,16 +295,19 @@ void PageLaunches::drawChips(App& app) {
   auto& g = app.display().gfx();
   const int cw = app.contentW();
   int y = app.contentY() + app.contentH() - 16;
-  int hw = cw / 2;
   g.setTextSize(1);
   g.setTextDatum(textdatum_t::middle_left);
-  auto chip = [&](int x0, int w, const String& label, bool active) {
+  auto chip = [&](int x0, int w, const String& label, Color fg) {
     g.fillRect(x0, y, w - 2, 14, gTheme.grid);
-    g.setTextColor(active ? gTheme.ok : gTheme.fg, gTheme.grid);
-    g.drawString(label.substring(0, (w - 10) / 6), x0 + 4, y + 7);
+    g.setTextColor(fg, gTheme.grid);
+    g.drawString(label.substring(0, (w - 8) / 6), x0 + 4, y + 7);
   };
+  static const char* kWinL[4] = { "24h", "7d", "30d", "all" };
+  int xt = 2, wt = 38, xb = 42, wb = 52, xs = 96, ws = (cw - xs - 2) / 2;
+  chip(xt, wt, kWinL[_winIdx], _winIdx == 3 ? gTheme.fg : gTheme.ok);   // time window
+  chip(xb, wb, _hideTbd ? "TBD:no" : "TBD:yes", _hideTbd ? gTheme.fg : gTheme.warn);
   String s = _siteVal.length() ? shortSite(_siteVal) : String("all");
   String o = _orgVal.length()  ? _orgVal             : String("all");
-  chip(2, hw, String("site:") + s, _siteVal.length());
-  chip(hw + 2, hw, String("org:") + o, _orgVal.length());
+  chip(xs, ws, String("site:") + s, _siteVal.length() ? gTheme.ok : gTheme.fg);
+  chip(xs + ws, ws, String("org:") + o, _orgVal.length() ? gTheme.ok : gTheme.fg);
 }

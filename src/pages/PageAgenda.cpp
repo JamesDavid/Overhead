@@ -185,22 +185,37 @@ void PageAgenda::draw(App& app) {
       g.drawString(lt, x + 3, sy + sh + 1);
     }
   }
-  // Event markers on the strip (accent=pass, warn=launch, ok=sun/moon) with a short
-  // label rotated 90 CW sitting on the line.
-  for (const auto& e : _events) {
-    int hoff = (int)((e.t - _base) / 3600);
+  // Event markers (accent=pass, warn=launch, ok=sun/moon): a vertical line at the true
+  // time, plus a stacked label. Labels are placed earliest-first (leftmost) and nudged
+  // right so neighbours that fall close together sit side by side instead of overlapping.
+  auto evColor = [&](const Event& e) {
+    return e.kind == 1 ? gTheme.warn : e.kind == 2 ? gTheme.ok : gTheme.accent; };
+  std::vector<int> order;                            // in-window events, sorted by time
+  for (int i = 0; i < (int)_events.size(); ++i) {
+    int hoff = (int)((_events[i].t - _base) / 3600);
     if (hoff < 0 || hoff >= kHours) continue;
     int x = sx + sw * hoff / kHours;
-    Color ec = e.kind == 1 ? gTheme.warn : e.kind == 2 ? gTheme.ok : gTheme.accent;
-    g.drawFastVLine(x, sy, sh, ec);
+    g.drawFastVLine(x, sy, sh, evColor(_events[i]));            // line at its true position
+    int j = (int)order.size();                                 // insertion sort (small N)
+    order.push_back(i);
+    while (j > 0 && _events[order[j - 1]].t > _events[i].t) { order[j] = order[j - 1]; j--; }
+    order[j] = i;
+  }
+  int lastRight = sx - 100;
+  for (int oi : order) {
+    const Event& e = _events[oi];
+    int x = sx + sw * (int)((e.t - _base) / 3600) / kHours;
     String tag = e.label; int spc = tag.indexOf(' '); if (spc > 0) tag = tag.substring(0, spc);
-    g.setTextDatum(textdatum_t::top_left);           // stacked vertical chars down the line
-    g.setTextColor(ec);                              // transparent bg: don't box out the shading
+    int lx = x + 2; if (lx < lastRight + 1) lx = lastRight + 1; // nudge right to clear neighbour
+    if (lx > sx + sw - 6) lx = sx + sw - 6;                     // keep on the strip
+    g.setTextDatum(textdatum_t::top_left);
+    g.setTextColor(evColor(e));                                // transparent bg: keep shading
     for (int ci = 0; ci < (int)tag.length(); ++ci) {
       int yy = sy + 2 + ci * 8;
       if (yy > sy + sh - 7) break;
-      g.drawString(String(tag[ci]), x + 2, yy);
+      g.drawString(String(tag[ci]), lx, yy);
     }
+    lastRight = lx + 5;
   }
 
   // --- Legend ---

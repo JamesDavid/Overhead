@@ -11,8 +11,8 @@ class TimeService;
 //    T-minus that respects net_precision) + a short upcoming list.
 //  - Map:  a world map (coastline) with a marker at each upcoming launch site;
 //    side-tap cycles the selected rocket, highlighting its site.
-// The window is fixed at 7 days and NET-TBD launches are hidden; two filter chips
-// (launch site / company) narrow the set. Side taps step the selection.
+// Four bottom filter chips: time window (24h/7d/30d/all), TBD (hide/show NET-TBD),
+// launch site and company. Side taps step the selection.
 class PageLaunches : public Page {
 public:
   PageLaunches(LaunchProvider& lp, TimeService& time) : _lp(lp), _time(time) {}
@@ -29,13 +29,15 @@ private:
   void drawCard(App& app);       // next-launch card + upcoming list
   void drawMap(App& app);        // world map with launch-site markers
   void drawMessage(App& app, const char* msg);
-  void drawChips(App& app);      // bottom site + company filter chips
-  void rebuildFilter();          // 7d + non-TBD + site/company filters; distinct lists
+  void drawChips(App& app);      // bottom time + TBD + site + company filter chips
+  void rebuildFilter();          // window + TBD + site/company filters; distinct lists
 
   LaunchProvider& _lp;
   TimeService&    _time;
   int   _sel = 0;
   bool  _map = false;                  // false = card view, true = map view
+  int   _winIdx = 1;                   // time window: 0=24h, 1=7d, 2=30d, 3=all
+  bool  _hideTbd = true;               // hide NET-TBD (no firm date) launches
   String _siteVal, _orgVal;            // active filter values ("" = all)
   std::vector<int> _filtered;          // launch indices passing all filters
   std::vector<String> _sites, _orgs;   // distinct values in the 7d/non-TBD window
