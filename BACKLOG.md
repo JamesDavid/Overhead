@@ -184,11 +184,11 @@ hazards, SPECI Director badge. Remaining:
   light-time + heliocentric distance. Mostly static facts refreshed occasionally +
   a light status feed; light on heap. Strongly on-mission (bring far missions to the
   bedside). (See also M6 "live spacecraft" panel.)
-  - **Moon-missions view** — Moon phase/illumination + distance + a list of upcoming
-    lunar missions (Artemis II, CLPS landers, etc.). NEEDS a real data source —
-    lunar launch dates shift constantly, so don't hard-code/fabricate; pull from a
-    feed or a maintained data file rather than guessing. Could ride the Missions page
-    as a 3rd sub-view.
+  - ~~**Moon-missions view**~~ DONE — Missions page 3rd sub-view: live Moon
+    phase/illumination/distance + near-side map of real landing sites (Apollo/robotic/
+    CLPS) + sub-Earth (libration) marker. Past landings only (real coords); upcoming
+    flights named but undated on purpose. Future: pull a live feed for dated upcoming
+    launches (Artemis II, CLPS) when one's available.
   - **Rover/space imagery (PSRAM boards only):** NASA mars-photos latest photo + APOD
     would be amazing on the bedside, but JPEG download + decode + a full framebuffer
     needs PSRAM — gate to CrowPanel. No-PSRAM CYD stays text-only (rover summary feed).
