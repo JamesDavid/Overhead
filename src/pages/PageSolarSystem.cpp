@@ -684,7 +684,7 @@ void PageSolarSystem::drawMoon(App& app) {
       ph < 202.5 ? "Full"          : ph < 247.5 ? "Waning gibbous"  :
       ph < 292.5 ? "Last quarter"  : ph < 337.5 ? "Waning crescent" : "New";
 
-  g.setTextColor(rgb565(205, 208, 215), gTheme.bg);
+  g.setTextColor(gTheme.mono ? gTheme.fg : rgb565(205, 208, 215), gTheme.bg);
   g.setTextSize(2); g.drawString("Moon", x, y); g.setTextSize(1);
   g.setTextColor(gTheme.dim, gTheme.bg); g.setTextDatum(textdatum_t::top_right);
   g.drawString("[tap mid: Mars]", cw - 4, cy0 + 2); g.setTextDatum(textdatum_t::top_left);
@@ -703,7 +703,10 @@ void PageSolarSystem::drawMoon(App& app) {
   // Map: near side spans lon -90..90 (E+, Crisium right); far side spans 90..270.
   int mx = 6, mw = cw - 12, my = y + 1, mh = 96;
   double lonMin = far ? 90.0 : -90.0, lonMax = lonMin + 180.0;
-  g.fillRect(mx, my, mw, mh, rgb565(95, 95, 108));   // sunlit lunar grey
+  // Surface tones honour the red dark-adapt palette (mono) instead of a fixed grey.
+  Color litCol   = gTheme.mono ? rgb565(120, 22, 8) : rgb565(95, 95, 108);
+  Color nightCol = gTheme.mono ? rgb565(28, 5, 0)   : rgb565(22, 22, 28);
+  g.fillRect(mx, my, mw, mh, litCol);                // sunlit lunar surface
   auto MX = [&](float lonE) { double L = lonE; if (far && L < 0) L += 360; return mx + (int)((L - lonMin) / 180.0 * mw); };
   auto MY = [&](float lat)  { return my + (int)((90.0f - lat) / 180.0f * mh); };
   auto onDisc = [&](float lonE) { float a = fabsf(lonE); return far ? a >= 90.0f : a <= 90.0f; };
@@ -716,7 +719,7 @@ void PageSolarSystem::drawMoon(App& app) {
   for (int xx = 0; xx < mw; ++xx) {
     double lon = lonMin + (double)xx / mw * 180.0;
     double dl = lon - lamS; while (dl > 180) dl -= 360; while (dl < -180) dl += 360;
-    if (fabs(dl) > 90.0) g.drawFastVLine(mx + xx, my, mh, rgb565(22, 22, 28));
+    if (fabs(dl) > 90.0) g.drawFastVLine(mx + xx, my, mh, nightCol);
   }
   g.drawRect(mx, my, mw, mh, gTheme.grid);
   g.drawFastHLine(mx, my + mh / 2, mw, gTheme.dim);
@@ -732,7 +735,7 @@ void PageSolarSystem::drawMoon(App& app) {
   };
   for (auto& f : ft) {
     if (!onDisc(f.lonE)) continue;
-    g.setTextColor(rgb565(120, 122, 130), gTheme.bg);
+    g.setTextColor(gTheme.dim, gTheme.bg);
     g.setTextDatum(textdatum_t::middle_center);
     g.drawString(f.name, MX(f.lonE), MY(f.lat));
   }
@@ -761,15 +764,15 @@ void PageSolarSystem::drawMoon(App& app) {
     }
   }
   // Sun (centre of the lit area) + sub-Earth/libration markers; off-disc ones skip.
-  drawBodyOverlay(app, mx, my, mw, mh, lonMin, lonMax, 0, lamS, false, rgb565(255, 205, 70), "Sun");
+  drawBodyOverlay(app, mx, my, mw, mh, lonMin, lonMax, 0, lamS, false, gTheme.warn, "Sun");
   if (_loc.active().valid && !far) {
     SubPt se = subEarthMoon(jd, _loc.active().lat, _loc.active().lon);
-    drawBodyOverlay(app, mx, my, mw, mh, lonMin, lonMax, se.lat, se.lonE, false, rgb565(90, 200, 255), "Earth");
+    drawBodyOverlay(app, mx, my, mw, mh, lonMin, lonMax, se.lat, se.lonE, false, gTheme.accent, "Earth");
   }
   g.setTextDatum(textdatum_t::bottom_left);
-  g.setTextColor(gTheme.warn, gTheme.bg);          g.drawString("crewed", mx + 3, my + mh - 2);
-  g.setTextColor(gTheme.ok, gTheme.bg);            g.drawString("robotic", mx + 46, my + mh - 2);
-  g.setTextColor(rgb565(150, 150, 160), gTheme.bg); g.drawString("shaded=night", mx + 92, my + mh - 2);
+  g.setTextColor(gTheme.warn, gTheme.bg);   g.drawString("crewed", mx + 3, my + mh - 2);
+  g.setTextColor(gTheme.ok, gTheme.bg);     g.drawString("robotic", mx + 46, my + mh - 2);
+  g.setTextColor(gTheme.dim, gTheme.bg);    g.drawString("shaded=night", mx + 92, my + mh - 2);
   y = my + mh + 3;
 
   // summary: past missions are real/dated; Artemis reflects the 2026 reset.
@@ -823,18 +826,20 @@ void PageSolarSystem::drawMars(App& app) {
     { "Curiosity",    "Cu", "Gale",       "2012-08-06", CURIO_LANDING,  -4.59f, 137.44f, _mars.curiosity() },
   };
   int mx = 6, mw = cw - 12, my = y + 1, mh = 96;
-  g.fillRect(mx, my, mw, mh, rgb565(70, 34, 22));    // dim Mars ochre
+  Color ochre = gTheme.mono ? rgb565(85, 16, 4)  : rgb565(70, 34, 22);   // red-adapt aware
+  Color ice   = gTheme.mono ? rgb565(255, 90, 60) : rgb565(225, 230, 235);
+  g.fillRect(mx, my, mw, mh, ochre);                 // dim Mars surface
   auto FX = [&](float lonE) { return mx + (int)(lonE / 360.0f * mw); };
   auto FY = [&](float lat)  { return my + (int)((90.0f - lat) / 180.0f * mh); };
   int capH = FY(70.0f) - my;
-  g.fillRect(mx, my, mw, capH, rgb565(225, 230, 235));
-  g.fillRect(mx, my + mh - capH, mw, capH, rgb565(225, 230, 235));
+  g.fillRect(mx, my, mw, capH, ice);                 // N polar cap
+  g.fillRect(mx, my + mh - capH, mw, capH, ice);     // S polar cap
   g.drawRect(mx, my, mw, mh, gTheme.grid);
   g.drawFastHLine(mx, my + mh / 2, mw, gTheme.dim);
   for (int lon = 90; lon < 360; lon += 90) g.drawFastVLine(mx + lon * mw / 360, my, mh, gTheme.dim);
   g.setTextColor(gTheme.dim, gTheme.bg); g.setTextDatum(textdatum_t::top_left);
   g.drawString("Mars surface", mx + 3, my + 2);
-  g.setTextColor(rgb565(120, 130, 140), gTheme.bg);
+  g.setTextColor(gTheme.dim, gTheme.bg);
   g.setTextDatum(textdatum_t::top_right);  g.drawString("ice", mx + mw - 3, my + 1);
   g.setTextDatum(textdatum_t::bottom_right); g.drawString("ice", mx + mw - 3, my + mh - 1);
 
@@ -861,9 +866,9 @@ void PageSolarSystem::drawMars(App& app) {
     g.drawString(r.lbl, rx + 4, ry);
   }
   SubPt se = subEarthMars(jd);
-  drawBodyOverlay(app, mx, my, mw, mh, 0, 360, se.lat, se.lonE, true, rgb565(90, 200, 255), "Earth");
+  drawBodyOverlay(app, mx, my, mw, mh, 0, 360, se.lat, se.lonE, true, gTheme.accent, "Earth");
   y = my + mh + 3;
-  g.setTextDatum(textdatum_t::top_left); g.setTextColor(rgb565(90, 200, 255), gTheme.bg);
+  g.setTextDatum(textdatum_t::top_left); g.setTextColor(gTheme.accent, gTheme.bg);
   snprintf(b, sizeof(b), "Earth over %d\xF7E %d\xF7%c now - circled side faces us", (int)round(se.lonE),
            (int)round(fabs(se.lat)), se.lat >= 0 ? 'N' : 'S');
   g.drawString(b, x, y); y += 13;
