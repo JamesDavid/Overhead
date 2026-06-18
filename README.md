@@ -119,6 +119,15 @@ On first boot the bring-up prints, over serial and on screen:
 board name, panel resolution, **PSRAM size**, **free heap**, and **largest free
 block**, then echoes live touch coordinates.
 
+## Data generators
+
+Bundled real-world datasets are produced by the scripts in
+[`tools/`](tools/README.md) (run from the repo root) — airport + radio frequencies
+(`gen_airports.py` → LittleFS `data/airports.bin`) and world map coastlines/borders
+(`gen_worldmap.py` → flash `src/assets/Coastline.h`). See
+[`tools/README.md`](tools/README.md) for how to refresh each, including pushing an
+updated airport table to a running device over `/api/fs` (no reflash, non-destructive).
+
 ## Layout (spec §4)
 
 ```
