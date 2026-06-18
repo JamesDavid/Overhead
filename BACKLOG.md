@@ -56,6 +56,18 @@ live micro-status + the Director attention dot.
   same triggers as today's tab badges.
 - 8 content tabs + Health = the 9 cells (Missions already folded into Solar System).
 
+### Ambient / rest behavior (no user input)
+The home face becomes the rest state, so the Director no longer tours tabs by default
+(a bedside clock shouldn't strobe all night). New `restMode` setting:
+- `clock` (default day) — sit on the home face; the NEXT card refreshes as the Director
+  re-scores. Calm + glanceable.
+- `observatory` (default night) — home-face *background* becomes the live rotating
+  star-map/orrery (reuse the existing sky/orrery tour); the inspire-a-kid mode.
+- `tour` — current behavior: cycle every content tab on `tourDwellSec` (kiosk).
+Director **interrupts fire in all modes**: imminent pass / launch T-0 / aircraft
+emergency / SPECI still auto-switch to that tab + banner, then fall back to the rest
+mode when the event passes. `focusEnabled` / `tourDwellSec` carry over.
+
 ### Pieces
 - **`PageHome`** default page + night-observatory background; Director returns here.
 - **`GridOverlay`** modal opened by centre-tap on Home (and/or a status-bar tap).
