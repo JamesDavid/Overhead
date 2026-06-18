@@ -76,6 +76,75 @@ void App::setPage(int index) {
 void App::nextPage() { if (!_pages.empty()) setPage((_active + 1) % _pages.size()); }
 void App::prevPage() { if (!_pages.empty()) setPage((_active - 1 + _pages.size()) % _pages.size()); }
 
+// --- 3x3 quick-jump grid overlay (first step of the desk-clock shell) -------------
+void App::openGrid() {
+  if (_pages.size() < 2) return;
+  _grid = true; _mode = Mode::Manual; _statusDirty = true;   // user took over -> no auto-switch
+  drawGrid();
+}
+
+void App::closeGrid() {
+  if (!_grid) return;
+  _grid = false;
+  _display.gfx().fillRect(0, contentY(), contentW(), contentH(), gTheme.bg);
+  if (_active >= 0) _pages[_active]->onEnter(*this);          // force a clean repaint
+  _statusDirty = true;
+}
+
+void App::drawGrid() {
+  auto& g = _display.gfx();
+  const int cw = contentW(), ch = contentH(), y0 = contentY();
+  g.fillRect(0, y0, cw, ch, gTheme.bg);
+  const int cwc = cw / 3, chc = ch / 3, n = (int)_pages.size();
+  g.setTextSize(1);
+  g.setTextDatum(textdatum_t::middle_center);
+  for (int i = 0; i < 9 && i < n; ++i) {
+    int col = i % 3, row = i / 3, x = col * cwc, yy = y0 + row * chc;
+    bool act = (i == _active);
+    g.drawRect(x + 2, yy + 2, cwc - 4, chc - 4, act ? gTheme.accent : gTheme.grid);
+    if (i < (int)_badge.size() && _badge[i]) g.fillCircle(x + cwc - 9, yy + 9, 2, gTheme.warn);
+    g.setTextColor(act ? gTheme.accent : gTheme.fg, gTheme.bg);
+    String t = _pages[i]->title();
+    g.drawString(t.substring(0, (cwc - 8) / 6), x + cwc / 2, yy + chc / 2);
+  }
+}
+
+int App::gridCell(int x, int yRel) const {
+  const int cwc = contentW() / 3, chc = contentH() / 3;
+  if (cwc <= 0 || chc <= 0) return -1;
+  int col = x / cwc, row = yRel / chc;
+  if (col < 0 || col > 2 || row < 0 || row > 2) return -1;
+  int idx = row * 3 + col;
+  return idx < (int)_pages.size() ? idx : -1;
+}
+
+bool App::dotsHit(int x) const {
+  int n = (int)_pages.size();
+  if (n <= 1) return false;
+  const int x0 = 52, gap = 8;                                // mirrors drawStatus()
+  return x >= x0 - 4 && x <= x0 + (n - 1) * gap + 4;
+}
+
+void App::tapAt(int x, int y) {
+  if (_grid) {                                               // grid open: pick a cell or dismiss
+    if (y >= contentY()) {
+      int idx = gridCell(x, y - contentY());
+      if (idx >= 0) { _grid = false; _mode = Mode::Manual; setPage(idx); }
+      else closeGrid();
+    } else closeGrid();
+    return;
+  }
+  if (y < contentY()) {                                      // status strip
+    if (dotsHit(x)) { openGrid(); return; }                  // tap the page dots -> grid
+    if (_pinned) _pinned = false;
+    else _mode = (_mode == Mode::Auto) ? Mode::Manual : Mode::Auto;
+    _statusDirty = true;
+    return;
+  }
+  _mode = Mode::Manual;                                      // content tap -> active page
+  if (_active >= 0) _pages[_active]->onTouch(*this, x, y - contentY());
+}
+
 void App::tick(uint32_t nowMs) {
   _display.serviceShot();          // debug screenshot capture (UI thread, no SPI race)
 
@@ -83,12 +152,7 @@ void App::tick(uint32_t nowMs) {
   if (_injTapX >= 0) {
     int x = _injTapX, y = _injTapY; _injTapX = -1;
     _lastInteractMs = nowMs; _statusDirty = true;
-    if (y < contentY()) {                                  // status-strip tap (mode toggle)
-      if (_pinned) _pinned = false; else _mode = (_mode == Mode::Auto) ? Mode::Manual : Mode::Auto;
-    } else {                                               // content tap -> active page
-      _mode = Mode::Manual;
-      if (_active >= 0) _pages[_active]->onTouch(*this, x, y - contentY());
-    }
+    tapAt(x, y);
   }
   if (_injSwipe) {
     int d = _injSwipe; _injSwipe = 0; _lastInteractMs = nowMs; _mode = Mode::Manual;
@@ -111,26 +175,23 @@ void App::tick(uint32_t nowMs) {
     uint32_t held = _lastTouchMs - _pressStartMs;
     bool moved = abs(dx) > kTapMax || abs(dy) > kTapMax;
     if (abs(dx) >= kSwipeMin && abs(dx) > abs(dy)) {       // horizontal swipe -> page nav
-      if (dx < 0) nextPage(); else prevPage();
+      if (_grid) closeGrid(); else { if (dx < 0) nextPage(); else prevPage(); }
     } else if (!moved) {
-      if (_pressY < contentY()) {                          // status-strip tap = master AUTO/MANUAL
-        if (_pinned) _pinned = false; else _mode = (_mode == Mode::Auto) ? Mode::Manual : Mode::Auto;
-        _statusDirty = true;
-      } else if (held > 700) {                             // long-press (stationary) = pin (spec §7.4)
+      if (!_grid && _pressY >= contentY() && held > 700) { // long-press (stationary) = pin (§7.4)
         _pinned = !_pinned; _statusDirty = true;
-      } else if (_active >= 0) {                            // quick tap
-        _pages[_active]->onTouch(*this, _pressX, _pressY - contentY());
+      } else {
+        tapAt(_pressX, _pressY);                            // grid / dots / status / page
       }
     }
     _wasTouched = false;
   }
 
-  // Inactivity: MANUAL -> AUTO (unless pinned) (spec §7.4).
-  if (_mode == Mode::Manual && !_pinned && nowMs - _lastInteractMs > _inactivityMs) {
+  // Inactivity: MANUAL -> AUTO (unless pinned or the grid is up) (spec §7.4).
+  if (_mode == Mode::Manual && !_pinned && !_grid && nowMs - _lastInteractMs > _inactivityMs) {
     _mode = Mode::Auto; _statusDirty = true;
   }
 
-  if (_active >= 0) _pages[_active]->tick(*this, nowMs);
+  if (_active >= 0 && !_grid) _pages[_active]->tick(*this, nowMs);   // grid overlay holds the content
 
   if (_switchBannerMs && nowMs - _switchBannerMs >= 4000) {   // banner expired -> restore strip
     _switchBannerMs = 0; _statusDirty = true;

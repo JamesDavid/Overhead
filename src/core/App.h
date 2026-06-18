@@ -50,8 +50,16 @@ public:
 
   void requestStatusRedraw() { _statusDirty = true; }
 
+  void openGrid();                       // show the 3x3 quick-jump grid (page taps open it)
+  bool gridOpen() const { return _grid; }
+
 private:
   void drawStatus();
+  void drawGrid();                       // render the 3x3 page grid over the content area
+  void closeGrid();                      // dismiss the grid + repaint the active page
+  void tapAt(int x, int y);              // route a tap (grid / dots / status / page)
+  int  gridCell(int x, int yRel) const;  // page index under a grid tap, or -1
+  bool dotsHit(int x) const;             // x falls on the status-strip page dots
 
   Display&   _display;
   Touch&     _touch;
@@ -73,6 +81,7 @@ private:
   volatile int _injTapX = -1, _injTapY = -1;   // pending injected touch (debug web API)
   volatile int _injSwipe = 0;                  // pending injected swipe (-1/+1)
 
+  bool     _grid = false;              // 3x3 quick-jump grid overlay is showing
   Mode     _mode = Mode::Auto;
   bool     _pinned = false;
   bool     _pinToggled = false;        // pin toggled during the current press

@@ -129,13 +129,18 @@ void PageAgenda::tick(App& app, uint32_t nowMs) {
 }
 
 void PageAgenda::onTouch(App& app, int x, int y) {
-  if (_events.empty() || _listN == 0) return;
-  int row = (y + app.contentY() - _listY0) / 13;            // which Upcoming row
-  if (row < 0 || row >= _listN || row >= (int)_events.size()) return;
-  const char* tab = _events[row].kind == 1 ? "Launches"
-                  : _events[row].kind == 2 ? "Solar System" : "Satellites";
-  int idx = app.pageIndexByTitle(tab);
-  if (idx >= 0) app.setPage(idx);
+  // Tap an Upcoming row -> jump to that event's tab; centre / empty area -> 3x3 grid.
+  if (!_events.empty() && _listN > 0) {
+    int row = (y + app.contentY() - _listY0) / 13;          // which Upcoming row
+    if (row >= 0 && row < _listN && row < (int)_events.size()) {
+      const char* tab = _events[row].kind == 1 ? "Launches"
+                      : _events[row].kind == 2 ? "Solar System" : "Satellites";
+      int idx = app.pageIndexByTitle(tab);
+      if (idx >= 0) app.setPage(idx);
+      return;
+    }
+  }
+  app.openGrid();
 }
 
 void PageAgenda::draw(App& app) {
