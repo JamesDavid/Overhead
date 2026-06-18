@@ -54,15 +54,16 @@ The vision: make it the best air-&-space *desk clock*, not a flat 9-tab carousel
 - Streaming JSON parse off the UI thread for the larger detailed mode.
 
 ## M5 — Aircraft
-Done: nearest-airport + full likely-frequency list (tools/gen_airports.py bakes a
-3877-airport OurAirports/FAA subset into flash; info column lists every freq for the
-nearest field); dead-reckon blips between ADS-B updates; alt/category filter chips;
-hide-on-ground; range steps; recenter-on-nearby-airport; tap-on-blip; emergency squawk.
+Done: nearest-airport + full likely-frequency list as a scrolling bottom marquee
+(tools/gen_airports.py -> LittleFS /airports.bin, 3877 US fields; services/AirportDB
+scans on demand; refresh over /api/fs, no reflash); dead-reckon blips between ADS-B
+updates; alt/category filter chips; hide-on-ground; range steps; recenter-on-nearby-
+airport; tap-on-blip; emergency squawk.
 - Callsign labels on the (unselected) radar blips.
 - Local-feeder auto-discovery / mDNS; adsb.lol secondary source.
 - Flicker: radar still clears its circle bbox each tick — per-blip erase or a PSRAM sprite.
-- Airport dataset is US-only + flash-resident (now 96.8% flash); for worldwide or a
-  bigger set, move it to LittleFS and scan the file instead of baking .rodata.
+- Airport dataset is US-only; for worldwide, regenerate gen_airports.py without the
+  US filter (LittleFS has room) — watch scan time + the marquee string length.
 
 ## M6 — Solar System
 The tab now tours the whole system via centre tap: sky-dome -> orbits -> Moon -> Mars
