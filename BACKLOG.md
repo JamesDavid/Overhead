@@ -124,6 +124,12 @@ cycles them). No change to current behavior - purely an added page.
 - Doppler: uplink correction + tuning readout; rotor Az-El output.
 
 ## M4 — Launches
+- **Per-mission launch path/azimuth (PSRAM boards only):** the light `mode=list` feed
+  carries no orbit, and `mode=normal` is ~37KB for 8 launches (blows the no-PSRAM TLS
+  floor) — so the map shows a per-SITE corridor azimuth (approx) instead. On the
+  CrowPanel (PSRAM) switch the fetch to `mode=normal`, parse `mission.orbit`, and draw a
+  real per-mission azimuth arc: az = asin(cos(inclination)/cos(pad_lat)) from a
+  representative inclination per orbit (LEO/ISS/SSO/GTO...).
 - More filter chips: by provider/site/country. (Time window 24h/7d/30d/all + hide-TBD done.)
 - Detail view on centre-tap (full mission text, window open/close, weather, image).
 - RocketLaunch.Live fallback parser: verify pad/location/mission paths on a live 429.

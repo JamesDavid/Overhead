@@ -272,6 +272,19 @@ void PageLaunches::drawMap(App& app) {
     g.fillCircle(sx, sy, 2, gTheme.warn);
   }
   if (selKnown) {
+    // Approx launch-corridor arrow from the pad (per-site azimuth; see launchSiteAz).
+    int az = launchSiteAz(sel.location);
+    if (az != 0) {
+      float th = az * 3.14159265f / 180.0f, dx = sinf(th), dy = -cosf(th);   // N=up, E=right
+      int ex = selX + (int)round(28 * dx), ey = selY + (int)round(28 * dy);
+      g.drawLine(selX, selY, ex, ey, gTheme.accent);
+      float px2 = -dx, py2 = -dy, qx = dy, qy = -dx;                         // back + perpendicular
+      g.drawLine(ex, ey, ex + (int)round(7 * px2 + 4 * qx), ey + (int)round(7 * py2 + 4 * qy), gTheme.accent);
+      g.drawLine(ex, ey, ex + (int)round(7 * px2 - 4 * qx), ey + (int)round(7 * py2 - 4 * qy), gTheme.accent);
+      g.setTextDatum(textdatum_t::bottom_left);
+      g.setTextColor(gTheme.dim, gTheme.bg);
+      g.drawString("-> approx launch corridor", mx + 4, my + mh - 2);
+    }
     g.fillCircle(selX, selY, 4, gTheme.ok);
     g.drawCircle(selX, selY, 7, gTheme.ok);
     g.setTextColor(gTheme.ok, gTheme.bg);
