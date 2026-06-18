@@ -77,7 +77,7 @@ void PageAgenda::recompute() {
           struct tm tl; time_t lt = p.los; localtime_r(&lt, &tl);   // append LOS clock
           char losb[12]; snprintf(losb, sizeof(losb), " >%02d:%02d", tl.tm_hour, tl.tm_min);
           lbl += losb;
-          _events.push_back({ p.aos, lbl, 0 });
+          _events.push_back({ p.aos, lbl, 0, s.name });   // ref = sat name -> focus on jump
         }
         break;
       }
@@ -85,7 +85,7 @@ void PageAgenda::recompute() {
   }
   for (const auto& l : _launch.launches())
     if (l.net && l.net > now && l.net < horizon)
-      _events.push_back({ l.net, l.name, 1 });
+      _events.push_back({ l.net, l.name, 1, l.name });   // ref = launch name -> focus on jump
 
   // Sun/Moon rise & set crossings (from the hourly sun-altitude / moon-up arrays).
   // Sun crossings are interpolated within the hour for a sub-hour time; the moon
@@ -145,7 +145,10 @@ void PageAgenda::jumpToEvent(App& app, int i) {
   const char* tab = _events[i].kind == 1 ? "Launches"
                   : _events[i].kind == 2 ? "Solar System" : "Satellites";
   int idx = app.pageIndexByTitle(tab);
-  if (idx >= 0) app.setPage(idx);
+  if (idx >= 0) {
+    if (_events[i].ref.length()) app.requestFocus(_events[i].ref);   // focus the exact entry
+    app.setPage(idx);
+  }
 }
 
 void PageAgenda::onTouch(App& app, int x, int y) {

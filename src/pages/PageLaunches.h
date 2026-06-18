@@ -22,7 +22,7 @@ public:
 
   const char* title() const override { return "Launches"; }
   bool clockKeepLive() const override { return true; }   // T-minus keeps counting under the clock
-  void onEnter(App& app) override { _dirty = _needClear = true; }
+  void onEnter(App& app) override;
   void onData(App& app, ProviderId id) override;
   void onTouch(App& app, int x, int y) override;
   void tick(App& app, uint32_t nowMs) override;
@@ -36,6 +36,7 @@ private:
   void drawMessage(App& app, const char* msg);
   void drawChips(App& app);      // bottom time + TBD + site + company filter chips
   void rebuildFilter();          // window + TBD + site/company filters; distinct lists
+  void focusLaunch(const String& name);   // Agenda tap -> select this launch
 
   LaunchProvider& _lp;
   TimeService&    _time;

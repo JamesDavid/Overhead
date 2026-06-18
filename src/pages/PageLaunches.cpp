@@ -120,6 +120,19 @@ void PageLaunches::rebuildFilter() {
   if (_sel >= (int)_filtered.size()) _sel = _filtered.empty() ? 0 : (int)_filtered.size() - 1;
 }
 
+void PageLaunches::onEnter(App& app) {
+  rebuildFilter();
+  String f = app.takeFocus();                  // Agenda tap -> select the exact launch
+  if (f.length()) focusLaunch(f);
+  _dirty = _needClear = true;
+}
+
+void PageLaunches::focusLaunch(const String& name) {
+  const auto& list = _lp.launches();
+  for (int k = 0; k < (int)_filtered.size(); ++k)
+    if (list[_filtered[k]].name == name) { _sel = k; _needClear = _dirty = true; return; }
+}
+
 void PageLaunches::onData(App& app, ProviderId id) {
   if (id == ProviderId::Launch) rebuildFilter();
   _dirty = _needClear = true;

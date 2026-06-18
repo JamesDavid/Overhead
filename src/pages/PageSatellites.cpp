@@ -15,7 +15,12 @@ static constexpr double D2R = 3.14159265358979323846 / 180.0;
 
 int PageSatellites::minEl() const { return (int)_settings.getInt("satMinEl", 10); }
 
-void PageSatellites::onEnter(App& app) { rebuildOrder(); _dirty = _needClear = true; }
+void PageSatellites::onEnter(App& app) {
+  rebuildOrder();
+  String f = app.takeFocus();                  // Agenda tap -> focus the exact bird
+  if (f.length()) focusBird(f);
+  _dirty = _needClear = true;
+}
 
 void PageSatellites::onData(App& app, ProviderId id) {
   if (id == ProviderId::Tle)            { rebuildOrder(); _needClear = true; }

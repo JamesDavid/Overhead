@@ -33,6 +33,10 @@ public:
   bool pinned() const { return _pinned; }
   int  activeIndex() const { return _active; }
   int  pageIndexByTitle(const char* title) const;
+  // One-shot focus hint handed to the next page on entry (e.g. Agenda tap -> the
+  // exact satellite/launch). The target page reads it in onEnter via takeFocus().
+  void   requestFocus(const String& ref) { _pendingFocus = ref; }
+  String takeFocus() { String f = _pendingFocus; _pendingFocus = ""; return f; }
   bool autoFocus(int index);            // switch only if AUTO & unpinned; true if switched
   bool autoAdvanceActive();             // step active page's tour; true if it completed a full cycle
   void setBadge(int index, bool on);
@@ -74,6 +78,7 @@ private:
   std::vector<Page*> _pages;
   std::vector<bool>  _badge;
   int  _active = -1;
+  String _pendingFocus;                // one-shot focus hint for the next page's onEnter
   ClockOverlay* _clock = nullptr;      // device-wide clock-mode screensaver (null until wired)
   int  _clockShownPage = -1;           // page the clock last composed over (detect Director switches)
 
