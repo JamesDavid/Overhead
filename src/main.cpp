@@ -44,7 +44,6 @@
 #include "pages/PageSpaceWx.h"
 #include "pages/PageAgenda.h"
 #include "pages/PageStarMap.h"
-#include "pages/PageMissions.h"
 #include "providers/MarsProvider.h"
 #include "providers/PressureMapProvider.h"
 #include "pages/PageAviation.h"
@@ -237,7 +236,7 @@ void setup() {
   aircraftPage = new PageAircraft(aircraftProv, avwxProv, locSvc, settings);
   aviationPage = new PageAviation(avwxProv, sndProv, hazProv, weatherProv, pmapProv, locSvc);
   satsPage = new PageSatellites(tleProv, locSvc, timeSvc, settings);
-  solarPage = new PageSolarSystem(timeSvc, locSvc, settings);
+  solarPage = new PageSolarSystem(timeSvc, locSvc, settings, marsProv);
   starPage = new PageStarMap(timeSvc, locSvc);
   spaceWxPage = new PageSpaceWx(spaceWxProv, timeSvc, locSvc);
   healthPage = new PageHealth(touch, timeSvc, locSvc, gHostname,
@@ -252,7 +251,6 @@ void setup() {
   app.addPage(satsPage);
   app.addPage(spaceWxPage);
   app.addPage(solarPage);
-  app.addPage(new PageMissions(timeSvc, locSvc, marsProv));
   app.addPage(starPage);
   app.addPage(healthPage);
   app.setInactivityMs((uint32_t)settings.getInt("inactivitySec", 90) * 1000UL);

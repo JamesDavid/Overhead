@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "defaultMode": "bypassPermissions",
+    "allow": [
+      "Bash(curl -s http://192.168.86.92/api/*)",
+      "Bash(curl -s \"http://192.168.86.92/api/*)",
+      "Bash(C:/Users/James/.platformio/penv/Scripts/platformio.exe run *)",
+      "Bash(pwsh -NoProfile -File C:/Users/James/Desktop/BladeKey-Overhead/scripts/ota.ps1*)",
+      "Bash(pwsh -NoProfile -File C:/Users/James/Desktop/BladeKey-Overhead/scripts/shot.ps1*)"
+    ]
+  }
+}

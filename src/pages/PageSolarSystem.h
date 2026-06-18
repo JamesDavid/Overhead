@@ -6,16 +6,17 @@
 class TimeService;
 class LocationService;
 class Settings;
+class MarsProvider;
 
 // pages/PageSolarSystem — the Solar System tab (spec §6). No network: a horizon
 // half-dome plotting Sun/Moon/planets by az/el, a list with alt/az + distance,
-// and the Moon phase + illumination. Uses the permissive astro::SolarSystem.
-// Tap edges to select a body; bottom-left badge cycles the filter (all / up /
-// naked-eye). Recomputes slowly (positions drift over minutes).
+// and the Moon phase + illumination. Centre tap tours the whole system from Earth
+// outward: sky-dome -> orbits -> Moon -> Mars -> Jupiter -> Saturn -> Deep Space ->
+// meteors. Tap edges to select a body; bottom-left badge cycles the filter.
 class PageSolarSystem : public Page {
 public:
-  PageSolarSystem(TimeService& time, LocationService& loc, Settings& settings)
-    : _time(time), _loc(loc), _settings(settings) {}
+  PageSolarSystem(TimeService& time, LocationService& loc, Settings& settings, MarsProvider& mars)
+    : _time(time), _loc(loc), _settings(settings), _mars(mars) {}
 
   const char* title() const override { return "Solar System"; }
   void onEnter(App& app) override;
@@ -30,9 +31,16 @@ private:
   void computeRST(int idx);             // rise/set/transit of body idx over next 24h
   void draw(App& app);
   void drawOrbit(App& app);             // top-down orrery view
+  void drawMoon(App& app);              // Moon phase + near/far-side landing-site map
+  void drawMars(App& app);              // Mars distance + surface map + rover status
   void drawJupiter(App& app);           // Galilean moons, tilted to the observer's sky
   void drawSaturn(App& app);            // rings, tilted to the observer's sky
+  void drawDeepSpace(App& app);         // iconic active deep-space missions
   void drawShowers(App& app);           // upcoming meteor showers + visibility
+  // sub-Earth/sub-point overlay on an equirectangular body map (Moon/Mars).
+  void drawBodyOverlay(App& app, int mx, int my, int mw, int mh, double lonMin,
+                       double lonMax, double slat, double slon, bool boundary,
+                       uint16_t col, const char* label);
   bool visible(int i) const;            // passes the current filter (sky-dome)
   struct OrbBody { bool minor; int idx; };
   static constexpr int kMaxOrb = 16;
@@ -42,6 +50,7 @@ private:
   TimeService&     _time;
   LocationService& _loc;
   Settings&        _settings;
+  MarsProvider&    _mars;
 
   astro::PlanetState _st[kN];
   struct RST { bool hasRise=false, hasSet=false, hasTransit=false;
@@ -51,8 +60,9 @@ private:
   int   _sel = 0;
   int   _orbSel = 2;                     // selected orbit body (0..8, 2=Earth)
   int   _orbScope = 2;                   // orbit view: 0 inner (Me..Ma), 1 mid (..Saturn), 2 all (..Pluto)
-  int   _view = 0;                       // 0 sky-dome,1 orbits,2 Jupiter,3 Saturn,4 showers
-  static constexpr int kViews = 5;
+  int   _view = 0;                       // 0 sky,1 orbits,2 Moon,3 Mars,4 Jupiter,5 Saturn,6 deep,7 showers
+  static constexpr int kViews = 8;
+  bool  _moonFar = false;                // Moon view: false=near side, true=far side
   int   _tourN = 0;                      // attract-tour: items stepped in this view
   int   _filter = 1;                    // 0 all, 1 above-horizon, 2 naked-eye
   bool  _stars = false;                 // overlay Star Map stars + constellations on the sky-dome
