@@ -418,8 +418,18 @@ void PageAircraft::drawAirportMarquee(App& app) {
   int my = cy0 + ch - 29;
   g.fillRect(0, my, cw, 12, gTheme.bg);              // clear the ticker band
   if (!_loc.active().valid || !_adb.ready()) return;
-  const AirportDB::Nearest& a = _adb.nearest(_loc.active().lat, _loc.active().lon);
-  if (!a.valid || a.distNm >= 250) return;
+  double oLat = _loc.active().lat, oLon = _loc.active().lon;
+  // HOME -> closest field to the observer; a centred airport -> that field's freqs.
+  const AirportDB::Nearest& a = _centerIcao.length() ? _adb.byId(_centerIcao.c_str(), oLat, oLon)
+                                                     : _adb.nearest(oLat, oLon);
+  if (!a.valid) {
+    if (_centerIcao.length()) {                      // selected field not in the dataset
+      g.setTextColor(gTheme.dim); g.setTextDatum(textdatum_t::top_left);
+      g.drawString(_centerIcao + "  no freq data", 4, my + 1);
+    }
+    return;
+  }
+  if (!_centerIcao.length() && a.distNm >= 250) return;   // HOME but outside US coverage
   static const char* kDir[8] = {"N", "NE", "E", "SE", "S", "SW", "W", "NW"};
   String m = String(a.id) + "  " + (int)round(a.distNm) + "nm " + kDir[((int)round(a.brgDeg / 45.0)) & 7] + "     ";
   char seg[24];
