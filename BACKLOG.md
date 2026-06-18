@@ -6,18 +6,65 @@ is the *remaining* work as of the latest sweep.
 
 ## UX shell — "desk-clock" reorganization (do in a BRANCH; big, don't disrupt main)
 The vision: make it the best air-&-space *desk clock*, not a flat 9-tab carousel.
-- **"Now" home face** — the resting/default view: big local time + date, sun/moon +
-  day-night, and the single most-relevant thing right now (next pass / launch /
-  clear-dark window), fed by the Director. Day = clean clock; night = "observatory"
-  (the existing dark/red star-map + orrery rotation).
-- **3x3 quick-jump grid** — tap the clock/status to open a grid that jumps by domain
-  instead of swiping linearly. Group the tabs: Sky tonight (Agenda/Solar System/Star
-  Map), Things moving (Satellites/Launches/Aircraft), Conditions (Aviation/Space Wx).
-- **Health as a corner-glyph MODAL OVERLAY** (with Settings/Location) — off the
-  carousel. (Supersedes the M1/M11 app-shell + Health-overlay notes below.)
-- Ties into the memory strategy: keep the active *domain* hot, let other domains
-  release String-heavy data (TLE/METAR/aircraft) + drop to low-rate polling on
-  no-PSRAM boards, triggered by `heapBlkMin` near the floor.
+Additive — the existing pages + Director logic stay; this adds a home page + an
+overlay nav layer on top.
+
+### "Now" home face (new default/resting page = `PageHome`)
+Big clock + the single most-relevant thing right now, fed by the Director. The device
+returns here when idle (instead of the ambient tab tour).
+
+```
++------------------------------------------+
+| @6:14^ 19:42v   ( 19% waning   Wed Jun 18|  sun/moon + date strip
+|                                          |
+|              21:47                        |  BIG time (center, ~64px)
+|                                          |
+|  > NEXT  ISS pass 22:14  (in 27m)        |  Director "right now" card
+|          max 61 deg . SW->NE . 6 min     |
+|  o clear & dark until 00:30              |  secondary line (observing window)
+|                              [s] [o] [h] |  corner glyphs: settings/loc/health
++------------------------------------------+
+            tap center -> grid
+```
+- **Day** = clean clock (dark or a light palette); **night** = "observatory": red
+  dark-adapt palette + a faint rotating starfield/orrery behind the clock (reuse the
+  Star Map / orrery renderers), dimmed backlight.
+- The NEXT card = whatever the Director scores highest (pass / launch T-minus /
+  clear-dark window / aircraft emergency) — same scoring that drives auto-switch
+  today, surfaced as a card instead of a tab jump.
+
+### 3x3 quick-jump grid (tap the clock -> `GridOverlay` modal)
+Jump by domain instead of swiping linearly. Rows grouped by theme; each cell shows a
+live micro-status + the Director attention dot.
+
+```
++-------------+-------------+-------------+
+|   Agenda    | Solar System|  Star Map   |  -- SKY TONIGHT
+|  tonight    |  orbits     |  1600 stars |
++-------------+-------------+-------------+
+| Satellites .|  Launches   |  Aircraft ! |  -- THINGS MOVING
+|  ISS 27m    |  T-2d       |  8 near     |
++-------------+-------------+-------------+
+|  Aviation   |  Space Wx   |   Health    |  -- CONDITIONS / SYS
+|  VFR        |  Kp3        |  ok         |
++-------------+-------------+-------------+
+   . = pass imminent     ! = emergency squawk
+```
+- Each cell = icon + label + one live token (next-pass countdown, T-minus, contact
+  count, flight category, Kp...). Tap a cell -> that tab; back/outside -> clock.
+- Attention dot pulses when a domain wants you (pass lead-time, SPECI, emergency) -
+  same triggers as today's tab badges.
+- 8 content tabs + Health = the 9 cells (Missions already folded into Solar System).
+
+### Pieces
+- **`PageHome`** default page + night-observatory background; Director returns here.
+- **`GridOverlay`** modal opened by centre-tap on Home (and/or a status-bar tap).
+- **Health / Settings / Location -> corner-glyph overlays** (off the carousel).
+- Existing pages stay as grid destinations; swipe optional/retired.
+- Ties into the memory strategy: keep the active *domain* hot, let cold domains release
+  String-heavy data (TLE/METAR/aircraft) + drop to low-rate polling on no-PSRAM boards,
+  triggered by `heapBlkMin` near the floor.
+- Supersedes the M1/M11 app-shell + Health-overlay notes below.
 
 ## M0 — bring-up / HAL
 - Verify 4" CYD (ST7796) + CrowPanel panels on real hardware (only 2.8" CYD verified).
