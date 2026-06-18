@@ -64,6 +64,11 @@ void PageAircraft::rebuildFilt() {
   if (_sel >= (int)_filt.size()) _sel = _filt.empty() ? 0 : (int)_filt.size() - 1;
 }
 
+String PageAircraft::gridStatus() {
+  int n = (int)_ap.aircraft().size();
+  return n ? String(n) + " ac" : String();
+}
+
 void PageAircraft::onEnter(App& app) {
   _dirty = _needClear = true;
   _ap.setForeground(true);   // full-rate polling + an immediate refresh on entry

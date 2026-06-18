@@ -17,6 +17,7 @@ public:
   void onEnter(App& app) override { _dirty = true; }
   void onData(App& app, ProviderId id) override { _dirty = true; }
   void tick(App& app, uint32_t nowMs) override;
+  String gridStatus() override;
 
 private:
   void draw(App& app);

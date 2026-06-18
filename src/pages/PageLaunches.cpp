@@ -113,6 +113,8 @@ void PageLaunches::rebuildFilter() {
     if (!inWindow(l)) continue;
     if (_siteVal.length() && l.location != _siteVal) continue;
     if (_orgVal.length()  && l.provider != _orgVal)  continue;
+    if (_visOnly && _loc.active().valid &&
+        launchVis(_loc.active().lat, _loc.active().lon, l.location, l.net, _wx.cloudCoverAt(l.net)).level < 1) continue;
     _filtered.push_back(i);
   }
   if (_sel >= (int)_filtered.size()) _sel = _filtered.empty() ? 0 : (int)_filtered.size() - 1;
@@ -126,11 +128,12 @@ void PageLaunches::onData(App& app, ProviderId id) {
 void PageLaunches::onTouch(App& app, int x, int y) {
   const int cw = app.contentW(), ch = app.contentH();
   if (y >= ch - 18) {                                  // bottom filter chips
-    int xs = 96, ws = (cw - xs - 2) / 2;
-    if      (x < 42)      _winIdx  = (_winIdx + 1) % 4;        // time window
-    else if (x < xs)      _hideTbd = !_hideTbd;                // TBD show/hide
-    else if (x < xs + ws) _siteVal = cycleVal(_sites, _siteVal);
-    else                  _orgVal  = cycleVal(_orgs,  _orgVal);
+    int xs = 120, ws = (cw - xs - 2) / 2;
+    if      (x < 38)       _winIdx  = (_winIdx + 1) % 4;       // time window
+    else if (x < 80)       _hideTbd = !_hideTbd;               // TBD show/hide
+    else if (x < xs)       _visOnly = !_visOnly;               // only-visible filter
+    else if (x < xs + ws)  _siteVal = cycleVal(_sites, _siteVal);
+    else                   _orgVal  = cycleVal(_orgs,  _orgVal);
     rebuildFilter(); _sel = 0; _needClear = _dirty = true; return;
   }
   int third = cw / 3;
@@ -141,6 +144,13 @@ void PageLaunches::onTouch(App& app, int x, int y) {
   else           _sel = (_sel + 1) % n;
   _needClear = !_map;                                  // map repaints fully anyway
   _dirty = true;
+}
+
+String PageLaunches::gridStatus() {
+  const auto& list = _lp.launches();
+  time_t now = time(nullptr), best = 0;
+  for (const auto& l : list) if (l.net > now && (best == 0 || l.net < best)) best = l.net;
+  return best ? tMinus(best, now) : String();
 }
 
 bool PageLaunches::autoAdvance(App&) {
@@ -228,7 +238,15 @@ void PageLaunches::drawCard(App& app) {
     if (d > 0) snprintf(b, sizeof(b), "%s%ldd %02ld:%02ld", past ? "T+" : "T-", d, h, m);
     else       snprintf(b, sizeof(b), "%s%02ld:%02ld:%02ld", past ? "T+" : "T-", h, m, sec);
     g.setTextColor(past ? gTheme.warn : gTheme.fg, gTheme.bg);
-    g.setTextSize(3); g.drawString(padRight(b, 12), x0, y); y += 28;
+    g.setTextSize(3); g.drawString(padRight(b, 12), x0, y);
+    { struct tm tm; time_t t = l.net; localtime_r(&t, &tm);   // local launch day + time (small)
+      char d1[16], d2[16];
+      strftime(d1, sizeof(d1), "%a %b %d", &tm); strftime(d2, sizeof(d2), "%H:%M", &tm);
+      g.setTextSize(1); g.setTextColor(gTheme.dim, gTheme.bg); g.setTextDatum(textdatum_t::top_right);
+      g.drawString(d1, cw - 6, y + 3); g.drawString(String(d2) + " local", cw - 6, y + 15);
+      g.setTextDatum(textdatum_t::top_left);
+    }
+    y += 28;
   } else {
     struct tm tm; time_t t = l.net; localtime_r(&t, &tm);
     char b[24]; strftime(b, sizeof(b), "~ %b %d", &tm);
@@ -395,9 +413,10 @@ void PageLaunches::drawChips(App& app) {
     g.drawString(label.substring(0, (w - 8) / 6), x0 + 4, y + 7);
   };
   static const char* kWinL[4] = { "24h", "7d", "30d", "all" };
-  int xt = 2, wt = 38, xb = 42, wb = 52, xs = 96, ws = (cw - xs - 2) / 2;
-  chip(xt, wt, kWinL[_winIdx], _winIdx == 3 ? gTheme.fg : gTheme.ok);   // time window
-  chip(xb, wb, _hideTbd ? "TBD:no" : "TBD:yes", _hideTbd ? gTheme.fg : gTheme.warn);
+  int xs = 120, ws = (cw - xs - 2) / 2;
+  chip(2,  36, kWinL[_winIdx], _winIdx == 3 ? gTheme.fg : gTheme.ok);   // time window
+  chip(40, 40, _hideTbd ? "-TBD" : "+TBD", _hideTbd ? gTheme.fg : gTheme.warn);
+  chip(82, 36, "vis", _visOnly ? gTheme.ok : gTheme.fg);               // only-visible filter
   String s = _siteVal.length() ? shortSite(_siteVal) : String("all");
   String o = _orgVal.length()  ? _orgVal             : String("all");
   chip(xs, ws, String("site:") + s, _siteVal.length() ? gTheme.ok : gTheme.fg);

@@ -25,6 +25,7 @@ public:
   void onData(App& app, ProviderId id) override;
   void onTouch(App& app, int x, int y) override;
   void tick(App& app, uint32_t nowMs) override;
+  String gridStatus() override;
   bool autoAdvance(App& app) override;
 
 private:
@@ -43,6 +44,7 @@ private:
   bool  _map = false;                  // false = card view, true = map view
   int   _winIdx = 1;                   // time window: 0=24h, 1=7d, 2=30d, 3=all
   bool  _hideTbd = true;               // hide NET-TBD (no firm date) launches
+  bool  _visOnly = false;              // show only launches possibly visible from here
   String _siteVal, _orgVal;            // active filter values ("" = all)
   std::vector<int> _filtered;          // launch indices passing all filters
   std::vector<String> _sites, _orgs;   // distinct values in the 7d/non-TBD window

@@ -1,5 +1,6 @@
 #pragma once
 #include <stdint.h>
+#include <Arduino.h>
 #include "Ids.h"
 
 class App;
@@ -26,6 +27,7 @@ public:
   virtual void onTouch(App& app, int x, int y) {}
   virtual void onScroll(App& app, int dy) {}       // vertical swipe (dy<0 up, dy>0 down)
   virtual void onData(App& app, ProviderId id) {}  // EventBus delivery
+  virtual String gridStatus() { return String(); }  // one live token for the 3x3 grid tile
 
   // Attract-mode step (spec §7). While the Director is resting in AUTO with no
   // specific item to highlight, it calls this on a dwell timer so the page tours

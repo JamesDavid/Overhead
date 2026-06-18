@@ -105,7 +105,13 @@ void App::drawGrid() {
     if (i < (int)_badge.size() && _badge[i]) g.fillCircle(x + cwc - 9, yy + 9, 2, gTheme.warn);
     g.setTextColor(act ? gTheme.accent : gTheme.fg, gTheme.bg);
     String t = _pages[i]->title();
-    g.drawString(t.substring(0, (cwc - 8) / 6), x + cwc / 2, yy + chc / 2);
+    String st = _pages[i]->gridStatus();             // live token surfaced from the page
+    int cyc = yy + chc / 2;
+    g.drawString(t.substring(0, (cwc - 8) / 6), x + cwc / 2, st.length() ? cyc - 7 : cyc);
+    if (st.length()) {
+      g.setTextColor(gTheme.dim, gTheme.bg);
+      g.drawString(st.substring(0, (cwc - 6) / 6), x + cwc / 2, cyc + 8);
+    }
   }
 }
 

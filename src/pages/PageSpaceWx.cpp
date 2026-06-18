@@ -29,6 +29,11 @@ static int bandCond(int meters, bool day, float kp, int sfi) {
   return score < 0 ? 0 : score > 2 ? 2 : score;
 }
 
+String PageSpaceWx::gridStatus() {
+  float k = _wx.kp();
+  return k >= 0 ? String("Kp ") + String((int)(k + 0.5f)) : String();
+}
+
 void PageSpaceWx::tick(App& app, uint32_t nowMs) {
   if (!_dirty && nowMs - _lastDraw < 30000) return;
   _dirty = false; _lastDraw = nowMs;

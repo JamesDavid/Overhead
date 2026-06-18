@@ -153,6 +153,15 @@ bool PageSatellites::handleMinElTap(App& app, int x, int yRel) {
   return true;
 }
 
+String PageSatellites::gridStatus() {
+  if (!_pass.valid) return String();
+  time_t now = time(nullptr);
+  if (now >= _pass.aos && now <= _pass.los) return String("pass now");
+  long s = (long)_pass.aos - (long)now;
+  if (s <= 0) return String();
+  return s >= 3600 ? String("AOS ") + String(s / 3600) + "h" : String("AOS ") + String(s / 60) + "m";
+}
+
 void PageSatellites::tick(App& app, uint32_t nowMs) {
   if (!_dirty && nowMs - _lastDraw < 1000) return;
   _dirty = false;
