@@ -116,6 +116,8 @@ ref();
 
 bool WebPortal::begin(Settings* s, const String& hostname) {
   _s = s;
+  _apiUser = _s->getString("otaUser", "admin");      // gate the API with the OTA creds
+  _apiPass = _s->getString("otaPass", "overhead");
 
   String host = _s->getString("hostname", hostname.c_str());   // editable mDNS name (settings)
   host.trim(); if (!host.length()) host = hostname;
@@ -126,23 +128,23 @@ bool WebPortal::begin(Settings* s, const String& hostname) {
 
   _server.on("/", HTTP_GET, [](AsyncWebServerRequest* req) {
     req->send(200, "text/html", kIndexHtml);
-  });
+  }).setAuthentication(_apiUser.c_str(), _apiPass.c_str());
 
   _server.on("/remote", HTTP_GET, [](AsyncWebServerRequest* req) {
     req->send(200, "text/html", kRemoteHtml);
-  });
+  }).setAuthentication(_apiUser.c_str(), _apiPass.c_str());
 
   _server.on("/api/status", HTTP_GET, [this](AsyncWebServerRequest* req) {
     JsonDocument doc;
     if (_statusFn) _statusFn(doc);
     String out; serializeJson(doc, out);
     req->send(200, "application/json", out);
-  });
+  }).setAuthentication(_apiUser.c_str(), _apiPass.c_str());
 
   _server.on("/api/settings", HTTP_GET, [this](AsyncWebServerRequest* req) {
     String out; serializeJson(_s->doc(), out);
     req->send(200, "application/json", out);
-  });
+  }).setAuthentication(_apiUser.c_str(), _apiPass.c_str());
 
   // POST/PUT JSON body -> merge changed keys into settings and persist.
   auto* setHandler = new AsyncCallbackJsonWebHandler("/api/settings",
@@ -152,6 +154,7 @@ bool WebPortal::begin(Settings* s, const String& hostname) {
         _s->save();
         req->send(200, "application/json", "{\"ok\":true}");
       });
+  setHandler->setAuthentication(_apiUser.c_str(), _apiPass.c_str());
   _server.addHandler(setHandler);
 
   // --- Debug/automation: full-res JPEG screenshot. The UI thread encodes into an
@@ -174,7 +177,7 @@ bool WebPortal::begin(Settings* s, const String& hostname) {
         return k;
       });
     req->send(res);
-  });
+  }).setAuthentication(_apiUser.c_str(), _apiPass.c_str());
 
   // --- Debug/automation: drive the UI ---
   _server.on("/api/tap", HTTP_GET, [this](AsyncWebServerRequest* req) {
@@ -183,13 +186,13 @@ bool WebPortal::begin(Settings* s, const String& hostname) {
     int y = req->hasParam("y") ? req->getParam("y")->value().toInt() : 0;
     _app->injectTap(x, y);
     req->send(200, "application/json", "{\"ok\":true}");
-  });
+  }).setAuthentication(_apiUser.c_str(), _apiPass.c_str());
   _server.on("/api/swipe", HTTP_GET, [this](AsyncWebServerRequest* req) {
     if (!_app) { req->send(503); return; }
     String d = req->hasParam("dir") ? req->getParam("dir")->value() : String("next");
     _app->injectSwipe((d == "prev" || d == "left") ? -1 : 1);
     req->send(200, "application/json", "{\"ok\":true}");
-  });
+  }).setAuthentication(_apiUser.c_str(), _apiPass.c_str());
 
   // Non-destructive file upload to LittleFS (e.g. /airports.bin) - raw POST body
   // streamed to the file, so data files update without wiping the partition like
@@ -205,7 +208,7 @@ bool WebPortal::begin(Settings* s, const String& hostname) {
       }
       if (_up) _up.write(data, len);
       if (_up && index + len == total) _up.close();
-    });
+    }).setAuthentication(_apiUser.c_str(), _apiPass.c_str());
 
   // OTA + settings basic-auth (spec §13).
   ElegantOTA.setAuth(_s->getString("otaUser", "admin").c_str(),

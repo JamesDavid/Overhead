@@ -74,8 +74,9 @@ live micro-status + the Director attention dot.
 ## M1 — services / infra
 - core/Canvas + Renderer abstraction + reusable widget toolkit (pages still draw via Display::gfx()).
 - Full app-shell chrome: 3x3 quick-jump grid, corner-glyph overlays (Settings/Health/Location).
-- **Auth on the settings API**: ElegantOTA is basic-auth'd, but `POST /api/settings`,
-  `/api/tap`, `/api/swipe`, `/api/screen.jpg` are open on the LAN. Gate them.
+- ~~Auth on the settings API~~ DONE — all `/api/*` + `/` + `/remote` are Basic-auth
+  gated with the OTA creds (`otaUser`/`otaPass`, default admin/overhead); scripts pass
+  `-u`. Caveat: Basic auth over plain HTTP (no TLS) is gating, not strong security.
 - Open-Meteo timezone refinement (DST rules; currently fixed offset from IP).
 - GPS location source (module optional).
 

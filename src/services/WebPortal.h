@@ -34,4 +34,5 @@ private:
   AsyncWebServer _server{80};
   std::function<void(JsonDocument&)> _statusFn;
   File _up;                              // in-progress /api/fs upload target
+  String _apiUser, _apiPass;             // Basic-auth creds gating the API (= OTA creds)
 };

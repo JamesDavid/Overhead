@@ -30,8 +30,9 @@ touch calibration (also in LittleFS) survive. `uploadfs` would erase them, so us
 python tools/gen_airports.py data/airports.bin
 
 # 2. push to the device  (MUST be octet-stream: curl's default form content-type is
-#    swallowed by AsyncWebServer as params and never reaches the file handler)
-curl -H "Content-Type: application/octet-stream" \
+#    swallowed by AsyncWebServer as params and never reaches the file handler.
+#    The API is Basic-auth gated -> pass the OTA creds with -u, default admin:overhead)
+curl -u admin:overhead -H "Content-Type: application/octet-stream" \
      --data-binary @data/airports.bin \
      "http://192.168.86.92/api/fs?path=/airports.bin"
 #    -> {"ok":true}
