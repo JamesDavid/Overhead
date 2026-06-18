@@ -39,8 +39,10 @@ private:
 
   // Constellation zoom tour.
   bool     _tour = false;
+  bool     _autoTour = false;    // Director-started tour (ends after one full pass)
   int      _tourCon = -1;        // constellation being framed (-1 = pick on next tick)
-  uint8_t  _phase = 0;           // 0 zoom-in, 1 hold, 2 zoom-out
+  int      _tourStart = -1;      // first con of the pass (detect a full loop)
+  uint8_t  _phase = 0;           // 0 zoom-in, 1 hold, 2 zoom-out, 3 rest at full sky
   uint32_t _phaseMs = 0;
   float    _t = 0.0f;            // 0 = full sky, 1 = fully zoomed on _tourCon
   float    _drawnT = -2.0f;      // last-drawn t / con: skip redraw when unchanged

@@ -109,35 +109,40 @@ void PageStarMap::onTouch(App& app, int x, int y) {
 }
 
 bool PageStarMap::autoAdvance(App&) {
-  // No discrete objects to select; "tour" = progressively reveal fainter stars
-  // (mag 2 -> 3 -> 4), then signal a complete cycle so the rotation moves on.
-  _magLimit += 1.0f;
-  bool cycled = false;
-  if (_magLimit > 4.0f) { _magLimit = 2.0f; cycled = true; }
-  _dirty = true;
-  return cycled;
+  // In AUTO the Director dwell drives a FULL constellation zoom tour, then moves on:
+  // start it on the first poll, hold (return false) while it runs, signal done once it
+  // has framed every visible constellation. tick()/updateTour drive the animation.
+  if (_tour) return false;                          // tour in progress -> stay on the page
+  if (_autoTour) { _autoTour = false; return true; }// the full tour just finished -> move on
+  _tour = true; _autoTour = true; _tourCon = -1; _t = 0; _dirty = true;
+  return false;
 }
 
 // Drive the zoom animation: zoom-in -> hold (names shown) -> zoom-out -> next con.
 void PageStarMap::updateTour(App& app, uint32_t nowMs) {
-  const uint32_t IN = 1100, HOLD = 2600, OUT = 900;
+  const uint32_t IN = 1100, HOLD = 2600, OUT = 900, REST = 1600;
   if (_tourCon < 0) {                              // (re)start: frame the first visible con
     _tourCon = nextVisibleCon(app, -1);
     if (_tourCon < 0) { _tour = false; _t = 0; return; }
-    _phase = 0; _phaseMs = nowMs; _t = 0;
+    _tourStart = _tourCon; _phase = 0; _phaseMs = nowMs; _t = 0;
   }
   uint32_t el = nowMs - _phaseMs;
   if (_phase == 0) {                               // zoom in
     if (el >= IN) { _phase = 1; _phaseMs = nowMs; _t = 1; } else _t = smooth((float)el / IN);
-  } else if (_phase == 1) {                        // hold, fully zoomed
+  } else if (_phase == 1) {                        // hold, fully zoomed (names shown)
     _t = 1;
     if (el >= HOLD) { _phase = 2; _phaseMs = nowMs; }
-  } else {                                         // zoom out, then advance
-    if (el >= OUT) {
+  } else if (_phase == 2) {                        // zoom out
+    if (el >= OUT) { _phase = 3; _phaseMs = nowMs; _t = 0; } else _t = 1 - smooth((float)el / OUT);
+  } else {                                         // rest on the full sky, then advance
+    _t = 0;
+    if (el >= REST) {
       int nx = nextVisibleCon(app, _tourCon);
-      if (nx < 0) { _tour = false; _t = 0; return; }
+      // End after one full pass (back to the start) when the Director drove the tour;
+      // a manually-started tour keeps looping until tapped to exit.
+      if (nx < 0 || (_autoTour && nx == _tourStart)) { _tour = false; _t = 0; return; }
       _tourCon = nx; _phase = 0; _phaseMs = nowMs; _t = 0;
-    } else _t = 1 - smooth((float)el / OUT);
+    }
   }
 }
 
