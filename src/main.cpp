@@ -287,7 +287,7 @@ void setup() {
   agendaPage = new PageAgenda(timeSvc, locSvc, weatherProv, tleProv, launchProv, settings);
   launchesPage = new PageLaunches(launchProv, timeSvc, locSvc, weatherProv);
   aircraftPage = new PageAircraft(aircraftProv, avwxProv, locSvc, settings, airportDb);
-  aviationPage = new PageAviation(avwxProv, sndProv, hazProv, weatherProv, pmapProv, locSvc);
+  aviationPage = new PageAviation(avwxProv, sndProv, hazProv, weatherProv, pmapProv, locSvc, settings);
   satsPage = new PageSatellites(tleProv, locSvc, timeSvc, settings);
   solarPage = new PageSolarSystem(timeSvc, locSvc, settings, marsProv);
   starPage = new PageStarMap(timeSvc, locSvc);

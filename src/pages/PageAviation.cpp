@@ -9,6 +9,7 @@
 #include "../providers/PressureMapProvider.h"
 #include "../assets/Coastline.h"
 #include "../services/LocationService.h"
+#include "../services/Settings.h"
 #include <math.h>
 #include <functional>
 
@@ -50,6 +51,12 @@ static int drawWrapped(LGFX& g, const String& text, int x, int y, int maxChars, 
   return y;
 }
 
+void PageAviation::onEnter(App& app) {
+  _presMode = (int)_settings.getInt("presMode", 0);
+  if (_presMode < 0 || _presMode > 2) _presMode = 0;
+  _dirty = _needClear = true;
+}
+
 void PageAviation::focusSpeci() {
   const auto& st = _wx.stations();
   for (int i = 0; i < (int)st.size(); ++i)
@@ -77,7 +84,9 @@ void PageAviation::onTouch(App& app, int x, int y) {
     _needClear = _dirty = true; return;
   }
   if (_view == View::Pressure && x < 60 && y < 16) { // top-left badge: hPa->inHg->cloud
-    _presMode = (_presMode + 1) % 3; _needClear = _dirty = true; return;
+    _presMode = (_presMode + 1) % 3;
+    _settings.set("presMode", (long)_presMode); _settings.save();   // persist preference
+    _needClear = _dirty = true; return;
   }
   int n = (int)_wx.stations().size();
   if (n && (_view == View::Metar || _view == View::Map || _view == View::Taf)) {   // edges step stations

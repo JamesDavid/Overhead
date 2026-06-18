@@ -29,6 +29,11 @@ public:
   virtual void onData(App& app, ProviderId id) {}  // EventBus delivery
   virtual String gridStatus() { return String(); }  // one live token for the 3x3 grid tile
 
+  // Focus the thing this page is currently alerting about (its grid badge), e.g.
+  // Aviation -> the SPECI station's METAR. Called when the user taps a badged grid
+  // tile, so they land on the actual alert, not the page default. Default: no-op.
+  virtual void focusAlert(App& app) {}
+
   // Clock mode (core/ClockOverlay): true if this page should keep running live
   // underneath the clock (the clock parks static in the lower-right corner);
   // false if it's a calm page the clock may freeze and bounce over. Default calm.

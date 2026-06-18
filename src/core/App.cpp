@@ -152,7 +152,11 @@ void App::tapAt(int x, int y) {
   if (_grid) {                                               // grid open: pick a cell or dismiss
     if (y >= contentY()) {
       int idx = gridCell(x, y - contentY());
-      if (idx >= 0) { _grid = false; _mode = Mode::Manual; setPage(idx); }
+      if (idx >= 0) {
+        bool badged = (idx < (int)_badge.size() && _badge[idx]);
+        _grid = false; _mode = Mode::Manual; setPage(idx);
+        if (badged) { _badge[idx] = false; _pages[idx]->focusAlert(*this); }  // land on the alert (e.g. SPECI)
+      }
       else closeGrid();
     } else closeGrid();
     return;

@@ -8,6 +8,7 @@ class HazardProvider;
 class WeatherProvider;
 class PressureMapProvider;
 class LocationService;
+class Settings;
 
 // pages/PageAviation — aviation weather "brief" (spec §14). Three views toggled
 // by centre tap: METAR (decoded card + raw METAR/TAF), Sounding (Skew-T-style
@@ -16,12 +17,13 @@ class LocationService;
 class PageAviation : public Page {
 public:
   PageAviation(AviationWxProvider& wx, SoundingProvider& snd, HazardProvider& haz,
-               WeatherProvider& wxo, PressureMapProvider& pmap, LocationService& loc)
-    : _wx(wx), _snd(snd), _haz(haz), _wxo(wxo), _pmap(pmap), _loc(loc) {}
+               WeatherProvider& wxo, PressureMapProvider& pmap, LocationService& loc, Settings& settings)
+    : _wx(wx), _snd(snd), _haz(haz), _wxo(wxo), _pmap(pmap), _loc(loc), _settings(settings) {}
 
   const char* title() const override { return "Aviation Wx"; }
   void focusSpeci();              // Director: jump to the SPECI station's METAR view
-  void onEnter(App& app) override { _dirty = _needClear = true; }
+  void focusAlert(App& app) override { focusSpeci(); }   // badged grid tile -> the SPECI
+  void onEnter(App& app) override;
   void onData(App& app, ProviderId id) override;
   void onTouch(App& app, int x, int y) override;
   void tick(App& app, uint32_t nowMs) override;
@@ -45,6 +47,7 @@ private:
   WeatherProvider&    _wxo;    // Open-Meteo hourly series (area trends)
   PressureMapProvider& _pmap;  // major-airport METAR pressure/cloud map
   LocationService&    _loc;
+  Settings&           _settings;
   int   _presMode = 0;         // pressure-map mode: 0=hPa, 1=inHg, 2=cloud
   View  _view = View::Map;     // Map is the default Aviation view (then Metar/Sounding/Hazards)
   int   _sel = 0;
