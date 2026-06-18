@@ -54,6 +54,7 @@ static int drawWrapped(LGFX& g, const String& text, int x, int y, int maxChars, 
 void PageAviation::onEnter(App& app) {
   _presMode = (int)_settings.getInt("presMode", 0);
   if (_presMode < 0 || _presMode > 2) _presMode = 0;
+  _pmap.setScope((int)_settings.getInt("presScope", 0));   // default regional (~200mi)
   _dirty = _needClear = true;
 }
 
@@ -86,6 +87,12 @@ void PageAviation::onTouch(App& app, int x, int y) {
   if (_view == View::Pressure && x < 60 && y < 16) { // top-left badge: hPa->inHg->cloud
     _presMode = (_presMode + 1) % 3;
     _settings.set("presMode", (long)_presMode); _settings.save();   // persist preference
+    _needClear = _dirty = true; return;
+  }
+  if (_view == View::Pressure && x > app.contentW() - 50 && y < 16) {  // top-right: zoom 200mi/US/world
+    int ns = (_pmap.scope() + 1) % 3;
+    _pmap.setScope(ns);
+    _settings.set("presScope", (long)ns); _settings.save();
     _needClear = _dirty = true; return;
   }
   int n = (int)_wx.stations().size();
@@ -542,12 +549,17 @@ void PageAviation::drawPressure(App& app) {
   bool world = _pmap.worldwide();
 
   bool cloud = (_presMode == 2);
+  int scope = _pmap.scope();
   const char* ml = _presMode == 0 ? "hPa" : _presMode == 1 ? "inHg" : "cloud";
+  const char* sc = scope == 0 ? "200mi" : scope == 1 ? "US" : "world";
   g.setTextDatum(textdatum_t::top_left); g.setTextSize(1);
-  g.fillRect(2, cy0 + 2, 52, 12, gTheme.grid);                 // mode badge
+  g.fillRect(2, cy0 + 2, 52, 12, gTheme.grid);                 // mode badge (tap: hPa/inHg/cloud)
   g.setTextColor(gTheme.fg, gTheme.grid); g.drawString(ml, 6, cy0 + 3);
   g.setTextColor(gTheme.fg, gTheme.bg);
-  g.drawString(String(world ? "World " : "US ") + (cloud ? "cloud" : "pressure") + "  [tap mid: metar]", 60, cy0 + 3);
+  g.drawString(String(cloud ? "cloud" : "pressure") + "  [mid: metar]", 60, cy0 + 3);
+  g.fillRect(cw - 48, cy0 + 2, 46, 12, gTheme.grid);           // scope badge (tap: zoom 200mi/US/world)
+  g.setTextDatum(textdatum_t::top_right);
+  g.setTextColor(gTheme.fg, gTheme.grid); g.drawString(sc, cw - 4, cy0 + 3);
 
   if (pts.empty()) {
     g.setTextColor(gTheme.dim, gTheme.bg);
@@ -555,7 +567,7 @@ void PageAviation::drawPressure(App& app) {
     return;
   }
 
-  double w0 = world ? -180 : -126, w1 = world ? 180 : -66, a0 = world ? -60 : 24, a1 = world ? 78 : 50;
+  double w0, w1, a0, a1; _pmap.bbox(w0, w1, a0, a1);            // bbox from the active scope
   int mx = 2, my = cy0 + 16, mw = cw - 4, mh = ch - 16 - 12;
   auto SX = [&](double lon) { return mx + (int)((lon - w0) / (w1 - w0) * mw); };
   auto SY = [&](double lat) { return my + (int)((a1 - lat) / (a1 - a0) * mh); };

@@ -23,10 +23,31 @@ static const Airport kWORLD[] = {
   {"ZBAA",40.1f,116.6f}, {"RJTT",35.6f,139.8f},{"YSSY",-33.9f,151.2f},{"NZAA",-37.0f,174.8f},
 };
 
+void PressureMapProvider::computeBbox() {
+  if (_scope == 2) { _w0 = -180; _w1 = 180; _a0 = -60; _a1 = 78; return; }   // world
+  if (_scope == 1) { _w0 = -126; _w1 = -66; _a0 = 24;  _a1 = 50; return; }   // continental US
+  double la = (_loc && _loc->active().valid) ? _loc->active().lat : 39.0;    // regional ~200mi box
+  double lo = (_loc && _loc->active().valid) ? _loc->active().lon : -98.0;
+  double cl = cos(la * M_PI / 180.0); if (cl < 0.3) cl = 0.3;
+  const double dlat = 2.9;                          // ~200 mi radius
+  _a0 = la - dlat; _a1 = la + dlat; _w0 = lo - dlat / cl; _w1 = lo + dlat / cl;
+}
+
+void PressureMapProvider::setScope(int s) {
+  if (s < 0) s = 0; if (s > 2) s = 2;
+  if (s == _scope) return;
+  _scope = s; computeBbox();
+  String body; CacheMeta m;                         // serve cache for the new scope while refetching
+  _pts.clear();
+  if (_cache->get((String("presmap") + _scope).c_str(), body, m) && parse(body)) _status = ProviderStatus::Stale;
+  refresh(true);
+}
+
 void PressureMapProvider::begin(Settings* s, NetClient* net, Cache* cache, LocationService* loc) {
   _s = s; _net = net; _cache = cache; _loc = loc;
+  computeBbox();
   String body; CacheMeta m;
-  if (_cache->get("presmap", body, m) && parse(body)) _status = ProviderStatus::Stale;
+  if (_cache->get((String("presmap") + _scope).c_str(), body, m) && parse(body)) _status = ProviderStatus::Stale;
   refresh(false);
 }
 
@@ -34,24 +55,28 @@ void PressureMapProvider::refresh(bool force) {
   if (_inflight || !_loc->active().valid) return;
   uint32_t ttl = 45UL * 60UL;                       // surface pattern shifts slowly
   uint32_t now = (uint32_t)time(nullptr);
-  CacheMeta m = _cache->stat("presmap");
-  bool stale = force || !m.found || now < 1600000000UL || (now - m.fetchedAt) > ttl;
-  if (!stale) return;
+  String key = String("presmap") + _scope;
+  CacheMeta m = _cache->stat(key.c_str());
+  bool stale = force || !m.found || (now >= 1600000000UL && (now - m.fetchedAt) > ttl);
+  if (!stale) { if (!_pts.empty()) _status = ProviderStatus::Ready; return; }
 
-  // Choose the station set by the observer's location (continental-US bbox vs world).
-  double la = _loc->active().lat, lo = _loc->active().lon;
-  _world = !(la > 24 && la < 50 && lo > -126 && lo < -66);
-  const Airport* set = _world ? kWORLD : kUS;
-  int n = _world ? (int)(sizeof(kWORLD) / sizeof(kWORLD[0])) : (int)(sizeof(kUS) / sizeof(kUS[0]));
-
-  String url = "https://aviationweather.gov/api/data/metar?format=json&ids=";
-  for (int i = 0; i < n; ++i) { if (i) url += ","; url += set[i].icao; }
+  computeBbox();
+  String url = "https://aviationweather.gov/api/data/metar?format=json&";
+  if (_scope == 0) {                                // regional: query by bounding box
+    char bb[80]; snprintf(bb, sizeof(bb), "bbox=%.2f,%.2f,%.2f,%.2f", _a0, _w0, _a1, _w1);
+    url += bb;
+  } else {                                          // US / world: the fixed station spread
+    const Airport* set = _scope == 2 ? kWORLD : kUS;
+    int n = _scope == 2 ? (int)(sizeof(kWORLD) / sizeof(kWORLD[0])) : (int)(sizeof(kUS) / sizeof(kUS[0]));
+    url += "ids=";
+    for (int i = 0; i < n; ++i) { if (i) url += ","; url += set[i].icao; }
+  }
 
   _inflight = true;
-  _net->get(url, [this](int code, const String& body) {
+  _net->get(url, [this, key](int code, const String& body) {
     _inflight = false;
     if (code == 200 && parse(body)) {
-      _cache->put("presmap", body, code, (uint32_t)time(nullptr));
+      _cache->put(key.c_str(), body, code, (uint32_t)time(nullptr));
       _lastFetched = (uint32_t)time(nullptr);
       _status = ProviderStatus::Ready;
     } else if (_pts.empty()) {
@@ -69,7 +94,7 @@ static int coverPct(const String& c) {
 bool PressureMapProvider::parse(const String& body) {
   JsonDocument filter;
   JsonObject e = filter.add<JsonObject>();
-  e["icaoId"] = e["altim"] = true;
+  e["icaoId"] = e["altim"] = e["lat"] = e["lon"] = true;   // coords come from the feed now
   JsonObject c = e["clouds"].add<JsonObject>();
   c["cover"] = true;
   JsonDocument doc;
@@ -77,21 +102,18 @@ bool PressureMapProvider::parse(const String& body) {
   JsonArray arr = doc.as<JsonArray>();
   if (arr.isNull()) return false;
 
-  // Look up coords from whichever set is active.
-  const Airport* set = _world ? kWORLD : kUS;
-  int n = _world ? (int)(sizeof(kWORLD) / sizeof(kWORLD[0])) : (int)(sizeof(kUS) / sizeof(kUS[0]));
-
   std::vector<PressurePt> out;
   for (JsonObject o : arr) {
-    String id = (const char*)(o["icaoId"] | "");
-    if (!o["altim"].is<float>()) continue;
-    PressurePt p; p.icao = id;
+    if (!o["altim"].is<float>() || !o["lat"].is<float>()) continue;
+    PressurePt p;
+    p.icao = (const char*)(o["icaoId"] | "");
     p.hpa = (int)lround((float)o["altim"]);
+    p.lat = (float)o["lat"]; p.lon = (float)o["lon"];
     int cl = 0;
     for (JsonObject c2 : o["clouds"].as<JsonArray>()) { int v = coverPct((const char*)(c2["cover"] | "")); if (v > cl) cl = v; }
     p.cloud = cl;
-    for (int i = 0; i < n; ++i) if (id == set[i].icao) { p.lat = set[i].lat; p.lon = set[i].lon; break; }
-    if (p.lat != 0 || p.lon != 0) out.push_back(p);
+    out.push_back(p);
+    if (out.size() >= 48) break;                    // cap to bound heap on dense regions
   }
   if (out.empty()) return false;
   _pts = std::move(out);
