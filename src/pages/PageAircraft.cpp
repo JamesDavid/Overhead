@@ -11,6 +11,23 @@
 
 static constexpr double D2R = 3.14159265358979323846 / 180.0;
 
+// Dead-reckon a contact's radar position forward from its last fix, so blips keep
+// moving smoothly between ADS-B updates. Works in the observer's local NM tangent
+// plane (fine at radar ranges); returns the extrapolated range + bearing.
+static void drPos(const Aircraft& a, uint32_t lastDataMs, float& distNm, float& brgDeg) {
+  distNm = a.distNm; brgDeg = a.bearingDeg;
+  if (a.onGround || a.gsKt < 5) return;                 // parked / slow: leave it put
+  float dt = a.seenS + (millis() - lastDataMs) / 1000.0f;   // seconds since the reported fix
+  if (dt < 0) dt = 0; else if (dt > 30) dt = 30;        // cap runaway extrapolation if feed stalls
+  float north = a.distNm * cosf(a.bearingDeg * D2R);    // offset from observer (nm)
+  float east  = a.distNm * sinf(a.bearingDeg * D2R);
+  float step  = a.gsKt * dt / 3600.0f;                  // nm travelled along the track
+  north += step * cosf(a.trackDeg * D2R);
+  east  += step * sinf(a.trackDeg * D2R);
+  distNm = sqrtf(north * north + east * east);
+  brgDeg = atan2f(east, north) / D2R; if (brgDeg < 0) brgDeg += 360;
+}
+
 // Decode an emergency transponder code; nullptr if it's a routine squawk.
 static const char* squawkAlert(const String& sq) {
   if (sq == "7700") return "EMERGENCY";
@@ -79,6 +96,7 @@ void PageAircraft::onData(App& app, ProviderId id) {
     if (_sel >= n) _sel = n - 1;
     bool empty = (n == 0);
     if (empty != _wasEmpty) { _needClear = true; _wasEmpty = empty; }  // message<->radar
+    _lastDataMs = millis();                    // reset the dead-reckoning clock on fresh data
   }
   _dirty = true;
 }
@@ -99,9 +117,10 @@ void PageAircraft::onTouch(App& app, int x, int y) {
     int best = -1, bestd2 = 15 * 15;
     for (int k = 0; k < n; ++k) {
       const Aircraft& a = list[_filt[k]];
-      float rr = a.distNm / _rMaxR * _rR; if (rr > _rR) rr = _rR;
-      int ax = _rCx + (int)round(rr * sin(a.bearingDeg * D2R));
-      int ay = _rCy - (int)round(rr * cos(a.bearingDeg * D2R));
+      float aDist, aBrg; drPos(a, _lastDataMs, aDist, aBrg);
+      float rr = aDist / _rMaxR * _rR; if (rr > _rR) rr = _rR;
+      int ax = _rCx + (int)round(rr * sin(aBrg * D2R));
+      int ay = _rCy - (int)round(rr * cos(aBrg * D2R));
       int d2 = (ax - x) * (ax - x) + (ay - ty) * (ay - ty);
       if (d2 < bestd2) { bestd2 = d2; best = k; }
     }
@@ -317,9 +336,10 @@ void PageAircraft::draw(App& app) {
   for (int k = 0; k < (int)_filt.size(); ++k) {
     const Aircraft& a = list[_filt[k]];
     bool sel = (k == _sel);
-    float rr = a.distNm / maxR * R; if (rr > R) rr = R;
-    int ax = cx + (int)round(rr * sin(a.bearingDeg * D2R));
-    int ay = cy - (int)round(rr * cos(a.bearingDeg * D2R));
+    float aDist, aBrg; drPos(a, _lastDataMs, aDist, aBrg);   // dead-reckoned position
+    float rr = aDist / maxR * R; if (rr > R) rr = R;
+    int ax = cx + (int)round(rr * sin(aBrg * D2R));
+    int ay = cy - (int)round(rr * cos(aBrg * D2R));
     bool emerg = squawkAlert(a.squawk) != nullptr;
     Color c = emerg ? gTheme.warn : sel ? gTheme.ok : (a.onGround ? gTheme.dim : gTheme.accent);
     // Heading tick in the track direction.

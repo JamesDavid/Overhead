@@ -55,6 +55,7 @@ private:
   bool  _wasEmpty = true;    // track empty<->populated to clear only on transition
   bool  _wasEmerg = false;   // track emergency-squawk presence (clear strip on change)
   uint32_t _lastDraw = 0;
+  uint32_t _lastDataMs = 0;  // millis() of the last data update, for dead-reckoning blips
 
   static constexpr int kMaxChips = 8;
   int    _chipX[kMaxChips] = {0}, _chipW[kMaxChips] = {0}, _chipCount = 0;
