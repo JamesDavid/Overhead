@@ -16,6 +16,88 @@ static constexpr double SOL = 88775.244;            // Mars solar day (s)
 static constexpr time_t PERSEV_LANDING = 1613681700; // 2021-02-18 20:55 UTC
 static constexpr time_t CURIO_LANDING  = 1344230220; // 2012-08-06 05:17 UTC
 
+// --- Sub-Earth point ("which way is Earth right now") ---------------------------
+struct SubPt { double lat, lonE; };
+
+// Given the unit vector from a rotating body to Earth in J2000 equatorial coords and
+// the body's IAU pole (a0,d0) + prime-meridian angle W (deg), return the body-fixed
+// sub-Earth latitude and EAST longitude (the point where Earth is at the zenith).
+static SubPt subEarthFromVec(double ux, double uy, double uz,
+                             double a0, double d0, double W) {
+  a0 *= D2R; d0 *= D2R;
+  double px = cos(d0) * cos(a0), py = cos(d0) * sin(a0), pz = sin(d0);          // pole (z)
+  double nx = -sin(a0), ny = cos(a0), nz = 0;                                   // node (x)
+  double mx = py * nz - pz * ny, my = pz * nx - px * nz, mz = px * ny - py * nx;// p x n (y)
+  double lat = asin(ux * px + uy * py + uz * pz) / D2R;
+  double A = atan2(ux * mx + uy * my + uz * mz, ux * nx + uy * ny + uz * nz) / D2R;
+  double lon = fmod(A - W, 360.0); if (lon < 0) lon += 360.0;
+  return { lat, lon };
+}
+
+// Mars sub-Earth point from the heliocentric Earth/Mars positions + IAU Mars frame.
+static SubPt subEarthMars(double jd) {
+  astro::HelioPos e = astro::heliocentricBody(2, jd);   // Earth (ecliptic lon, r)
+  astro::HelioPos m = astro::heliocentricBody(3, jd);   // Mars
+  double dx = e.rAu * cos(e.lonDeg * D2R) - m.rAu * cos(m.lonDeg * D2R);  // Mars->Earth
+  double dy = e.rAu * sin(e.lonDeg * D2R) - m.rAu * sin(m.lonDeg * D2R);
+  double eps = 23.4393 * D2R;                            // ecliptic -> equatorial
+  double ux = dx, uy = dy * cos(eps), uz = dy * sin(eps);
+  double r = sqrt(ux * ux + uy * uy + uz * uz); ux /= r; uy /= r; uz /= r;
+  double d = jd - 2451545.0;
+  return subEarthFromVec(ux, uy, uz, 317.68143, 52.88650, 176.630 + 350.89198226 * d);
+}
+
+// Moon sub-Earth point (optical libration) from the true geocentric Moon direction
+// + IAU mean lunar frame. Returns east longitude in [-180,180].
+static SubPt subEarthMoon(double jd, double lat, double lon) {
+  astro::PlanetState s = astro::planetState(astro::Planet::Moon, jd, lat, lon);
+  double ra = s.raDeg * D2R, de = s.decDeg * D2R;        // Earth->Moon direction
+  double ux = -cos(de) * cos(ra), uy = -cos(de) * sin(ra), uz = -sin(de);  // Moon->Earth
+  double d = jd - 2451545.0;
+  SubPt p = subEarthFromVec(ux, uy, uz, 269.9949, 66.5392, 38.3213 + 13.17635815 * d);
+  if (p.lonE > 180) p.lonE -= 360;
+  return p;
+}
+
+void PageMissions::drawEarthFacing(App& app, int mx, int my, int mw, int mh,
+                                   double lonMin, double lonMax, double slat, double slon,
+                                   bool boundary) {
+  auto& g = app.display().gfx();
+  Color col = rgb565(90, 200, 255);                      // Earth blue
+  auto PX = [&](double lon) {
+    double L = lon; while (L < lonMin) L += 360; while (L >= lonMin + 360) L -= 360;
+    return mx + (int)((L - lonMin) / (lonMax - lonMin) * mw);
+  };
+  auto PY = [&](double lat) { return my + (int)((90.0 - lat) / 180.0 * mh); };
+
+  if (boundary) {
+    // Rim of the Earth-facing hemisphere = points 90 deg from the sub-Earth point.
+    double t = tan(slat * D2R);
+    if (fabs(t) < 1e-3) {                                // sub-Earth near equator: rim = two meridians
+      g.drawFastVLine(PX(slon - 90), my, mh, col);
+      g.drawFastVLine(PX(slon + 90), my, mh, col);
+    } else {
+      int px = -1, py = -1;
+      for (int i = 0; i <= 180; ++i) {
+        double lon = lonMin + (lonMax - lonMin) * i / 180.0;
+        double phib = atan(-cos((lon - slon) * D2R) / t) / D2R;
+        int xx = PX(lon), yy = PY(phib);
+        if (px >= 0 && abs(yy - py) < mh / 2) g.drawLine(px, py, xx, yy, col);
+        px = xx; py = yy;
+      }
+    }
+  }
+  // Sub-Earth marker: Earth is directly overhead here, now.
+  int ex = PX(slon), ey = PY(slat);
+  g.drawFastHLine(ex - 5, ey, 11, col);
+  g.drawFastVLine(ex, ey - 5, 11, col);
+  g.drawCircle(ex, ey, 4, col);
+  bool right = ex < mx + mw - 40;
+  g.setTextColor(col, gTheme.bg);
+  g.setTextDatum(right ? textdatum_t::middle_left : textdatum_t::middle_right);
+  g.drawString("Earth", right ? ex + 7 : ex - 7, ey);
+}
+
 void PageMissions::tick(App& app, uint32_t nowMs) {
   if (!_dirty && nowMs - _lastDraw < 30000) return;  // slow-changing
   _dirty = false; _lastDraw = nowMs;
@@ -123,7 +205,14 @@ void PageMissions::drawMars(App& app) {
     g.setTextColor(gTheme.fg, gTheme.bg); g.setTextDatum(textdatum_t::middle_left);
     g.drawString(r.lbl, rx + 4, ry);
   }
+  // Earth-facing hemisphere: rim + the point where Earth is overhead right now.
+  SubPt se = subEarthMars(jd);
+  drawEarthFacing(app, mx, my, mw, mh, 0, 360, se.lat, se.lonE, true);
   y = my + mh + 3;
+  g.setTextDatum(textdatum_t::top_left); g.setTextColor(rgb565(90, 200, 255), gTheme.bg);
+  snprintf(b, sizeof(b), "Earth over %d\xF7E %d\xF7%c now - circled side faces us", (int)round(se.lonE),
+           (int)round(fabs(se.lat)), se.lat >= 0 ? 'N' : 'S');
+  g.drawString(b, x, y); y += 13;
 
   // --- Rover status (compact) ---
   auto solNow = [&](time_t landing) { return now > landing ? (long)((now - landing) / SOL) : -1L; };
@@ -225,10 +314,17 @@ void PageMissions::drawMoon(App& app) {
       g.drawString(s.tag, right ? sx + 4 : sx - 4, sy);
     }
   }
+  // Sub-Earth point (libration). The near side always faces Earth; the marker shows
+  // where Earth sits overhead now and how the disc is tipped (libration) this moment.
+  if (_loc.active().valid) {
+    SubPt se = subEarthMoon(jd, _loc.active().lat, _loc.active().lon);
+    drawEarthFacing(app, mx, my, mw, mh, -90, 90, se.lat, se.lonE, false);
+  }
   g.setTextDatum(textdatum_t::bottom_left);
   g.setTextColor(gTheme.warn, gTheme.bg);   g.drawString("crewed", mx + 3, my + mh - 2);
   g.setTextColor(gTheme.ok, gTheme.bg);     g.drawString("robotic", mx + 50, my + mh - 2);
-  g.setTextColor(gTheme.accent, gTheme.bg); g.drawString("2024+ CLPS", mx + 102, my + mh - 2);
+  g.setTextColor(gTheme.accent, gTheme.bg); g.drawString("2024+", mx + 102, my + mh - 2);
+  g.setTextColor(rgb565(90, 200, 255), gTheme.bg); g.drawString("Earth=sub-pt", mx + 150, my + mh - 2);
   y = my + mh + 3;
 
   // --- summary (past dates are real; the future line is undated on purpose) ---
@@ -253,31 +349,48 @@ void PageMissions::drawDeepSpace(App& app) {
   g.setTextDatum(textdatum_t::top_left);
   g.setTextColor(gTheme.accent, gTheme.bg);
   g.setTextSize(2); g.drawString("Deep Space", 6, cy0 + 2); g.setTextSize(1);
-  g.setTextColor(gTheme.dim, gTheme.bg); g.drawString("[tap mid: Mars]", 150, cy0 + 9);
-  int y = cy0 + 24;
+  g.setTextColor(gTheme.dim, gTheme.bg); g.setTextDatum(textdatum_t::top_right);
+  g.drawString("[tap mid: Mars]", cw - 4, cy0 + 9); g.setTextDatum(textdatum_t::top_left);
+  int y = cy0 + 22;
+  char b[64];
 
-  struct DS { const char* name; const char* note; float au; float rate; float baseYr; };
+  // Receding probes: live distance from a reference epoch + recession rate.
+  struct DS { const char* name; const char* note; float au, rate, baseYr; };
   static const DS d[] = {
-    {"Voyager 1",   "interstellar",         165.6f, 3.58f, 2025.5f},
-    {"Voyager 2",   "interstellar",         138.2f, 3.27f, 2025.5f},
-    {"New Horizons","Kuiper Belt",           60.5f, 2.95f, 2025.5f},
-    {"Psyche",      "metal asteroid '29",     0,    0,     0},
-    {"Eur.Clipper", "Jupiter/Europa '30",     0,    0,     0},
-    {"JWST",        "Sun-Earth L2 1.5Mkm",    0,    0,     0},
-    {"Parker SP",   "skims the Sun",          0,    0,     0},
+    {"Voyager 1",   "interstellar", 165.6f, 3.58f, 2025.5f},
+    {"Voyager 2",   "interstellar", 138.2f, 3.27f, 2025.5f},
+    {"New Horizons","Kuiper Belt",   60.5f, 2.95f, 2025.5f},
   };
-  char b[56];
   for (auto& m : d) {
-    if (y > cy0 + ch - 12) break;
-    g.setTextDatum(textdatum_t::top_left);
+    float dist = m.au + m.rate * (yr - m.baseYr);
     g.setTextColor(gTheme.fg, gTheme.bg);  g.drawString(m.name, 6, y);
-    if (m.au > 0) {
-      float dist = m.au + m.rate * (yr - m.baseYr);
-      snprintf(b, sizeof(b), "%d AU  %.0f lt-hr  %s", (int)dist, dist * 8.317f / 60.0f, m.note);
-    } else {
-      snprintf(b, sizeof(b), "-> %s", m.note);
-    }
-    g.setTextColor(gTheme.dim, gTheme.bg);  g.drawString(b, 92, y);
+    snprintf(b, sizeof(b), "%d AU  %.0f lt-hr  %s", (int)dist, dist * 8.317f / 60.0f, m.note);
+    g.setTextColor(gTheme.dim, gTheme.bg); g.drawString(b, 92, y);
     y += 13;
   }
+  y += 4;
+
+  // In-flight flagships: real launch + scheduled milestones (decimal years), with a
+  // live "years flying" age and a past/future countdown to the next key milestone.
+  struct Cruise { const char* name; const char* target; float launchYr, mileYr; const char* mlabel, *arrival; };
+  static const Cruise cr[] = {
+    {"Psyche",      "to metal asteroid 16 Psyche", 2023.78f, 2026.37f, "Mars flyby",  "16 Psyche Aug'29"},
+    {"Eur.Clipper", "to Jupiter ocean moon Europa", 2024.79f, 2026.92f, "Earth flyby", "Jupiter Apr'30"},
+  };
+  for (auto& c : cr) {
+    g.setTextColor(gTheme.fg, gTheme.bg);  g.drawString(c.name, 6, y);
+    g.setTextColor(gTheme.dim, gTheme.bg); g.drawString(c.target, 92, y); y += 11;
+    char mile[40]; float dt = c.mileYr - yr;
+    if (dt <= 0)       snprintf(mile, sizeof(mile), "%s done", c.mlabel);
+    else if (dt < 1)   snprintf(mile, sizeof(mile), "%s in %dmo", c.mlabel, (int)roundf(dt * 12));
+    else               snprintf(mile, sizeof(mile), "%s in %.1fy", c.mlabel, dt);
+    snprintf(b, sizeof(b), "%.1fy flying . %s . %s", yr - c.launchYr, mile, c.arrival);
+    g.setTextColor(gTheme.accent, gTheme.bg); g.drawString(b, 14, y); y += 15;
+  }
+
+  // Stationed / record-holders.
+  g.setTextColor(gTheme.fg, gTheme.bg);  g.drawString("JWST", 6, y);
+  g.setTextColor(gTheme.dim, gTheme.bg); g.drawString("1.5M km out at L2 . sees 1st galaxies", 92, y); y += 13;
+  g.setTextColor(gTheme.fg, gTheme.bg);  g.drawString("Parker SP", 6, y);
+  g.setTextColor(gTheme.dim, gTheme.bg); g.drawString("~690,000 km/h - fastest ever made", 92, y);
 }
