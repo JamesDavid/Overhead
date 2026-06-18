@@ -114,6 +114,14 @@ cycles them). No change to current behavior - purely an added page.
 - Turn ASTRO_SELFTEST off in release builds.
 
 ## M3 — Satellites
+- **TLE age can read very old** — not a cache bug: TLEs persist in LittleFS with
+  fetchedAt + a 12h TTL (already "update only as needed", survives reboot). The age
+  grows because the refresh fetch is SKIPPED when heap is below the ~42KB TLS floor
+  (httpsSkip>0, e.g. with the debug-screenshot buffer on). Fix is heap (debugShots off /
+  seed-then-enable), not caching. Refinement: on boot don't force a fetch just because
+  the clock isn't NTP-synced yet (current `!clockValid` forces stale) — if a cache entry
+  exists, trust it until the post-sync TTL check, so a recent reboot skips the HTTP call.
+  Same for launches. Surface "last updated" per feed on Health.
 - On-device watchlist editing (now editable via the web watchlist field; add an
   on-screen add/remove). Matching is case-insensitive CONTAINS (so "SO-50" finds
   "SAUDISAT 1C (SO-50)"); designations with no catalog-name token need the real name
@@ -121,7 +129,15 @@ cycles them). No change to current behavior - purely an added page.
 - Group filter chips + sunlit-only toggle; AMSAT mode/band sub-filters.
 - Source the live AMSAT transponder set (not the hand seed in Transponders.h).
 - Grayline / day-night terminator overlay on the ground track (needs Ephem subsolar).
-- Doppler: uplink correction + tuning readout; rotor Az-El output.
+- Doppler: uplink correction + tuning readout.
+- **Az/El rotor output + DIY rotor.** Stream the tracked az/el over serial (and/or
+  TCP) in a standard rotor protocol — **GS-232** ("Wxxx yyy") or **EasyComm II**
+  ("AZxxx.x ELyy.y") — so it drives Hamlib/rotctld or a hardware rotator. Works for ANY
+  az/el the device computes (sat pass, Moon/planet, even a launch look-angle). Plus a
+  companion **ESP32 rotor firmware**: two 28BYJ-48 steppers on ULN2003 drivers (az +
+  el), accepting the same protocol over serial/Wi-Fi, with limit/home + microstep
+  ramping — a cheap build-your-own rotor. Keep the protocol the contract between the
+  two so either end is swappable (commercial rotor or our build).
 
 ## M4 — Launches
 - **Launch az/el look indicator (not a full pass).** A real az/el track like the
@@ -245,6 +261,14 @@ hazards, SPECI Director badge. Remaining:
 - Context title Today/Tonight by time of day; meteor-shower peak markers.
 
 ## M11 — System/Health
+- **Saved locations + easy switching.** A user list of places they use the device
+  (home, cabin, etc.), configured in the web UI (name + lat/lon via the Leaflet picker),
+  stored in settings; switch the active location from an on-device list. (Today location
+  is IP-geoloc or a single setting.)
+- **Status-bar chrome:** replace the "WiFi -NN" text with a **signal-bars glyph** (bars
+  by RSSI) that taps through to Device Health; just left of it add a **location-
+  crosshair icon** that opens a location-select page (the saved list above). Ties into
+  the desk-clock corner-glyph plan.
 - Make Health a corner-glyph MODAL OVERLAY (with Settings + Location) once overlay chrome exists.
 - Per-provider "next poll" + last HTTP status (need providers to expose them; /api/status
   now reports adsb/tle/avwx/kp/sfi for remote diagnosis).
