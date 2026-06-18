@@ -341,6 +341,19 @@ void PageStarMap::draw(App& app) {
     g.drawString("zoom \xB7 tap to exit", 4, cy0 + 2);
   }
 
+  // Centre az/el readout while zoomed (the focus F maps to the screen centre).
+  if (t > 0.05f) {
+    int dx = Fx - cx, dy = cy - Fy;
+    float rr = sqrtf((float)(dx * dx + dy * dy));
+    float alt = 90.0f - rr / R * 90.0f; if (alt < 0) alt = 0;
+    float az = atan2f((float)dx, (float)dy) * astro::RAD2DEG; if (az < 0) az += 360;
+    char b[28]; snprintf(b, sizeof(b), "ctr az%d\xF7 el%d\xF7", (int)lroundf(az), (int)lroundf(alt));
+    g.setTextDatum(textdatum_t::top_right);
+    g.setTextColor(gTheme.accent, gTheme.bg);
+    g.setTextSize(1);
+    g.drawString(b, cw - 4, cy0 + 2);
+  }
+
   // Constellation name banner + brightest-star subtitle while touring.
   if (_tour && _tourCon >= 0 && t > 0.25f) {
     g.setTextDatum(textdatum_t::top_center);
