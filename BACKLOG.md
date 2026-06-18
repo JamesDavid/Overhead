@@ -290,6 +290,20 @@ hazards, SPECI Director badge. Remaining:
 - TLEs retained WATCHLIST-ONLY (full lists ~18 KB of Strings froze TLS). Aircraft cap 24,
   METAR cap 12. On the PSRAM CrowPanel, keep full lists + a sprite double-buffer (board-conditional).
 - Boot fires ~12 HTTPS jobs serially — consider staggering to cut heap contention.
+- **Two-phase boot: "updater" mode then "viewer" mode (no-PSRAM fix for stale data).**
+  On a fresh boot the heap is unfragmented (largest block well above the 42KB TLS floor),
+  so HTTPS works. Idea: boot into a minimal UPDATER mode — WiFi + NTP only, NO 16KB
+  screenshot buffer, no heavy pages/web server — and bulk-refresh every feed into the
+  LittleFS cache (TLEs, launches, METAR, space wx, ...) while heap is clean. Then reboot
+  into the full VIEWER mode (remote/screenshots/UI) which serves the now-warm cache and
+  rarely needs to fetch. Re-enter updater mode occasionally "as needed" (cache TTL
+  expired) via a scheduled reboot — gate this whole scheme to no-PSRAM boards (PSRAM
+  boards have heap to fetch live). Solves the httpsSkip staleness (TLE age, feeds) at the
+  root. Watch: reboot cost (~boot time), and a flag in NVS/RTC-mem to pick the mode.
+  - Division of labour: updater pre-caches the SLOW-changing feeds (TLEs, launch
+    schedule, space-wx history) so VIEWER mode spends its one scarce TLS slot only on the
+    genuinely LIVE feeds — ADS-B aircraft, METAR/aviation, current space wx. That keeps
+    the live stuff live without the slow bulk fetches contending for the heap.
 - LESSON: Settings::backfillDefaults() now adds missing keys on every load, because a
   stale settings.json + the web form's Save-all once blanked focusEnabled/inactivitySec/
   dim*/lead-times to 0/false — do NOT let the form write keys that weren't loaded.
