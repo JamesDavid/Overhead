@@ -18,18 +18,19 @@ public:
   const char* title() const override { return "Missions"; }
   void onEnter(App& app) override { _dirty = true; }
   void onData(App& app, ProviderId id) override { _dirty = true; }
-  void onTouch(App& app, int x, int y) override;   // centre: Mars <-> Deep Space
+  void onTouch(App& app, int x, int y) override;   // centre: Mars -> Moon -> Deep Space
   void tick(App& app, uint32_t nowMs) override;
 
 private:
   void draw(App& app);
   void drawMars(App& app);
+  void drawMoon(App& app);
   void drawDeepSpace(App& app);
 
   TimeService&     _time;
   LocationService& _loc;
   MarsProvider&    _mars;
-  int   _view = 0;                 // 0 = Mars, 1 = Deep Space
+  int   _view = 0;                 // 0 = Mars, 1 = Moon, 2 = Deep Space
   bool  _dirty = true;
   uint32_t _lastDraw = 0;
 };
