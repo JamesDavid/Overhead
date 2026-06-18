@@ -28,6 +28,7 @@
 #include "services/LocationService.h"
 #include "services/Provisioning.h"
 #include "services/WebPortal.h"
+#include "services/AirportDB.h"
 #include "providers/TleProvider.h"
 #include "providers/LaunchProvider.h"
 #include "providers/AircraftProvider.h"
@@ -63,6 +64,7 @@ static ThemeController themeCtl;
 static Director  director;
 // --- services ---
 static Settings        settings;
+static AirportDB       airportDb;
 static Cache           cache;
 static NetClient       net;
 static TimeService     timeSvc;
@@ -155,6 +157,7 @@ void setup() {
   Serial.printf("board: %s  fw: %s\n", BOARD_NAME, OVERHEAD_FW_VERSION);
 
   if (!LittleFS.begin(true)) Serial.println("[fs] LittleFS mount FAILED");
+  Serial.printf("[apt] airport DB %s\n", airportDb.begin() ? "loaded" : "missing (upload /airports.bin)");
   settings.begin();
   cache.begin();
 
@@ -233,7 +236,7 @@ void setup() {
   // UI carousel, ground->space order: Launches, Aircraft, Satellites, Diagnostics.
   agendaPage = new PageAgenda(timeSvc, locSvc, weatherProv, tleProv, launchProv, settings);
   launchesPage = new PageLaunches(launchProv, timeSvc);
-  aircraftPage = new PageAircraft(aircraftProv, avwxProv, locSvc, settings);
+  aircraftPage = new PageAircraft(aircraftProv, avwxProv, locSvc, settings, airportDb);
   aviationPage = new PageAviation(avwxProv, sndProv, hazProv, weatherProv, pmapProv, locSvc);
   satsPage = new PageSatellites(tleProv, locSvc, timeSvc, settings);
   solarPage = new PageSolarSystem(timeSvc, locSvc, settings, marsProv);

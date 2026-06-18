@@ -3,6 +3,7 @@
 #include <functional>
 #include <ArduinoJson.h>
 #include <ESPAsyncWebServer.h>
+#include <FS.h>
 
 class Settings;
 class App;
@@ -32,4 +33,5 @@ private:
   Display*       _display = nullptr;
   AsyncWebServer _server{80};
   std::function<void(JsonDocument&)> _statusFn;
+  File _up;                              // in-progress /api/fs upload target
 };

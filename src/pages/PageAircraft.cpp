@@ -6,7 +6,7 @@
 #include "../providers/AviationWxProvider.h"
 #include "../services/LocationService.h"
 #include "../services/Settings.h"
-#include "../assets/Airports.h"
+#include "../services/AirportDB.h"
 #include <math.h>
 #include <time.h>
 
@@ -27,23 +27,6 @@ static void drPos(const Aircraft& a, uint32_t lastDataMs, float& distNm, float& 
   east  += step * sinf(a.trackDeg * D2R);
   distNm = sqrtf(north * north + east * east);
   brgDeg = atan2f(east, north) / D2R; if (brgDeg < 0) brgDeg += 360;
-}
-
-// Nearest airport (bundled OurAirports/FAA subset) to an observer, with range +
-// bearing. Flat-earth metric over the small US lat/lon grid - fine for "nearest".
-static const AirportRec* nearestAirport(double lat, double lon, float& distNm, float& brgDeg) {
-  const AirportRec* best = nullptr; double bestd2 = 1e18, clat = cos(lat * D2R);
-  for (int i = 0; i < kAirportCount; ++i) {
-    double dla = kAirports[i].lat100 / 100.0 - lat;
-    double dlo = (kAirports[i].lon100 / 100.0 - lon) * clat;
-    double d2 = dla * dla + dlo * dlo;
-    if (d2 < bestd2) { bestd2 = d2; best = &kAirports[i]; }
-  }
-  if (!best) return nullptr;
-  double dla = best->lat100 / 100.0 - lat, dlo = (best->lon100 / 100.0 - lon) * clat;
-  distNm = (float)(sqrt(dla * dla + dlo * dlo) * 60.0);          // degrees -> nm
-  brgDeg = (float)(atan2(dlo, dla) / D2R); if (brgDeg < 0) brgDeg += 360;
-  return best;
 }
 
 // Decode an emergency transponder code; nullptr if it's a routine squawk.
@@ -427,33 +410,29 @@ void PageAircraft::draw(App& app) {
 void PageAircraft::drawNearestAirport(App& app, int x, int y, bool full) {
   auto& g = app.display().gfx();
   const int ch = app.contentH(), cy0 = app.contentY();
-  if (!_loc.active().valid) return;
-  float adist, abrg;
-  const AirportRec* apt = nearestAirport(_loc.active().lat, _loc.active().lon, adist, abrg);
-  if (!apt || adist >= 250) return;
-  char id[5]; memcpy(id, apt->id, 4); id[4] = 0;
-  for (int k = 3; k >= 0 && id[k] == ' '; --k) id[k] = 0;          // trim padding
+  if (!_loc.active().valid || !_adb.ready()) return;
+  const AirportDB::Nearest& ap = _adb.nearest(_loc.active().lat, _loc.active().lon);
+  if (!ap.valid || ap.distNm >= 250) return;
   static const char* kDir[8] = {"N", "NE", "E", "SE", "S", "SW", "W", "NW"};
-  const char* dir = kDir[((int)round(abrg / 45.0)) & 7];
-  int n = apt->fCnt, off = apt->fOff;
+  const char* dir = kDir[((int)round(ap.brgDeg / 45.0)) & 7];
   g.setTextDatum(textdatum_t::top_left);
 
   if (!full) {                                       // one-line summary (aircraft selected)
     char ln[48];
-    if (n) snprintf(ln, sizeof(ln), "apt %s %dnm %s  %s %.2f", id, (int)round(adist), dir,
-                    kAirportFreqLabel[kFreqType[off]], kFreq40[off] / 40.0f);
-    else   snprintf(ln, sizeof(ln), "apt %s %dnm %s", id, (int)round(adist), dir);
+    if (ap.n) snprintf(ln, sizeof(ln), "apt %s %dnm %s  %s %.2f", ap.id, (int)round(ap.distNm), dir,
+                       AirportDB::label(ap.type[0]), ap.f40[0] / 40.0f);
+    else      snprintf(ln, sizeof(ln), "apt %s %dnm %s", ap.id, (int)round(ap.distNm), dir);
     g.setTextColor(gTheme.accent, gTheme.bg); g.drawString(ln, x, y);
     return;
   }
   char b[48];                                        // header + the full frequency list
-  snprintf(b, sizeof(b), "apt %s  %dnm %s", id, (int)round(adist), dir);
+  snprintf(b, sizeof(b), "apt %s  %dnm %s", ap.id, (int)round(ap.distNm), dir);
   g.setTextColor(gTheme.accent, gTheme.bg); g.drawString(b, x, y); y += 13;
   int yMax = cy0 + ch - 20;                          // stop above the bottom badges
   g.setTextColor(gTheme.fg, gTheme.bg);
-  for (int i = 0; i < n && y <= yMax; ++i) {
+  for (int i = 0; i < ap.n && y <= yMax; ++i) {
     char ln[24];
-    snprintf(ln, sizeof(ln), "%-4s %.2f", kAirportFreqLabel[kFreqType[off + i]], kFreq40[off + i] / 40.0f);
+    snprintf(ln, sizeof(ln), "%-4s %.2f", AirportDB::label(ap.type[i]), ap.f40[i] / 40.0f);
     g.drawString(ln, x, y); y += 12;
   }
 }

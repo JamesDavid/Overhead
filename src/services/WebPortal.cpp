@@ -4,6 +4,7 @@
 #include "../hal/Display.h"
 #include <AsyncJson.h>
 #include <ElegantOTA.h>
+#include <LittleFS.h>
 #include <ESPmDNS.h>
 #include <array>
 
@@ -189,6 +190,22 @@ bool WebPortal::begin(Settings* s, const String& hostname) {
     _app->injectSwipe((d == "prev" || d == "left") ? -1 : 1);
     req->send(200, "application/json", "{\"ok\":true}");
   });
+
+  // Non-destructive file upload to LittleFS (e.g. /airports.bin) - raw POST body
+  // streamed to the file, so data files update without wiping the partition like
+  // uploadfs does. Open on the LAN like the other /api endpoints (backlog: gate it).
+  _server.on("/api/fs", HTTP_POST,
+    [](AsyncWebServerRequest* req) { req->send(200, "application/json", "{\"ok\":true}"); },
+    nullptr,
+    [this](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t index, size_t total) {
+      if (index == 0) {
+        String p = req->hasParam("path") ? req->getParam("path")->value() : String("/upload.bin");
+        if (!p.startsWith("/")) p = "/" + p;
+        _up = LittleFS.open(p, "w");
+      }
+      if (_up) _up.write(data, len);
+      if (_up && index + len == total) _up.close();
+    });
 
   // OTA + settings basic-auth (spec §13).
   ElegantOTA.setAuth(_s->getString("otaUser", "admin").c_str(),

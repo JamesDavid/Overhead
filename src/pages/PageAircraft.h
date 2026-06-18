@@ -7,6 +7,7 @@ class AircraftProvider;
 class AviationWxProvider;
 class LocationService;
 class Settings;
+class AirportDB;
 
 // pages/PageAircraft — the Aircraft tab (spec §6). Observer-centred radar (N-up,
 // range rings), heading chevrons, and a selected-contact detail panel. Tap
@@ -15,8 +16,8 @@ class Settings;
 // OurAirports subset), category/altitude filter chips, tap-on-blip selection.
 class PageAircraft : public Page {
 public:
-  PageAircraft(AircraftProvider& ap, AviationWxProvider& wx, LocationService& loc, Settings& settings)
-    : _ap(ap), _wx(wx), _loc(loc), _settings(settings) {}
+  PageAircraft(AircraftProvider& ap, AviationWxProvider& wx, LocationService& loc, Settings& settings, AirportDB& adb)
+    : _ap(ap), _wx(wx), _loc(loc), _settings(settings), _adb(adb) {}
 
   const char* title() const override { return "Aircraft"; }
   void onEnter(App& app) override;
@@ -46,6 +47,7 @@ private:
   AviationWxProvider& _wx;
   LocationService&    _loc;
   Settings&           _settings;
+  AirportDB&          _adb;
   int   _sel = -1;           // index into _filt (the filtered contact list)
   std::vector<int> _filt;    // indices into _ap.aircraft() passing the alt/cat filters
   int   _altF = 0;           // 0 all, 1 <10k, 2 10-25k, 3 >25k ft
