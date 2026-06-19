@@ -14,6 +14,7 @@
 #include <functional>
 
 static constexpr double D2R = 3.14159265358979323846 / 180.0;
+static void windBarb(lgfx::LovyanGFX& g, int x, int y, int wdir, int wspd, Color col);  // fwd (defined below)
 
 String PageAviation::gridStatus() {
   const auto& st = _wx.stations();               // sorted by distance: [0] is nearest
@@ -332,19 +333,18 @@ void PageAviation::drawMap(App& app) {
     int x = SX(s.lon), y = SY(s.lat);
     if (x < 4 || x > cw - 4 || y < mapY + 2 || y > mapY + mapH - 2) continue;
     Color c = catColor(s.cat);
-    if (s.wspd > 0 && s.wdir >= 0) {                 // wind vector toward the FROM dir
-      int L = 4 + min(s.wspd, 30) / 2;
-      g.drawLine(x, y, x + (int)(L * sin(s.wdir * D2R)), y - (int)(L * cos(s.wdir * D2R)), c);
-    }
+    windBarb(g, x, y, s.wdir, s.wspd, c);            // uniform wind barb (same as the pressure map)
     int rad = (i == _sel) ? 4 : 2;
     g.fillCircle(x, y, rad, c);
     if (i == _sel) g.drawCircle(x, y, rad + 2, gTheme.fg);
-    // Identifier near the dot (drop the US 'K' prefix to keep it short).
+    // Identifier + wind speed near the dot (drop the US 'K' prefix to keep it short).
     String id = s.icao;
     if (id.length() == 4 && id[0] == 'K') id = id.substring(1);
     g.setTextDatum(textdatum_t::middle_left);
     g.setTextColor(i == _sel ? gTheme.fg : gTheme.dim, gTheme.bg);
     g.drawString(id, x + rad + 2, y);
+    if (s.wspd >= 0) { g.setTextColor(gTheme.dim, gTheme.bg);
+                       g.drawString(s.wspd == 0 ? String("calm") : String(s.wspd) + "kt", x + rad + 2, y + 9); }
   }
 
   // Legend (top-right).
