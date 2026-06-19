@@ -22,7 +22,10 @@ static time_t isoToEpoch(const String& iso) {
 void WeatherProvider::begin(Settings* s, NetClient* net, Cache* cache, EventBus* bus, LocationService* loc) {
   _s = s; _net = net; _cache = cache; _bus = bus; _loc = loc;
   String body; CacheMeta m;
-  if (_cache->get("weather", body, m)) parse(body);
+  if (_cache->get("weather", body, m) && parse(body)) {       // last-good cache: usable, offline-friendly
+    if (m.fetchedAt > 1600000000UL) _lastFetched = m.fetchedAt;  // restore freshness across reboots
+    _status = ProviderStatus::Stale;                          // have data -> not "Loading"
+  }
   refresh(false);
 }
 
@@ -32,7 +35,7 @@ void WeatherProvider::refresh(bool force) {
   uint32_t now = (uint32_t)time(nullptr);
   CacheMeta m = _cache->stat("weather");
   bool stale = force || !m.found || now < 1600000000UL || (now - m.fetchedAt) > ttl;
-  if (!stale) return;
+  if (!stale) { if (!_cloud.empty()) _status = ProviderStatus::Ready; return; }  // fresh cache = ready
 
   char url[260];
   snprintf(url, sizeof(url),
