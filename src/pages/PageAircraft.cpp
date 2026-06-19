@@ -68,7 +68,10 @@ void PageAircraft::rebuildFilt() {
 String PageAircraft::gridStatus() {
   int n = (int)_ap.aircraft().size();
   if (n) return String(n) + " ac";
-  if (_ap.status() == ProviderStatus::Error) return "feed down";   // ADS-B source unavailable
+  if (_ap.status() == ProviderStatus::Error) {                     // ADS-B source unavailable
+    if (Display::largestFreeBlock() < 42000) return "feed down\nmem low";   // heap floor starving the fetch
+    return "feed down";
+  }
   return "no ac";                                                  // feed ok, nothing in range
 }
 

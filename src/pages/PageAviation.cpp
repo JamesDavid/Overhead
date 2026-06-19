@@ -289,9 +289,11 @@ void PageAviation::drawMetar(App& app) {
   // the visible edge unless it's the real end of the list.
   String labels[12]; int nl = (int)list.size(); if (nl > 12) nl = 12;
   for (int i = 0; i < nl; ++i) labels[i] = list[i].icao;
-  auto lastFit = [&](int start) {                                  // last chip index that fits from `start`
-    int x = 2, last = start;
-    for (int i = start; i < nl; ++i) { int w = (int)labels[i].length() * 6 + 8; if (x + w > cw - 2) break; last = i; x += w + 3; }
+  auto lastFit = [&](int start) {                                  // last chip index drawn from `start`
+    int x = 2, last = start;                                       // (bounded by width AND the kMChips cap,
+    for (int i = start; i < nl && i < start + kMChips; ++i) {       // matching App::drawChipRow exactly)
+      int w = (int)labels[i].length() * 6 + 8; if (x + w > cw - 2) break; last = i; x += w + 3;
+    }
     return last;
   };
   if (_sel < _mChipScroll) _mChipScroll = _sel;                    // selection left of window
