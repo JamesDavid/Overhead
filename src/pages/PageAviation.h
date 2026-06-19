@@ -2,6 +2,7 @@
 #include "../core/Page.h"
 #include <Arduino.h>
 
+struct Metar;
 class AviationWxProvider;
 class SoundingProvider;
 class HazardProvider;
@@ -36,10 +37,9 @@ public:
   String gridStatus() override;          // nearest METAR: cat + temp/wind
 
 private:
-  enum class View { Metar, Map, Taf, Sounding, Hazards, Trends, Pressure };
+  enum class View { Metar, Taf, Sounding, Hazards, Trends, Pressure };
   void draw(App& app);
   void drawMetar(App& app);
-  void drawMap(App& app);
   void drawTaf(App& app);
   void drawSounding(App& app);
   void drawHazards(App& app);
@@ -59,7 +59,7 @@ private:
   PressureMapProvider& _pmap;  // major-airport METAR pressure/cloud map
   LocationService&    _loc;
   Settings&           _settings;
-  int   _presMode = 0;         // pressure-map mode: 0=hPa, 1=inHg, 2=cloud
+  int   _presMode = 0;         // unified map mode: 0=hPa, 1=inHg, 2=cloud, 3=flight category
   // pressure-map tap-to-zoom: discrete levels cycled by tapping the map (off, then a
   // few fixed magnifications about the tapped point).
   static constexpr int kPZoomN = 4;   // level 0 = off, then 3 zoom factors (see kPZoomF)
@@ -76,9 +76,18 @@ private:
   static constexpr int kMChips = 8;        // METAR field-selector chips (reuse App::drawChipRow)
   int   _mChipX[kMChips] = {0}, _mChipW[kMChips] = {0}, _mChipN = 0;
   int   _mChipScroll = 0;                  // first visible chip (window scrolls to keep _sel in view)
-  View  _view = View::Map;     // Map is the default Aviation view (then Metar/Sounding/Hazards)
+  View  _view = View::Pressure;   // the unified Map is the default Aviation view (then Metar/...)
   int   _sel = 0;
-  int   _mapZoom = 0;          // airport-map zoom index (top-left badge cycles)
+  // Unified-map station pick: tapping a plotted dot selects it and shows that field's
+  // decoded METAR in a bottom strip. _mapDots* caches this frame's on-screen dots for
+  // hit-testing (filled in drawPressure, read in onTouch).
+  String _mapSelIcao;          // tapped airport on the map ("" = none)
+  static constexpr int kMapDots = 64;
+  String _mapDotIcao[kMapDots];
+  int16_t _mapDotX[kMapDots] = {0}, _mapDotY[kMapDots] = {0};
+  int   _mapDotN = 0;
+  const Metar* findStation(const String& icao) const;   // full METAR for an ICAO, or null
+  int   mapBottomH() const;            // bottom strip height: station METAR (40) vs bare legend (12)
   int   _tourN = 0;            // attract-tour: stations stepped in this view
   bool  _dirty = true;
   bool  _needClear = true;

@@ -22,6 +22,7 @@ struct PressurePt {
   int    cloud = -1;     // 0..100 from the max cloud layer
   int    wdir = -1;      // wind FROM direction (deg); -1 unknown
   int    wspd = -1;      // wind speed (kt); -1 unknown
+  String cat;            // VFR|MVFR|IFR|LIFR (enriched from MetarStore; "" unknown)
 };
 
 class PressureMapProvider {
