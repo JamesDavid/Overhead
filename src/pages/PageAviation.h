@@ -27,11 +27,8 @@ public:
   void onData(App& app, ProviderId id) override;
   void onTouch(App& app, int x, int y) override;
   void cycleView(int dir) override;           // up/down swipe -> next/prev view
-  int  viewCount() const override { return 7; }
-  int  viewIndex() const override {
-    return _view == View::Map ? 0 : _view == View::Metar ? 1 : _view == View::Taf ? 2
-         : _view == View::Sounding ? 3 : _view == View::Hazards ? 4 : _view == View::Trends ? 5 : 6;
-  }
+  int  viewCount() const override;            // 7, or 6 when no field has a TAF (TAF view is skipped)
+  int  viewIndex() const override;
   void tick(App& app, uint32_t nowMs) override;
   bool autoAdvance(App& app) override;
   String gridStatus() override;          // nearest METAR: cat + temp/wind
@@ -47,6 +44,7 @@ private:
   void drawTrends(App& app);
   void drawPressure(App& app);
   void stepView(int dir);                // advance the view (+1 next, -1 prev), skipping empty TAF
+  bool anyTaf() const;                   // any loaded field currently carries a TAF?
   bool enterTaf();                       // point _sel at a TAF-bearing field; false if none have one
   int  nextTaf(int from, int dir) const; // next station index with a TAF (wrapping), or -1
 
@@ -63,6 +61,7 @@ private:
   int   _pZoomDir = 0;         // +1 zooming in, -1 zooming out, 0 idle
   int   _pFx = 0, _pFy = 0;    // zoom focus (absolute screen px) = the tapped point
   uint32_t _pZoomMs = 0;
+  uint32_t _presRetryMs = 0;   // retry an empty (un-cached) pressure scope
   View  _view = View::Map;     // Map is the default Aviation view (then Metar/Sounding/Hazards)
   int   _sel = 0;
   int   _mapZoom = 0;          // airport-map zoom index (top-left badge cycles)

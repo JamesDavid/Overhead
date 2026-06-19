@@ -81,6 +81,27 @@ void PageAviation::stepView(int dir) {
 
 void PageAviation::cycleView(int dir) { stepView(dir); }   // up/down swipe -> next/prev view
 
+bool PageAviation::anyTaf() const {
+  for (const auto& s : _wx.stations()) if (s.taf.length()) return true;
+  return false;
+}
+
+// View-dot count/index. The TAF view is skipped when no field has a TAF, so it
+// drops out of the indicator too (6 dots, not 7 with a never-landed-on gap).
+int PageAviation::viewCount() const { return anyTaf() ? 7 : 6; }
+int PageAviation::viewIndex() const {
+  bool t = anyTaf();
+  switch (_view) {
+    case View::Map:      return 0;
+    case View::Metar:    return 1;
+    case View::Taf:      return 2;
+    case View::Sounding: return t ? 3 : 2;
+    case View::Hazards:  return t ? 4 : 3;
+    case View::Trends:   return t ? 5 : 4;
+    default:             return t ? 6 : 5;   // Pressure
+  }
+}
+
 bool PageAviation::enterTaf() {
   const auto& st = _wx.stations(); int n = (int)st.size();
   if (_sel >= 0 && _sel < n && st[_sel].taf.length()) return true;   // current field already has one
@@ -175,6 +196,9 @@ void PageAviation::tick(App& app, uint32_t nowMs) {
     if (p >= 1.f) { if (_pZoomDir < 0) _pZoom = false; _pZoomDir = 0; }
     _needClear = _dirty = true;
   }
+  if (_view == View::Pressure && _pmap.points().empty() && nowMs - _presRetryMs > 8000) {
+    _presRetryMs = nowMs; _pmap.refresh(false);  // keep retrying an un-cached scope (e.g. US) until heap allows
+  }
   if (!_dirty && nowMs - _lastDraw < 5000) return;
   _dirty = false; _lastDraw = nowMs;
   draw(app);
@@ -215,7 +239,12 @@ void PageAviation::drawMetar(App& app) {
   g.setTextSize(2); g.drawString(m.icao, x0, y);
   g.setTextDatum(textdatum_t::top_right);
   g.setTextColor(catColor(m.cat), gTheme.bg); g.drawString(m.cat, cw - 6, y + 2);
-  g.setTextDatum(textdatum_t::top_left); y += 20;
+  g.setTextDatum(textdatum_t::top_left); g.setTextSize(1);
+  if (list.size() > 1) {                                       // hint: side-tap steps fields
+    g.setTextColor(gTheme.dim, gTheme.bg);
+    g.drawString("side tap: " + list[(_sel + 1) % list.size()].icao, x0 + 58, y + 7);
+  }
+  y += 20;
   g.setTextSize(1);
   auto line = [&](const String& s, Color c) { g.setTextColor(c, gTheme.bg); g.drawString(padRight(s, maxc), x0, y); y += 12; };
 
@@ -612,12 +641,6 @@ void PageAviation::drawPressure(App& app) {
   g.setTextDatum(textdatum_t::top_right);
   g.setTextColor(gTheme.fg, gTheme.grid); g.drawString(sc, cw - 4, cy0 + 3);
 
-  if (pts.empty()) {
-    g.setTextColor(gTheme.dim, gTheme.bg);
-    g.drawString(_pmap.status() == ProviderStatus::Error ? "pressure feed down" : "loading...", 6, cy0 + ch / 2);
-    return;
-  }
-
   double w0, w1, a0, a1; _pmap.bbox(w0, w1, a0, a1);            // bbox from the active scope
   int mx = 2, my = cy0 + 16, mw = cw - 4, mh = ch - 16 - 12;
   float zs = 1.f + _pZoomT * (2.6f - 1.f);                      // tap-to-zoom magnification about the focus
@@ -637,6 +660,15 @@ void PageAviation::drawPressure(App& app) {
   };
   drawLines(kCoastline, kCoastlineCount, gTheme.dim);
   if (!world) drawLines(kStateLines, kStateLinesCount, gTheme.grid);   // state lines only at regional zoom
+
+  if (pts.empty()) {                                            // outline drawn; no station data yet
+    g.setTextDatum(textdatum_t::middle_center);
+    g.setTextColor(gTheme.dim, gTheme.bg);
+    g.drawString(_pmap.status() == ProviderStatus::Error ? "feed down" : String("loading ") + sc + "...",
+                 cw / 2, cy0 + ch / 2);
+    g.setTextDatum(textdatum_t::top_left);
+    return;
+  }
 
   int hi = -1, lo = -1, hv = -9999, lv = 9999;
   for (size_t i = 0; i < pts.size(); ++i) {
