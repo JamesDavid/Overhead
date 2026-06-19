@@ -170,14 +170,14 @@ hazards, SPECI Director badge. Remaining:
   primary cloud source for the Agenda Sky Window — TAF is airport-only + coded).
 
 ## M9 — Star Map
-- **Personal / memory skies.** A saved list of "the sky at <time> from <place>" entries
-  (birthdays, anniversaries, loved ones' locations) — each renders the star map for that
-  instant + lat/lon, captioned with the event title, place and local time. Add/edit via
-  the web settings UI (title, date-time, lat/lon — reuse the Leaflet location picker);
-  store in settings/LittleFS. Surfaces as a Star Map sub-view (or its own page) that
-  cycles the saved skies; the existing star renderer already takes an arbitrary jd +
-  observer, so it's mostly a saved-entry list + a caption. Strongly on the "bring the
-  cosmos to the bedside" mission (a kid seeing the sky from the night they were born).
+- **Personal / memory skies. — DONE (Jun 2026).** A saved `memorySkies` array of
+  {title, place, epoch, lat, lon}; each renders the full star map (stars, figures,
+  deep-sky, Sun/Moon/planets) for that instant + place as a Star Map sub-view, captioned
+  title+place top-left / date+lat-lon top-right, cycled by up/down swipe (view dots show
+  position). Added/edited in a new **Memory Skies** web tab with a Leaflet map picker
+  (click/drag/geocode/"My location") mirroring Locations. The Director's ambient tour
+  resets to the live sky. (Demo entries: 2000 millennium over Tempe; 2017 Great American
+  Eclipse at greatest-eclipse.)
 - **Build out the star + constellation database (real catalogs, generated). — DONE.**
   `tools/gen_stars.py` bakes `src/assets/StarCatalog.h` from real datasets (same flash-header
   pattern as gen_worldmap.py; re-run + reflash to refresh):
@@ -204,14 +204,15 @@ hazards, SPECI Director badge. Remaining:
   countdown; tapping an event pre-focuses the exact bird/launch — both done.)
 
 ## M11 — System/Health
-- **Saved locations + easy switching.** A user list of places they use the device
-  (home, cabin, etc.), configured in the web UI (name + lat/lon via the Leaflet picker),
-  stored in settings; switch the active location from an on-device list. (Today location
-  is IP-geoloc or a single setting.)
-- **Status-bar chrome:** replace the "WiFi -NN" text with a **signal-bars glyph** (bars
-  by RSSI) that taps through to Device Health; just left of it add a **location-
-  crosshair icon** that opens a location-select page (the saved list above). Ties into
-  the desk-clock corner-glyph plan.
+- **Saved locations + easy switching. — DONE (Jun 2026).** Web-UI saved `locations`
+  list (name + lat/lon via the Leaflet picker); on-device a status-bar **location
+  crosshair** opens a modal picker (Auto/IP + each saved location, current selection
+  shown + arrow-marked) that switches the active location via LocationService.
+- **Status-bar chrome — DONE (Jun 2026).** Replaced the "WiFi -NN" text with a
+  **signal-bars glyph** (bars by RSSI; slash when offline) that taps through to Device
+  Health; a **mode glyph** (play=AUTO / pause=MAN / padlock=PIN) replaced the text tag;
+  and a **location crosshair** opens the saved-locations picker (above). Spaced as
+  distinct tap targets.
 - Make Health a corner-glyph MODAL OVERLAY (with Settings + Location) once overlay chrome exists.
 - Per-provider "next poll" + last HTTP status (need providers to expose them; /api/status
   now reports adsb/tle/avwx/kp/sfi for remote diagnosis).
@@ -263,17 +264,15 @@ hazards, SPECI Director badge. Remaining:
 - **Aircraft flight trails** — accumulate recent observed positions per hex and draw
   fading tracks (the ADS-B point feed has no history). Adds retained heap → gate on
   no-PSRAM pressure.
-- **Offline / no-internet mode.** A mode (manual toggle + auto-fallback when WiFi/DNS is
-  down) that disables every live-internet feature (ADS-B, live wx/METAR, launch/TLE
-  refresh, geolocation) but keeps everything computable from valid cached data working:
-  satellite tracking + passes from cached TLEs, Solar System / Star Map (pure astro,
-  no net), agenda from cached events, clock. Show an "offline" status glyph and mark
-  stale-but-usable data; suppress the WiFi-down reboot watchdog in this mode. Pairs with
-  the two-phase boot updater + domain-based data release.
-  - **Pre-offline refresh:** when the user switches into offline mode (field use), first
-    run a foreground update pass — refresh TLE + launches + space-wx (+ location) while
-    the network is still up — so you go offline with the freshest possible caches. Same
-    fetch path as the two-phase boot updater, just triggered on the offline transition.
+- **Offline / no-internet mode — PARTIAL (Jun 2026).** Boot path done: the WiFiManager
+  captive portal runs non-blocking and a **screen tap drops to offline field mode**
+  (portal splash shows the setup AP + the tap-to-skip hatch); the WiFi-down reboot
+  watchdog is suppressed offline; LocationService seeds from the last-known fix so
+  satellites/star map/orrery have a location with no network; `/api/status` reports
+  `offline`. REMAINING: a runtime offline toggle + "offline" on-screen glyph + marking
+  stale-but-usable data; and the **pre-offline refresh** (a foreground TLE/launch/
+  space-wx/location update pass on the offline transition, same path as the two-phase
+  boot updater) so you go offline with the freshest caches.
 - **Rover/space imagery (PSRAM boards only)** — NASA mars-photos latest photo + APOD
   would be amazing on the bedside, but JPEG download + decode + a full framebuffer
   needs PSRAM — gate to CrowPanel. No-PSRAM CYD stays text-only (rover summary feed).
@@ -312,12 +311,29 @@ Appearance / Aircraft / System). DONE:
 - **Focus tab** — per-page **day/night ambient-tour checkboxes** (build ambientDay/Night;
   no typo-prone strings) + lead/threshold fields.
 - **Satellites / Bodies** — checkbox pickers + comma-sep extras.
+- **Memory Skies tab — DONE (Jun 2026)** — Leaflet map picker + geocode + "My location"
+  browser-geolocation, add/use/delete saved `memorySkies` (see M9).
+- **Browser geolocation — DONE (Jun 2026)** — "My location" button on the Location +
+  Memory-Skies maps (graceful when the browser blocks it on plain http).
 REMAINING (stretch):
 - **Full sat/body pickers** — search/filter the live TLE catalog + full body list on the
   device (the web UI still uses a baked preset + free-text). Pairs with orrery->LittleFS.
 - **Reorder the focus tour** (drag/up-down) — order currently follows the carousel.
-- **On-device location switch** from the saved `locations` list + status-bar glyph (M11).
 - **Per-page "what am I looking at" explanations.**
-- **Personalized star maps** config via the same UI (pairs with the personal-skies item).
+
+## Shipped this sweep (mid Jun 2026) — removed from the lists above
+- **Personal/memory skies** (M9) + the **Memory Skies** web tab with a Leaflet picker.
+- **Star + constellation database** — real generated catalog (HYG + d3-celestial),
+  zoom-reveal of fainter stars, ASCII-folded names (Boötes->Bootes). `tools/gen_stars.py`.
+- **Status-bar chrome** — WiFi signal bars (tap->Health), mode glyph (play/pause/lock),
+  location crosshair -> on-device saved-locations picker (M11).
+- **Offline field mode** — tap past the WiFi portal; watchdog-reboot suppressed; last-fix
+  location fallback.
+- **Aviation** — pressure-map discrete tap-to-zoom levels (off/2.6/4.5/7x); Hazards
+  sub-view hidden when empty; extreme-weather (TS/hail/heavy precip/strong wind, now or
+  forecast) + hazards surfaced as a Director badge + first-appearance alert.
+- **Solar System** — orbit view shows each body's orbital speed (km/h + mph).
+- **Health** — provider ages + uptime in d/h/m/s. **Web** — location field layout fix +
+  Source auto/preset explanation.
 
 <!-- new milestones append below as they land -->

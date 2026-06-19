@@ -202,7 +202,7 @@ showcase). That file must contain:
   invocation (it's not on PATH — see `PIO_DEBUG.md`), the pioarduino esptool fix for
   the S3 env, build, first USB flash, then WiFi provisioning.
 - **Flashing & OTA** (USB first time, then `scripts/ota.ps1`), and the **CYD quirks**
-  cross-link to `CYD_NOTES.md` (display rotation, backlight, the JPEG colour
+  cross-link to `CYD-ESP32-2432S028R.md` (display rotation, backlight, the JPEG colour
   readback, no-PSRAM budget, OTA/WiFi recovery).
 - Troubleshooting: unresponsive-device serial reset, OTA flakiness, the heap floor.
 
@@ -210,7 +210,7 @@ showcase). That file must contain:
 
 Near the bottom (it's catnip for the engineering-minded reader deciding to build
 it). Two short subsections, honest and specific — pull the real details from
-`CYD_NOTES.md`, `PIO_DEBUG.md`, and the git history:
+`CYD-ESP32-2432S028R.md`, `PIO_DEBUG.md`, and the git history:
 
 - **Overcome** — e.g.: running real HTTPS feeds on a **no-PSRAM** board (the ~42 KB
   contiguous-TLS floor; serialized non-blocking net task; serve-stale-instead-of-OOM);
@@ -226,7 +226,7 @@ it). Two short subsections, honest and specific — pull the real details from
   astronomy is ~arcmin, not an ephemeris; flicker on dense full-redraw pages; data
   caps (TLE watchlist-only, aircraft 24, METAR 12). Be candid — it builds trust.
 
-Keep it skimmable (bulleted), link each claim's detail to `CYD_NOTES.md` where it
+Keep it skimmable (bulleted), link each claim's detail to `CYD-ESP32-2432S028R.md` where it
 exists.
 
 ## 6b. "Feature backlog / ideas" section (very end, before status/license)
