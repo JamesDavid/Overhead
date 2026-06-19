@@ -29,6 +29,7 @@ public:
   // fragments the heap nor competes with TLS allocations at runtime.
   void requestShot() { _shotReady = false; _shotPending = true; }
   void serviceShot();                     // call from the main loop each tick
+  void freeShot();                        // release the 16KB buffer after serving (heap floor recovers)
   bool shotReady() const { return _shotReady; }
   const uint8_t* jpeg() const { return _jpg; }
   size_t jpegLen() const { return _jpgLen; }

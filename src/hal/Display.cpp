@@ -99,11 +99,16 @@ void Display::serviceShot() {
   if (!_shotPending) return;
   _shotPending = false;
   _jpgLen = 0;
-  if (!_jpg && _shotsEnabled) _jpg = (uint8_t*)malloc(kJpgMax);   // lazy: only once a shot is requested
+  if (!_jpg && _shotsEnabled) _jpg = (uint8_t*)malloc(kJpgMax);   // lazy: alloc per-shot, freed after serving
   if (!_jpg) { _shotReady = true; return; }            // disabled or allocation failed
   _jpgLen = encodeJpeg(JPEGE_Q_MED);
   if (_jpgLen == 0) _jpgLen = encodeJpeg(JPEGE_Q_LOW);
   _shotReady = true;
+}
+
+void Display::freeShot() {                  // release the 16KB buffer between shots -> heap floor recovers
+  if (_jpg) { free(_jpg); _jpg = nullptr; }
+  _jpgLen = 0; _shotReady = false;
 }
 
 void Display::setBacklight(uint8_t level) {

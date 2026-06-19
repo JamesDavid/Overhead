@@ -175,8 +175,8 @@ bool WebPortal::begin(Settings* s, const String& hostname) {
     const uint8_t* jpg = disp->jpeg();
     size_t len = disp->jpegLen();
     AsyncWebServerResponse* res = req->beginChunkedResponse("image/jpeg",
-      [jpg, len](uint8_t* buf, size_t maxLen, size_t index) -> size_t {
-        if (index >= len) return 0;
+      [disp, jpg, len](uint8_t* buf, size_t maxLen, size_t index) -> size_t {
+        if (index >= len) { disp->freeShot(); return 0; }   // done -> free the 16KB so TLS has heap
         size_t k = (len - index < maxLen) ? (len - index) : maxLen;
         memcpy(buf, jpg + index, k);
         return k;
