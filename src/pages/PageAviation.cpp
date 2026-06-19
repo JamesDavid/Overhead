@@ -18,11 +18,15 @@ static constexpr double D2R = 3.14159265358979323846 / 180.0;
 String PageAviation::gridStatus() {
   const auto& st = _wx.stations();               // sorted by distance: [0] is nearest
   if (st.empty()) return String();
-  const auto& m = st[0];
+  const auto& m = st[0];                          // as much decoded METAR as fits (grid word-wraps)
   String s = m.icao;
   if (m.cat.length())   s += " " + m.cat;
-  if (m.tempC > -999)   s += " " + String(m.tempC) + "C";
-  else if (m.wspd >= 0) s += " " + String(m.wspd) + "kt";
+  if (m.tempC > -999)   s += " " + String(m.tempC) + "C(" + String(m.tempC * 9 / 5 + 32) + "F)";
+  if (m.wspd == 0)      s += " calm";
+  else if (m.wspd > 0)  s += " " + (m.wdir >= 0 ? String(m.wdir) : String("VRB")) + "@" + String(m.wspd) + "kt";
+  if (m.cloud >= 0)     s += " cld" + String(m.cloud) + "%";
+  if (m.ceilingFt >= 0) s += " cig" + String(m.ceilingFt / 100);
+  if (m.wx.length())    s += " " + m.wx;
   return s;
 }
 
@@ -603,7 +607,7 @@ void PageAviation::drawPressure(App& app) {
   g.fillRect(2, cy0 + 2, 52, 12, gTheme.grid);                 // mode badge (tap: hPa/inHg/cloud)
   g.setTextColor(gTheme.fg, gTheme.grid); g.drawString(ml, 6, cy0 + 3);
   g.setTextColor(gTheme.fg, gTheme.bg);
-  g.drawString(String(cloud ? "cloud" : "pressure") + "  [sides: zoom]", 60, cy0 + 3);
+  g.drawString(String(cloud ? "cloud" : "pressure") + "  [tap: zoom]", 60, cy0 + 3);
   g.fillRect(cw - 48, cy0 + 2, 46, 12, gTheme.grid);           // scope badge (tap: zoom 200mi/US/world)
   g.setTextDatum(textdatum_t::top_right);
   g.setTextColor(gTheme.fg, gTheme.grid); g.drawString(sc, cw - 4, cy0 + 3);

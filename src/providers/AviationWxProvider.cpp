@@ -111,14 +111,17 @@ bool AviationWxProvider::parseMetars(const String& body) {
     m.wx = (const char*)(o["wxString"] | "");
     m.raw = (const char*)(o["rawOb"] | "");
     m.obsTime = (time_t)(o["obsTime"] | 0);
-    int ceil = -1;
+    int ceil = -1, cov = -1;
     for (JsonObject cl : o["clouds"].as<JsonArray>()) {
-      String cov = (const char*)(cl["cover"] | "");
-      if ((cov == "BKN" || cov == "OVC" || cov == "OVX") && cl["base"].is<int>()) {
+      String c = (const char*)(cl["cover"] | "");
+      int pct = (c == "OVC" || c == "OVX") ? 100 : c == "BKN" ? 75 : c == "SCT" ? 40
+              : c == "FEW" ? 20 : (c == "CLR" || c == "SKC" || c == "CAVOK" || c == "NSC") ? 0 : -1;
+      if (pct > cov) cov = pct;
+      if ((c == "BKN" || c == "OVC" || c == "OVX") && cl["base"].is<int>()) {
         int b = cl["base"]; if (ceil < 0 || b < ceil) ceil = b;
       }
     }
-    m.ceilingFt = ceil;
+    m.ceilingFt = ceil; m.cloud = cov;
     m.cat = flightCat(ceil, m.visSm);
     m.distNm = distNm(olat, olon, m.lat, m.lon);
     out.push_back(m);
