@@ -55,7 +55,7 @@ const PAGES=['Agenda','Launches','Aircraft','Aviation Wx','Satellites','Space Wx
 const ORRERY=['Roadster','Psyche','Ceres','Vesta'];
 const SATS=[['ISS','ISS'],['Tiangong (CSS)','CSS'],['Hubble','HST'],['SO-50','SO-50'],['AO-91','FOX-1B'],['SatGus','SATGUS'],
  ['NOAA-15','NOAA 15'],['NOAA-18','NOAA 18'],['NOAA-19','NOAA 19'],['METEOR-M2','METEOR-M2'],['Starlink','STARLINK'],['GOES-18','GOES 18']];
-let cur={},map,mk,mapDone=false,smap,smk,smapDone=false;
+let cur={},map,mk,mapDone=false,smap,smk,smapDone=false,editSky=-1;
 const E=id=>document.getElementById(id);
 fetch('/api/settings').then(r=>r.json()).then(d=>{cur=d;render();});
 
@@ -136,11 +136,11 @@ function skiesHtml(){const la=cur.locLat??'',lo=cur.locLon??'';
  <div id=smap></div>
  <label>Latitude<input id=_skyLat type=number step=any value="${la}"></label>
  <label>Longitude<input id=_skyLon type=number step=any value="${lo}"></label>
- <div class=row><button onclick=addSky()>+ Add memory sky</button></div>
+ <div class=row><button id=_skyAdd onclick=addSky()>+ Add memory sky</button><button id=_skyCancel onclick=cancelSky() style="display:none">Cancel edit</button></div>
  <table id=skylist></table>`;}
 function skyRows(){if(!E('skylist'))return;const L=cur.memorySkies||[];
- E('skylist').innerHTML=L.map((p,i)=>`<tr><td>${p.title||'(untitled)'}</td><td>${new Date((p.epoch||0)*1000).toLocaleString()}</td>
-  <td>${(+p.lat).toFixed(2)}, ${(+p.lon).toFixed(2)}</td><td style="text-align:right"><button onclick="useSky(${i})">use</button><button onclick="delSky(${i})">x</button></td></tr>`).join('');}
+ E('skylist').innerHTML=L.map((p,i)=>`<tr><td>${i===editSky?'✎ ':''}${p.title||'(untitled)'}</td><td>${new Date((p.epoch||0)*1000).toLocaleString()}</td>
+  <td>${(+p.lat).toFixed(2)}, ${(+p.lon).toFixed(2)}</td><td style="text-align:right"><button onclick="editSkyAt(${i})">edit</button><button onclick="delSky(${i})">x</button></td></tr>`).join('');}
 function initSkyMap(){if(smapDone||!E('smap'))return;try{
  const lat=Number(E('_skyLat').value)||34,lon=Number(E('_skyLon').value)||-118;
  smap=L.map('smap').setView([lat,lon],6);
@@ -156,17 +156,23 @@ function skyGeocode(){const q=E('_skyAddr').value.trim();if(!q)return;
   E('_skyLat').value=la.toFixed(4);E('_skyLon').value=lo.toFixed(4);
   if(!E('_skyPlace').value)E('_skyPlace').value=(a[0].display_name||q).split(',').slice(0,2).join(',').trim();
   if(smk){smk.setLatLng([la,lo]);smap.setView([la,lo],8);}}).catch(e=>{msg.textContent='geocode failed';});}
-function useSky(i){const p=cur.memorySkies[i];E('_skyTitle').value=p.title||'';E('_skyPlace').value=p.place||'';
+function editSkyAt(i){const p=cur.memorySkies[i];E('_skyTitle').value=p.title||'';E('_skyPlace').value=p.place||'';
  const d=new Date((p.epoch||0)*1000),pad=n=>String(n).padStart(2,'0');
  E('_skyWhen').value=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
  E('_skyLat').value=p.lat;E('_skyLon').value=p.lon;
- if(smk){smk.setLatLng([p.lat,p.lon]);smap.setView([p.lat,p.lon],8);}}
+ if(smk){smk.setLatLng([p.lat,p.lon]);smap.setView([p.lat,p.lon],8);}
+ editSky=i;E('_skyAdd').textContent='Save changes';E('_skyCancel').style.display='';skyRows();
+ msg.textContent='editing "'+(p.title||'sky')+'" - tweak then Save changes';}
+function resetSkyForm(){editSky=-1;E('_skyTitle').value='';E('_skyPlace').value='';E('_skyWhen').value='';
+ if(E('_skyAdd'))E('_skyAdd').textContent='+ Add memory sky';if(E('_skyCancel'))E('_skyCancel').style.display='none';}
 function addSky(){const t=E('_skyTitle').value.trim(),w=E('_skyWhen').value;
  if(!w){msg.textContent='pick a date & time first';return;}
- const ep=Math.floor(new Date(w).getTime()/1000);
- cur.memorySkies=[...(cur.memorySkies||[]),{title:t||'Memory sky',place:E('_skyPlace').value.trim(),epoch:ep,lat:Number(E('_skyLat').value),lon:Number(E('_skyLon').value)}];
- skyRows();E('_skyTitle').value='';E('_skyPlace').value='';E('_skyWhen').value='';}
-function delSky(i){cur.memorySkies.splice(i,1);skyRows();}
+ const o={title:t||'Memory sky',place:E('_skyPlace').value.trim(),epoch:Math.floor(new Date(w).getTime()/1000),lat:Number(E('_skyLat').value),lon:Number(E('_skyLon').value)};
+ cur.memorySkies=cur.memorySkies||[];
+ if(editSky>=0)cur.memorySkies[editSky]=o;else cur.memorySkies.push(o);
+ resetSkyForm();skyRows();}
+function cancelSky(){resetSkyForm();skyRows();}
+function delSky(i){cur.memorySkies.splice(i,1);if(editSky>=0&&i<=editSky)resetSkyForm();skyRows();}
 
 function initMap(){if(mapDone||!E('map'))return;try{
  const lat=Number(E('_locLat').value)||34,lon=Number(E('_locLon').value)||-118;

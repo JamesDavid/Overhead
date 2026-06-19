@@ -196,6 +196,19 @@ hazards, SPECI Director badge. Remaining:
   (click/drag/geocode/"My location") mirroring Locations. The Director's ambient tour
   resets to the live sky. (Demo entries: 2000 millennium over Tempe; 2017 Great American
   Eclipse at greatest-eclipse.)
+- **Astrology / natal-chart mode for memory skies.** A memory sky is already
+  "the sky the night you were born, from where you were born" — the exact natal-chart
+  input. Add a chart sub-view showing the REAL computed positions (the astro core
+  already has ecliptic longitudes): **Sun / Moon / rising (Ascendant)** signs + each
+  planet's **sign** (30° ecliptic sector), with whole-sign houses from the ascendant
+  (skip Placidus). HONESTY RULES (project principle): show the computed chart — that's
+  accurate astronomy — but **never assert fortune/personality as fact**; any sign
+  "traits" must be clearly framed as tradition/folklore, not truth. Best on-mission
+  twist: show **tropical vs sidereal** side by side ("astrology: Leo · actually in front
+  of: Cancer — precession, ~1°/72yr") so it doubles as an astronomy lesson — the one
+  thing only an astronomy device can honestly add. CAVEAT: flash is ~99% full; this needs
+  a flash-reclaim first (orrery/data -> LittleFS) or to be gated. Ascendant = ecliptic
+  point on the eastern horizon from LST + lat + obliquity (data already on hand).
 - **Build out the star + constellation database (real catalogs, generated). — DONE.**
   `tools/gen_stars.py` bakes `src/assets/StarCatalog.h` from real datasets (same flash-header
   pattern as gen_worldmap.py; re-run + reflash to refresh):
