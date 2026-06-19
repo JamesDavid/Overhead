@@ -165,15 +165,29 @@ void Director::tick(uint32_t nowMs) {
 
   String spec = night ? _s->getString("ambientNight", "Solar System,Star Map")
                       : _s->getString("ambientDay", "Agenda");
-  int pages[10]; int np = 0;                        // resolved rotation page indices
+  int pages[10]; int np = 0, nResolved = 0;         // resolved rotation page indices
   for (int start = 0; np < 10 && start <= (int)spec.length(); ) {
     int comma = spec.indexOf(',', start);
     if (comma < 0) comma = spec.length();
     String t = spec.substring(start, comma); t.trim();
     int idx = t.length() ? _app->pageIndexByTitle(t.c_str()) : -1;
-    if (idx >= 0) pages[np++] = idx;
+    if (idx >= 0) {
+      nResolved++;
+      if (!_app->pageAutoSkip(idx)) pages[np++] = idx;   // skip a down-feed page in the tour
+    }
     if (comma >= (int)spec.length()) break;
     start = comma + 1;
+  }
+  // If EVERY rotation page is currently skippable, don't get stuck — fall back to the
+  // full resolved list so the tour still moves.
+  if (np == 0 && nResolved > 0) {
+    for (int start = 0; np < 10 && start <= (int)spec.length(); ) {
+      int comma = spec.indexOf(',', start); if (comma < 0) comma = spec.length();
+      String t = spec.substring(start, comma); t.trim();
+      int idx = t.length() ? _app->pageIndexByTitle(t.c_str()) : -1;
+      if (idx >= 0) pages[np++] = idx;
+      if (comma >= (int)spec.length()) break; start = comma + 1;
+    }
   }
   // Fold badged "notice" pages into the AUTO rotation so it periodically visits the
   // flag (Kp storm / Aviation SPECI) and returns, until it clears. (In MANUAL the

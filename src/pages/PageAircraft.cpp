@@ -65,6 +65,11 @@ void PageAircraft::rebuildFilt() {
   if (_sel >= (int)_filt.size()) _sel = _filt.empty() ? 0 : (int)_filt.size() - 1;
 }
 
+bool PageAircraft::autoSkip() {
+  // Skip in the AUTO tour when the feed is unavailable AND there's nothing to show.
+  return _ap.aircraft().empty() && _ap.status() == ProviderStatus::Error;
+}
+
 String PageAircraft::gridStatus() {
   int n = (int)_ap.aircraft().size();
   if (n) return String(n) + " ac";

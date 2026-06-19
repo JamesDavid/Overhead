@@ -56,4 +56,8 @@ public:
   // for the Director to advance to the next page in a multi-page ambient rotation.
   // Pages with nothing to cycle return true (they "complete" immediately).
   virtual bool autoAdvance(App& app) { return true; }
+
+  // True if the page should be SKIPPED in the AUTO ambient rotation right now —
+  // e.g. its feed is down / it has nothing worth showing. Default: never skip.
+  virtual bool autoSkip() { return false; }
 };

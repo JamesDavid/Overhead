@@ -28,6 +28,7 @@ public:
   void tick(App& app, uint32_t nowMs) override;
   String gridStatus() override;
   bool autoAdvance(App& app) override;
+  bool autoSkip() override;              // skip in the AUTO tour when the ADS-B feed is down
 
 private:
   void draw(App& app);

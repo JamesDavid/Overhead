@@ -43,6 +43,10 @@ int App::pageIndexByTitle(const char* title) const {
   return -1;
 }
 
+bool App::pageAutoSkip(int idx) const {
+  return idx >= 0 && idx < (int)_pages.size() && _pages[idx]->autoSkip();
+}
+
 bool App::autoFocus(int index) {
   if (_mode != Mode::Auto || _pinned || index < 0 || index == _active) return false;
   setPage(index);

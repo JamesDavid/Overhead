@@ -35,6 +35,7 @@ public:
   bool pinned() const { return _pinned; }
   int  activeIndex() const { return _active; }
   int  pageIndexByTitle(const char* title) const;
+  bool pageAutoSkip(int idx) const;      // page wants to be skipped in the AUTO rotation now
   // One-shot focus hint handed to the next page on entry (e.g. Agenda tap -> the
   // exact satellite/launch). The target page reads it in onEnter via takeFocus().
   void   requestFocus(const String& ref) { _pendingFocus = ref; }
