@@ -69,11 +69,13 @@ private:
   bool  _pZoom = false;        // zoomed in at all (level > 0)
   int   _pFx = 0, _pFy = 0;    // zoom focus (absolute screen px) = the tapped point
   uint32_t _pZoomMs = 0;
+  int   _presTourStep = -1;    // AUTO tour cinematic on Pressure: world->US->200mi->2.6/4.5/7x
   void  cyclePresZoom(int fx, int fy);   // advance to the next zoom level about (fx,fy)
   void  resetPresZoom() { _pZoomLevel = 0; _pZoomCur = 1.f; _pZoomFrom = 1.f; _pZoom = false; }
   uint32_t _presRetryMs = 0;   // retry an empty (un-cached) pressure scope
   static constexpr int kMChips = 8;        // METAR field-selector chips (reuse App::drawChipRow)
   int   _mChipX[kMChips] = {0}, _mChipW[kMChips] = {0}, _mChipN = 0;
+  int   _mChipScroll = 0;                  // first visible chip (window scrolls to keep _sel in view)
   View  _view = View::Map;     // Map is the default Aviation view (then Metar/Sounding/Hazards)
   int   _sel = 0;
   int   _mapZoom = 0;          // airport-map zoom index (top-left badge cycles)

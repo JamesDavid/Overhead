@@ -170,7 +170,7 @@ void PageAviation::onData(App& app, ProviderId id) {
 void PageAviation::onTouch(App& app, int x, int y) {
   if (_view == View::Metar && y < 16) {              // tap a field chip -> select that station
     for (int i = 0; i < _mChipN; ++i)
-      if (x >= _mChipX[i] && x < _mChipX[i] + _mChipW[i]) { _sel = i; _needClear = _dirty = true; return; }
+      if (x >= _mChipX[i] && x < _mChipX[i] + _mChipW[i]) { _sel = _mChipScroll + i; _needClear = _dirty = true; return; }
   }
   int third = app.contentW() / 3;
   if (x >= third && x <= 2 * third && _view != View::Pressure) {  // centre tap cycles the view
@@ -204,7 +204,7 @@ void PageAviation::onTouch(App& app, int x, int y) {
   }
 }
 
-bool PageAviation::autoAdvance(App&) {
+bool PageAviation::autoAdvance(App& app) {
   bool cycled = false;
   auto nextView = [&]() {
     View vs[7]; int n = activeViews(vs);
@@ -213,6 +213,7 @@ bool PageAviation::autoAdvance(App&) {
     _view = vs[(cur + 1) % n];
     _tourN = 0; _sel = 0;
     if (_view == View::Taf) enterTaf();
+    if (_view == View::Pressure) _presTourStep = -1;   // restart the pressure cinematic
     if (wasLast) cycled = true;            // wrapped past the last visible view = full cycle
   };
   int n = (int)_wx.stations().size();
@@ -222,6 +223,16 @@ bool PageAviation::autoAdvance(App&) {
   } else if ((_view == View::Metar || _view == View::Map) && n > 0) {
     _sel = (_sel + 1) % n;
     if (++_tourN >= n) nextView();         // toured all stations -> next view
+  } else if (_view == View::Pressure) {
+    // Cinematic zoom-in: world -> US -> 200mi 1x -> 2.6x -> 4.5x -> 7x, then next view.
+    int fx = app.contentW() / 2, fy = app.contentY() + 16 + (app.contentH() - 28) / 2;
+    switch (++_presTourStep) {
+      case 0: _pmap.setScope(2); resetPresZoom(); break;            // world 1x
+      case 1: _pmap.setScope(1); resetPresZoom(); break;            // US 1x
+      case 2: _pmap.setScope(0); resetPresZoom(); break;            // 200mi 1x
+      case 3: case 4: case 5: cyclePresZoom(fx, fy); break;         // 200mi 2.6 / 4.5 / 7x
+      default: _presTourStep = -1; nextView(); break;               // done -> next view
+    }
   } else {
     nextView();                            // Sounding/Hazards (no items): one dwell, next view
   }
@@ -273,10 +284,23 @@ void PageAviation::drawMetar(App& app) {
     return;
   }
   if (_sel >= (int)list.size()) _sel = 0;
-  // Field-selector chips (shared with the ADS-B page): tap a chip to jump to it.
+  // Field-selector chips: window them so the selected field is always visible with a
+  // neighbour either side (scrolls as you step near an edge) — you're never stuck at
+  // the visible edge unless it's the real end of the list.
   String labels[12]; int nl = (int)list.size(); if (nl > 12) nl = 12;
   for (int i = 0; i < nl; ++i) labels[i] = list[i].icao;
-  _mChipN = app.drawChipRow(2, cy0 + 2, 13, labels, nl, _sel, _mChipX, _mChipW, kMChips);
+  auto lastFit = [&](int start) {                                  // last chip index that fits from `start`
+    int x = 2, last = start;
+    for (int i = start; i < nl; ++i) { int w = (int)labels[i].length() * 6 + 8; if (x + w > cw - 2) break; last = i; x += w + 3; }
+    return last;
+  };
+  if (_sel < _mChipScroll) _mChipScroll = _sel;                    // selection left of window
+  while (_sel > lastFit(_mChipScroll) && _mChipScroll < nl - 1) _mChipScroll++;  // selection right of window
+  if (_sel == lastFit(_mChipScroll) && _sel < nl - 1) _mChipScroll++;            // reveal next neighbour
+  else if (_sel == _mChipScroll && _mChipScroll > 0)  _mChipScroll--;            // reveal prev neighbour
+  if (_mChipScroll < 0) _mChipScroll = 0;
+  int first = _mChipScroll;
+  _mChipN = app.drawChipRow(2, cy0 + 2, 13, labels + first, nl - first, _sel - first, _mChipX, _mChipW, kMChips);
 
   const Metar& m = list[_sel];
   const int maxc = (cw - 10) / 6;

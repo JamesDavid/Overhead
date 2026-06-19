@@ -281,6 +281,11 @@ void App::tick(uint32_t nowMs) {
   if (_mode == Mode::Manual && !_pinned && !_grid && !_locPicker && nowMs - _lastInteractMs > _inactivityMs) {
     _mode = Mode::Auto; _statusDirty = true;
   }
+  // Clock screensaver: when idle in AUTO and the "auto" chip is on, raise the clock.
+  if (_mode == Mode::Auto && _clock && _clock->autoUp() && !_clock->active()
+      && !_grid && !_locPicker && nowMs - _lastInteractMs > _inactivityMs) {
+    _clock->toggle(*this);
+  }
 
   if (_active >= 0 && !_grid && !_locPicker) {                 // grid/picker overlay holds the content
     if (_clock && _clock->active()) {

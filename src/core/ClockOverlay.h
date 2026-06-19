@@ -25,6 +25,7 @@ public:
 
   void begin();                       // load style prefs from Settings
   bool active() const { return _on; }
+  bool autoUp() const { return _autoUp; }   // should the clock auto-appear when idle in AUTO?
   void toggle(App& app);              // turn clock mode on/off
 
   // Per-frame hooks, called by App: prepare() picks the corner (and repaints the
@@ -53,6 +54,8 @@ private:
   bool  _on    = false;
   bool  _use24 = true;                // false = 12-hour AM/PM
   bool  _ball  = false;               // false = digits, true = analog face
+  int   _scale = 1;                   // 0 small, 1 medium, 2 large
+  bool  _autoUp = false;              // auto-appear when idle in AUTO mode
   int   _bw = 0, _bh = 0;             // clock box size (graphic + chip strip)
   int   _gh = 0;                      // graphic height (box height minus the chip strip)
 
@@ -68,7 +71,9 @@ private:
   int   _shownMin = -2;               // minute rendered into the sprite (re-render on change)
   bool  _shownBall = false, _shown24 = true;
 
-  // Bottom-left chip hit rects (content-relative), set by drawChips().
-  int _fmtX = 0, _fmtY = 0, _fmtW = 0, _fmtH = 0;   // 24h / AM-PM
-  int _styX = 0, _styY = 0, _styW = 0, _styH = 0;   // digits / analog
+  // Chip hit rects (content-relative), set by stamp(). Two rows of two chips.
+  int _fmtX = 0, _fmtY = 0, _fmtW = 0, _fmtH = 0;   // 24h / AM-PM   (row 1 left)
+  int _styX = 0, _styY = 0, _styW = 0, _styH = 0;   // digits / analog (row 1 right)
+  int _autX = 0, _autY = 0, _autW = 0, _autH = 0;   // auto-up toggle (row 2 left)
+  int _sclX = 0, _sclY = 0, _sclW = 0, _sclH = 0;   // size sm/md/lg  (row 2 right)
 };

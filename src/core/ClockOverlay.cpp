@@ -12,14 +12,18 @@ static constexpr int      kStripH = 14;          // built-in chip strip at the b
 static constexpr uint16_t kKey    = 0xF81F;      // sprite transparent key (magenta; never used by the clock)
 
 void ClockOverlay::begin() {
-  _use24 = _settings.getBool("clk24", true);
-  _ball  = _settings.getBool("clkBall", false);
+  _use24  = _settings.getBool("clk24", true);
+  _ball   = _settings.getBool("clkBall", false);
+  _scale  = (int)_settings.getInt("clkScale", 1); if (_scale < 0 || _scale > 2) _scale = 1;
+  _autoUp = _settings.getBool("clkAuto", false);
 }
 
 void ClockOverlay::layoutBox(App& app) {
-  if (_ball) { _bw = 88;  _gh = 84; }      // analog disc + strip
-  else       { _bw = 128; _gh = 42; }      // time + date + strip
-  _bh = _gh + kStripH;
+  static const float kSc[3] = {0.78f, 1.0f, 1.34f};   // small / medium / large
+  float s = kSc[_scale < 0 || _scale > 2 ? 1 : _scale];
+  if (_ball) { _bw = (int)(88 * s);  _gh = (int)(84 * s); }   // analog disc
+  else       { _bw = (int)(128 * s); _gh = (int)(42 * s); }   // time + date
+  _bh = _gh + 2 * kStripH;                  // two chip rows (format/style, auto/size)
   if (_bw > app.contentW()) _bw = app.contentW();
   if (_bh > app.contentH()) _bh = app.contentH();
 }
@@ -90,9 +94,11 @@ void ClockOverlay::stamp(App& app) {
     gfx.startWrite(); drawClock(gfx, bx, by); drawChips(gfx, bx, by); gfx.endWrite();
   }
 
-  const int sy = (by + _gh) - app.contentY(), hw = _bw / 2;   // chip hit rects (content-relative)
-  _fmtX = bx;      _fmtY = sy; _fmtW = hw - 1;   _fmtH = kStripH;
-  _styX = bx + hw; _styY = sy; _styW = _bw - hw; _styH = kStripH;
+  const int sy = (by + _gh) - app.contentY(), sy2 = sy + kStripH, hw = _bw / 2;  // chip rects (content-rel)
+  _fmtX = bx;      _fmtY = sy;  _fmtW = hw - 1;   _fmtH = kStripH;
+  _styX = bx + hw; _styY = sy;  _styW = _bw - hw; _styH = kStripH;
+  _autX = bx;      _autY = sy2; _autW = hw - 1;   _autH = kStripH;
+  _sclX = bx + hw; _sclY = sy2; _sclW = _bw - hw; _sclH = kStripH;
 }
 
 // --- drawing (into a sprite at 0,0, or straight to the panel at x,y) --------
@@ -117,15 +123,15 @@ void ClockOverlay::drawDigits(lgfx::LovyanGFX& g, int x, int y) {
 
   g.setTextDatum(textdatum_t::middle_center);
   g.setTextColor(gTheme.fg, gTheme.bg);
-  g.setTextSize(4);
-  g.drawString(hm, x + _bw / 2, y + 16);
+  g.setTextSize(_scale == 0 ? 3 : _scale == 2 ? 5 : 4);   // scale the time with the box
+  g.drawString(hm, x + _bw / 2, y + _gh * 2 / 5);
 
   char line2[24];
   if (_use24) snprintf(line2, sizeof(line2), "%s", date);
   else        snprintf(line2, sizeof(line2), "%s  %s", ampm, date);
   g.setTextSize(1);
   g.setTextColor(gTheme.dim, gTheme.bg);
-  g.drawString(line2, x + _bw / 2, y + _gh - 6);
+  g.drawString(line2, x + _bw / 2, y + _gh - 7);
 }
 
 void ClockOverlay::drawAnalog(lgfx::LovyanGFX& g, int x, int y) {
@@ -153,15 +159,19 @@ void ClockOverlay::drawAnalog(lgfx::LovyanGFX& g, int x, int y) {
 }
 
 void ClockOverlay::drawChips(lgfx::LovyanGFX& g, int x, int y) {
-  const int sy = y + _gh, hw = _bw / 2;          // strip inside the box, split in two
+  const int hw = _bw / 2, r1 = y + _gh, r2 = y + _gh + kStripH;   // two chip rows
   g.setTextDatum(textdatum_t::middle_center);
   g.setTextSize(1);
-  g.fillRect(x, sy, hw - 1, kStripH, gTheme.grid);          // left: time format
-  g.setTextColor(gTheme.fg, gTheme.grid);
-  g.drawString(_use24 ? "24h" : "AMPM", x + (hw - 1) / 2, sy + kStripH / 2);
-  g.fillRect(x + hw, sy, _bw - hw, kStripH, gTheme.grid);   // right: digits/analog
-  g.setTextColor(gTheme.fg, gTheme.grid);
-  g.drawString(_ball ? "clk" : "123", x + hw + (_bw - hw) / 2, sy + kStripH / 2);
+  auto chip = [&](int cx, int cy, int cw, const char* label, Color fg) {
+    g.fillRect(cx, cy, cw, kStripH, gTheme.grid);
+    g.setTextColor(fg, gTheme.grid);
+    g.drawString(label, cx + cw / 2, cy + kStripH / 2);
+  };
+  static const char* kSz[3] = {"sm", "md", "lg"};
+  chip(x,      r1, hw - 1,   _use24 ? "24h" : "AMPM", gTheme.fg);            // format
+  chip(x + hw, r1, _bw - hw, _ball ? "clk" : "123",   gTheme.fg);           // digits/analog
+  chip(x,      r2, hw - 1,   "auto", _autoUp ? gTheme.ok : gTheme.dim);     // auto-appear
+  chip(x + hw, r2, _bw - hw, kSz[_scale < 0 || _scale > 2 ? 1 : _scale], gTheme.fg);  // size
 }
 
 bool ClockOverlay::handleTap(App& app, int xRel, int yRel) {
@@ -177,6 +187,17 @@ bool ClockOverlay::handleTap(App& app, int xRel, int yRel) {
     _ball = !_ball; _settings.set("clkBall", _ball); _settings.save();
     layoutBox(app); _shownMin = -2;
     app.repaintActive();                        // clear the old footprint cleanly
+    return true;
+  }
+  if (hit(_autX, _autY, _autW, _autH)) {        // auto-appear in AUTO mode on/off
+    _autoUp = !_autoUp; _settings.set("clkAuto", _autoUp); _settings.save();
+    _shownMin = -2;                             // re-render (chip colour changed)
+    return true;
+  }
+  if (hit(_sclX, _sclY, _sclW, _sclH)) {        // size sm -> md -> lg (box size changes)
+    _scale = (_scale + 1) % 3; _settings.set("clkScale", (long)_scale); _settings.save();
+    layoutBox(app); _shownMin = -2;
+    app.repaintActive();
     return true;
   }
   return false;
