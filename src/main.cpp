@@ -272,7 +272,12 @@ void setup() {
 
   web.setStatusJsonProvider(fillStatusJson);
   web.setDebug(&app, &display);     // /api/screen.bmp, /api/tap, /api/swipe
-  web.begin(&settings, gHostname);  // up early so OTA/API survive the lean update pass
+  web.begin(&settings, gHostname);  // registers routes only (no listener yet)
+  // Field default: boot with the web server OFF so the AsyncTCP/server footprint
+  // doesn't crowd the no-PSRAM heap floor — the live feeds get max contiguous heap.
+  // Re-enable any time from the Health "Web" toggle or the serial console ("web on").
+  if (settings.getBool("webOnBoot", false)) web.start();
+  else Serial.println("[web] booted OFF (webOnBoot=false) — type 'web on' on serial, or tap Health->Web");
 
   runBootUpdater();   // two-phase boot: refresh stale caches in a lean phase, then reboot to viewer
 
@@ -334,6 +339,7 @@ void setup() {
   healthPage = new PageHealth(touch, timeSvc, locSvc, gHostname,
                               tleProv, launchProv, aircraftProv, spaceWxProv, weatherProv,
                               themeCtl, settings);
+  healthPage->setWebPortal(&web);     // "Web" on/off toggle frees heap for the feeds
   // Carousel, ground->space order (spec §4.1): Agenda (home), Launches, Aircraft,
   // Satellites, Space Wx, Solar System, then Diagnostics.
   app.addPage(agendaPage);
@@ -362,8 +368,30 @@ void setup() {
                 Display::freeHeap(), Display::largestFreeBlock());
 }
 
+// Serial console commands (recovery + diagnostics). Most useful: re-enable the web
+// server after it's been toggled off (so toggling it off can never lock you out).
+//   web on | web off | web   (toggle) ;  heap ;  reboot
+static void serviceSerialCmd() {
+  if (!Serial.available()) return;
+  String cmd = Serial.readStringUntil('\n'); cmd.trim(); cmd.toLowerCase();
+  if (cmd.startsWith("web")) {
+    String a = cmd.substring(3); a.trim();
+    if (a == "on")        web.start();
+    else if (a == "off")  web.stop();
+    else                  { if (web.running()) web.stop(); else web.start(); }
+    Serial.printf("[cmd] web %s\n", web.running() ? "ON" : "OFF");
+  } else if (cmd == "heap") {
+    Serial.printf("[cmd] free=%u largestBlock=%u\n", (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getMaxAllocHeap());
+  } else if (cmd == "reboot") {
+    Serial.println("[cmd] rebooting"); delay(50); ESP.restart();
+  } else if (cmd.length()) {
+    Serial.printf("[cmd] unknown: '%s' (try: web on|off, heap, reboot)\n", cmd.c_str());
+  }
+}
+
 void loop() {
   uint32_t now = millis();
+  serviceSerialCmd(); // console: web on|off, heap, reboot
   net.poll();        // dispatch completed HTTP jobs on the UI thread
   timeSvc.tick();    // detect NTP sync edge -> publish Time
   web.loop();        // ElegantOTA pump

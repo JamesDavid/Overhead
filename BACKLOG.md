@@ -235,16 +235,15 @@ hazards, SPECI Director badge. Remaining:
 - TLEs retained WATCHLIST-ONLY (full lists ~18 KB of Strings froze TLS). Aircraft cap 24,
   METAR cap 12. On the PSRAM CrowPanel, keep full lists + a sprite double-buffer (board-conditional).
 - Boot fires ~12 HTTPS jobs serially — consider staggering to cut heap contention.
-- **Web-server-off toggle (Health) to reclaim contiguous heap.** ESPAsyncWebServer +
-  AsyncTCP hold a meaningful contiguous block; a Health toggle that `end()`s the server
-  (and restarts it on demand) would free heap for the live feeds — most useful for the
-  **live ADS-B radar**, which clears + re-fetches often and is starved below the TLS
-  floor (visible as a "feed unavailable" radar when the screenshot buffer is also up).
-  Tradeoff: no remote API (screenshot/tap/OTA) while off, so it must restart cleanly
-  from an on-device control. NOTE: *splitting* the settings page from the API would NOT
-  help — the heap cost is the shared AsyncTCP/AsyncWebServer machinery + the TLS client,
-  not the routes or the (flash-resident) HTML. The existing "Shot: off" toggle already
-  frees the 16 KB screenshot buffer; this would free the server stack on top of that.
+- **Web-server-off toggle (Health) to reclaim contiguous heap. — DONE (Jun 2026).**
+  WebPortal `start()`/`stop()` (routes register in `begin()`; only `start()` opens the
+  listener, so a boot-off device never does a wedging begin->end->begin). It **boots OFF
+  by default** (`webOnBoot`, default false) so the feeds get max contiguous heap; the
+  Health **Web** toggle (persists `webOnBoot`) and a **serial console** (`web on|off`,
+  `heap`, `reboot`) re-enable it — no lockout, and a reboot always comes up off.
+  Measured ~65 KB largest free block with the server off vs ~16–30 KB with it + the
+  screenshot buffer up. (Confirmed: splitting the settings page from the API would NOT
+  help — the cost is the shared AsyncTCP machinery, not the routes/HTML.)
 - **Unified per-airport METAR pool (v1 DONE, Jun 2026).** `services/MetarStore` is a
   shared per-ICAO pool (lat/lon/hpa/cloud/wind/temp/cat/obs, bounded + LRU). The METAR
   list + pressure map both UPSERT the stations they parse; the pressure map renders the

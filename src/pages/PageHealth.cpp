@@ -13,6 +13,7 @@
 #include "../providers/WeatherProvider.h"
 #include "../core/ThemeController.h"
 #include "../services/Settings.h"
+#include "../services/WebPortal.h"
 #include <LittleFS.h>
 #include <WiFi.h>
 #include <time.h>
@@ -64,18 +65,22 @@ static int briIndex(Settings& s) {
 }
 
 void PageHealth::onTouch(App& app, int x, int y) {
-  if (y >= app.contentH() - 44 && y < app.contentH() - 26) {   // display / brightness / shots row
-    int col = x / (app.contentW() / 3);
+  if (y >= app.contentH() - 44 && y < app.contentH() - 26) {   // display / brightness / shots / web row
+    int col = x / (app.contentW() / 4);
     if (col == 0) {                                            // cycle palette
       setThemeMode(_settings, (themeModeIndex(_settings) + 1) % 4);
       _theme.forceReapply();
     } else if (col == 1) {                                     // cycle brightness
       _settings.set("backlight", (long)kBri[(briIndex(_settings) + 1) % 5]);
       _settings.save(); _theme.forceReapply();
-    } else {                                                   // toggle remote screenshots
+    } else if (col == 2) {                                     // toggle remote screenshots
       bool on = !app.display().shotsEnabled();
       app.display().setShotsEnabled(on);
       _settings.set("debugShots", on); _settings.save();
+    } else if (_web) {                                         // toggle the web server (frees heap)
+      if (_web->running()) _web->stop(); else _web->start();
+      _settings.set("webOnBoot", _web->running());             // persist the boot preference
+      _settings.save();
     }
     _dirty = _needClear = true;
     return;
@@ -162,16 +167,21 @@ void PageHealth::draw(App& app) {
     g.drawString("refreshing providers...", cw / 2, cy0 + ch - 52);
   }
 
-  // Display-mode / brightness / screenshots buttons (tap to cycle/toggle).
-  int ty = cy0 + ch - 44, tw = cw / 3;
+  // Display-mode / brightness / screenshots / web-server buttons (tap to cycle/toggle).
+  int ty = cy0 + ch - 44, tw = cw / 4;
   g.setTextDatum(textdatum_t::middle_center);
   g.setTextColor(gTheme.accent, gTheme.bg);
-  g.drawRect(2, ty, tw - 4, 18, gTheme.grid);
+  g.drawRect(2, ty, tw - 3, 18, gTheme.grid);
   g.drawString(String("Disp:") + kThemeNames[themeModeIndex(_settings)], tw / 2, ty + 9);
-  g.drawRect(tw + 2, ty, tw - 4, 18, gTheme.grid);
+  g.drawRect(tw + 2, ty, tw - 3, 18, gTheme.grid);
   g.drawString(String("Bri:") + kBriName[briIndex(_settings)], tw + tw / 2, ty + 9);
-  g.drawRect(2 * tw + 2, ty, tw - 4, 18, gTheme.grid);
+  g.drawRect(2 * tw + 2, ty, tw - 3, 18, gTheme.grid);
   g.drawString(String("Shot:") + (app.display().shotsEnabled() ? "on" : "off"), 2 * tw + tw / 2, ty + 9);
+  g.drawRect(3 * tw + 2, ty, tw - 4, 18, gTheme.grid);     // web server on/off (frees heap for feeds)
+  bool webOn = !_web || _web->running();
+  g.setTextColor(webOn ? gTheme.accent : gTheme.warn, gTheme.bg);
+  g.drawString(String("Web:") + (webOn ? "on" : "off"), 3 * tw + tw / 2, ty + 9);
+  g.setTextColor(gTheme.accent, gTheme.bg);
 
   // Button row.
   int by = cy0 + ch - 22, bw = cw / 3;

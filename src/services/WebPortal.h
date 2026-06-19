@@ -19,6 +19,14 @@ public:
   bool begin(Settings* s, const String& hostname);
   void loop();   // pump ElegantOTA (handles post-update reboot in async mode)
 
+  // Stop/start the listener to reclaim contiguous heap for the feeds (the AsyncTCP/
+  // server footprint). Routes stay registered — start() just re-opens the socket +
+  // mDNS. Runtime-only (a reboot always comes up with the server ON), so there's no
+  // permanent lockout: re-enable from the Health "Web" toggle or the serial console.
+  void stop();
+  void start();
+  bool running() const { return _running; }
+
   // main injects a filler for /api/status (heap, wifi, time, location) so the
   // portal stays decoupled from the services it reports on.
   void setStatusJsonProvider(std::function<void(JsonDocument&)> fn) { _statusFn = std::move(fn); }
@@ -35,4 +43,6 @@ private:
   std::function<void(JsonDocument&)> _statusFn;
   File _up;                              // in-progress /api/fs upload target
   String _apiUser, _apiPass;             // Basic-auth creds gating the API (= OTA creds)
+  String _host;                          // mDNS hostname (for restart)
+  bool   _running = false;               // listener up?
 };

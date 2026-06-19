@@ -208,7 +208,7 @@ strong wind) is surfaced cross-tab as a notice instead (see the Director).
 | |
 |---|
 | ![Health](docs/img/page8-health.jpg) |
-| The system table (WiFi, heap + **largest-block low-water** + **httpsSkip**, filesystem, uptime, location) and per-provider **status + age in d/h/m/s**, plus on-device controls: cycle the display palette (Auto/Day/Night/Red) and brightness, toggle remote screenshots, **Refresh** all providers, **Recalibrate** touch, and a two-tap **Reboot**. *(WiFi SSID and LAN IP boxed out here.)* |
+| The system table (WiFi, heap + **largest-block low-water** + **httpsSkip**, filesystem, uptime, location) and per-provider **status + age in d/h/m/s**, plus on-device controls: cycle the display palette (Auto/Day/Night/Red) and brightness, toggle remote screenshots, toggle the **Web** server (off frees ~35 KB of contiguous heap for the feeds — it boots off by default and re-enables here or via the serial console), **Refresh** all providers, **Recalibrate** touch, and a two-tap **Reboot**. *(WiFi SSID and LAN IP boxed out here.)* |
 
 ---
 
@@ -307,8 +307,7 @@ desk.
 
 ## What's next (highlights)
 
-A few of the juicier backlog items: a **web-server-off toggle** to reclaim contiguous
-heap for the feeds; **az/el rotor output** (drive a real or DIY antenna rotator) and an
+A few of the juicier backlog items: **az/el rotor output** (drive a real or DIY antenna rotator) and an
 **IMU handheld antenna-aim** mode; externalising the orrery body list to LittleFS (comets,
 NEOs, dwarf planets); Saturn's moons; true WPC surface fronts (blocked on a data source);
 aircraft flight trails; rover/APOD imagery on PSRAM boards; on-device watchlist editing;

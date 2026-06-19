@@ -236,10 +236,9 @@ bool WebPortal::begin(Settings* s, const String& hostname) {
 
   String host = _s->getString("hostname", hostname.c_str());   // editable mDNS name (settings)
   host.trim(); if (!host.length()) host = hostname;
-  if (MDNS.begin(host.c_str())) {
-    MDNS.addService("http", "tcp", 80);
-    Serial.printf("[web] http://%s.local/\n", host.c_str());
-  }
+  _host = host;
+  // NOTE: routes are REGISTERED here but the listener is NOT started — call start()
+  // for that (so a boot-off device never does a begin()->end() that wedges the socket).
 
   _server.on("/", HTTP_GET, [](AsyncWebServerRequest* req) {
     req->send(200, "text/html", kIndexHtml);
@@ -330,10 +329,24 @@ bool WebPortal::begin(Settings* s, const String& hostname) {
   // OTA + settings basic-auth (spec §13).
   ElegantOTA.setAuth(_s->getString("otaUser", "admin").c_str(),
                      _s->getString("otaPass", "overhead").c_str());
-  ElegantOTA.begin(&_server);
-
-  _server.begin();
-  return true;
+  ElegantOTA.begin(&_server);            // attach OTA handlers (no listener yet)
+  return true;                           // start() opens the listener
 }
 
-void WebPortal::loop() { ElegantOTA.loop(); }
+void WebPortal::loop() { if (_running) ElegantOTA.loop(); }
+
+void WebPortal::stop() {
+  if (!_running) return;
+  _server.end();                         // close the listener (routes stay registered)
+  MDNS.end();
+  _running = false;
+  Serial.printf("[web] server OFF  largest free block = %u\n", (unsigned)ESP.getMaxAllocHeap());
+}
+
+void WebPortal::start() {
+  if (_running) return;
+  _server.begin();
+  if (MDNS.begin(_host.c_str())) { MDNS.addService("http", "tcp", 80); Serial.printf("[web] http://%s.local/\n", _host.c_str()); }
+  _running = true;
+  Serial.printf("[web] server ON   largest free block = %u\n", (unsigned)ESP.getMaxAllocHeap());
+}

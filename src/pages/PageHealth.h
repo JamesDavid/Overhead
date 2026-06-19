@@ -12,6 +12,7 @@ class SpaceWxProvider;
 class WeatherProvider;
 class ThemeController;
 class Settings;
+class WebPortal;
 
 // pages/PageHealth — System / diagnostics (spec §6 Health). System info, a
 // per-provider status table (status + age), and action buttons (force-refresh /
@@ -29,6 +30,7 @@ public:
       _theme(theme), _settings(settings) {}
 
   const char* title() const override { return "Device Health"; }
+  void setWebPortal(WebPortal* w) { _web = w; }   // for the "Web" on/off toggle
   void onEnter(App& app) override { _dirty = _needClear = true; }
   void onTouch(App& app, int x, int y) override;
   void tick(App& app, uint32_t nowMs) override;
@@ -48,6 +50,7 @@ private:
   WeatherProvider& _wx;
   ThemeController& _theme;
   Settings&        _settings;
+  WebPortal*       _web = nullptr;   // optional: status-strip-free web-server toggle
 
   bool _dirty = true;
   bool _needClear = true;
