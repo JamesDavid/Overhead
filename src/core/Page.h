@@ -31,6 +31,11 @@ public:
   // onScroll instead and keep vertical swipe for scrolling.
   virtual void cycleView(int dir) {}
   virtual void onScroll(App& app, int dy) { cycleView(dy < 0 ? 1 : -1); }  // up = next view, down = prev
+
+  // Sub-view position, for the right-edge view-dots indicator (App draws them).
+  // Default: single view (no dots).
+  virtual int viewCount() const { return 1; }
+  virtual int viewIndex() const { return 0; }
   virtual void onData(App& app, ProviderId id) {}  // EventBus delivery
   virtual String gridStatus() { return String(); }  // one live token for the 3x3 grid tile
 

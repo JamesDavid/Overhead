@@ -83,6 +83,19 @@ void App::repaintActive() {                                  // clean full repai
   _statusDirty = true;
 }
 
+// Vertical "view-position" dots on the right edge (mirrors the top-bar page dots):
+// where you are in a page's sub-view structure. Pages call this from draw().
+void App::drawViewDots(int count, int index) {
+  if (count < 2) return;
+  auto& g = _display.gfx();
+  const int gap = 8, x = contentW() - 5;
+  int y0 = contentY() + (contentH() - (count - 1) * gap) / 2;
+  for (int i = 0; i < count; ++i) {
+    if (i == index) g.fillCircle(x, y0 + i * gap, 2, gTheme.accent);
+    else            g.drawCircle(x, y0 + i * gap, 2, gTheme.dim);
+  }
+}
+
 // --- 3x3 quick-jump grid overlay (first step of the desk-clock shell) -------------
 void App::openGrid() {
   if (_pages.size() < 2) return;
@@ -240,6 +253,7 @@ void App::tick(uint32_t nowMs) {
     } else {
       _clockShownPage = -1;                                   // next clock-on starts with a clean redraw
       _pages[_active]->tick(*this, nowMs);
+      drawViewDots(_pages[_active]->viewCount(), _pages[_active]->viewIndex());  // right-edge view position
     }
   }
 

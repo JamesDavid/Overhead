@@ -62,6 +62,7 @@ public:
 
   void setClockOverlay(ClockOverlay* c) { _clock = c; }         // device-wide bouncing-clock screensaver
   void repaintActive();                  // force a clean full repaint of the active page
+  void drawViewDots(int count, int index);   // vertical view-position dots on the right edge
 
 private:
   void drawStatus();

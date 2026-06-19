@@ -28,6 +28,8 @@ public:
   void onData(App& app, ProviderId id) override;
   void onTouch(App& app, int x, int y) override;
   void cycleView(int dir) override;            // up/down swipe: Polar <-> Ground
+  int  viewCount() const override { return 2; }
+  int  viewIndex() const override { return _view == View::Ground ? 1 : 0; }
   void tick(App& app, uint32_t nowMs) override;
   String gridStatus() override;
   bool autoAdvance(App& app) override;

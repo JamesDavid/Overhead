@@ -27,6 +27,11 @@ public:
   void onData(App& app, ProviderId id) override;
   void onTouch(App& app, int x, int y) override;
   void cycleView(int dir) override;           // up/down swipe -> next/prev view
+  int  viewCount() const override { return 7; }
+  int  viewIndex() const override {
+    return _view == View::Map ? 0 : _view == View::Metar ? 1 : _view == View::Taf ? 2
+         : _view == View::Sounding ? 3 : _view == View::Hazards ? 4 : _view == View::Trends ? 5 : 6;
+  }
   void tick(App& app, uint32_t nowMs) override;
   bool autoAdvance(App& app) override;
   String gridStatus() override;          // nearest METAR: cat + temp/wind
