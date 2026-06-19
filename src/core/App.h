@@ -9,6 +9,8 @@ class EventBus;
 class Scheduler;
 class Page;
 class ClockOverlay;
+class Settings;
+class LocationService;
 
 // core/App — the app shell (spec §4). For milestone 1 this is intentionally
 // minimal: it owns the page list, renders the always-visible status strip, and
@@ -61,6 +63,8 @@ public:
   void setPin(bool on) { _pinned = on; _statusDirty = true; }   // pages can pin (clock rests)
 
   void setClockOverlay(ClockOverlay* c) { _clock = c; }         // device-wide bouncing-clock screensaver
+  // Wire the saved-locations picker (status-strip crosshair icon -> modal list).
+  void setLocationPicker(Settings* s, LocationService* loc) { _pickSettings = s; _pickLoc = loc; }
   void repaintActive();                  // force a clean full repaint of the active page
   void drawViewDots(int count, int index);   // vertical view-position dots on the right edge
   // Shared horizontal chip row (ADS-B field chips, METAR field chips...). Draws
@@ -76,6 +80,15 @@ private:
   void tapAt(int x, int y);              // route a tap (grid / dots / status / page)
   int  gridCell(int x, int yRel) const;  // page index under a grid tap, or -1
   bool dotsHit(int x) const;             // x falls on the status-strip page dots
+  void drawSignalBars(int xRight, int cy);  // WiFi signal-strength bars glyph (status strip, far right)
+  void drawModeIcon(int xRight, int cy);    // AUTO(play) / MAN(pause) / PIN(lock) glyph
+  void drawLocIcon(int cx, int cy);         // location crosshair glyph (opens the saved-locations picker)
+  int  healthPageIndex() const;          // index of the Device Health page (-1 if absent)
+  bool openLocPicker();                  // saved-locations modal: true if it opened (has entries)
+  void closeLocPicker();
+  void drawLocPicker();
+  int  locPickerRow(int x, int yRel) const; // picker row under a tap, or -1
+  void applyLocation(int row);           // switch the active location (row 0 = Auto/IP)
 
   Display&   _display;
   Touch&     _touch;
@@ -102,6 +115,9 @@ private:
   volatile int _injScroll = 0;                 // pending injected vertical scroll (dy)
 
   bool     _grid = false;              // 3x3 quick-jump grid overlay is showing
+  bool     _locPicker = false;         // saved-locations modal overlay is showing
+  Settings*        _pickSettings = nullptr;   // for the location picker (saved `locations`)
+  LocationService* _pickLoc = nullptr;
   Mode     _mode = Mode::Auto;
   bool     _pinned = false;
   bool     _pinToggled = false;        // pin toggled during the current press

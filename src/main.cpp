@@ -346,6 +346,7 @@ void setup() {
   app.addPage(starPage);
   app.addPage(healthPage);
   app.setClockOverlay(new ClockOverlay(timeSvc, settings));  // bouncing-clock screensaver (tap the time)
+  app.setLocationPicker(&settings, &locSvc);                 // status-strip crosshair -> saved-locations
   app.setInactivityMs((uint32_t)settings.getInt("inactivitySec", 90) * 1000UL);
   app.begin();
 

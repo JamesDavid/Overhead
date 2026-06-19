@@ -25,7 +25,7 @@ h3{color:#9bf;border-bottom:1px solid #233;margin:.2rem 0 .5rem}
 label{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.18rem 0}
 input,select{background:#11161f;color:#e6e8f0;border:1px solid #334;border-radius:4px;padding:.25rem;min-width:11rem}
 button{background:#2563c0;color:#fff;border:0;border-radius:6px;padding:.45rem 1rem;margin:.2rem .3rem .2rem 0;cursor:pointer;font-size:15px}
-#map{height:240px;margin:.4rem 0;border:1px solid #334;border-radius:6px}
+#map,#smap{height:240px;margin:.4rem 0;border:1px solid #334;border-radius:6px}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:.1rem 1rem}.grid label{justify-content:flex-start;gap:.5rem}
 .row{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;margin:.3rem 0}
 table{width:100%;border-collapse:collapse;margin:.3rem 0}td{padding:.25rem;border-bottom:1px solid #233}
@@ -54,7 +54,7 @@ const PAGES=['Agenda','Launches','Aircraft','Aviation Wx','Satellites','Space Wx
 const ORRERY=['Roadster','Psyche','Ceres','Vesta'];
 const SATS=[['ISS','ISS'],['Tiangong (CSS)','CSS'],['Hubble','HST'],['SO-50','SO-50'],['AO-91','FOX-1B'],['SatGus','SATGUS'],
  ['NOAA-15','NOAA 15'],['NOAA-18','NOAA 18'],['NOAA-19','NOAA 19'],['METEOR-M2','METEOR-M2'],['Starlink','STARLINK'],['GOES-18','GOES 18']];
-let cur={},map,mk,mapDone=false;
+let cur={},map,mk,mapDone=false,smap,smk,smapDone=false;
 const E=id=>document.getElementById(id);
 fetch('/api/settings').then(r=>r.json()).then(d=>{cur=d;render();});
 
@@ -74,10 +74,10 @@ function render(){
 function show(n){[...document.querySelectorAll('.tab')].forEach(t=>t.classList.toggle('on',t.dataset.s==n));
  [...document.querySelectorAll('.sec')].forEach(t=>t.classList.toggle('on',t.dataset.s==n));
  if(n=='Location'){if(map)setTimeout(()=>map.invalidateSize(),60);else initMap();}
- if(n=='Memory Skies')skyRows();}
+ if(n=='Memory Skies'){skyRows();if(smap)setTimeout(()=>smap.invalidateSize(),60);else setTimeout(initSkyMap,60);}}
 
 function locHtml(){return `<p class=hint>Click the map, drag the pin, or search an address. Save spots and pick a default.</p>
- <div class=row><input id=_addr type=text placeholder="address or place" style="flex:1"><button onclick=geocode()>Find</button></div>
+ <div class=row><input id=_addr type=text placeholder="address or place" style="flex:1"><button onclick=geocode()>Find</button><button onclick=geoMe()>My location</button></div>
  <div id=map></div>${fld('locName')}${fld('locLat')}${fld('locLon')}${fld('locMode')}
  <div class=row><button onclick=saveLoc()>+ Save current as a location</button></div>
  <table id=loclist></table>`;}
@@ -96,6 +96,18 @@ function geocode(){const q=E('_addr').value.trim();if(!q)return;
   if(!E('_locName').value)E('_locName').value=(a[0].display_name||q).split(',')[0];
   if(mk){mk.setLatLng([la,lo]);map.setView([la,lo],8);}}).catch(e=>{msg.textContent='geocode failed';});}
 
+// Browser geolocation -> fill the Location ('') or Memory-Skies ('sky') map + fields.
+// Needs a secure context: most browsers block this on plain http://<ip>; falls back
+// with a message. Works on https or localhost.
+function geoMe(which){if(!navigator.geolocation){msg.textContent='no geolocation in this browser';return;}
+ msg.textContent='locating…';
+ navigator.geolocation.getCurrentPosition(p=>{const la=p.coords.latitude,lo=p.coords.longitude;
+  if(which=='sky'){E('_skyLat').value=la.toFixed(4);E('_skyLon').value=lo.toFixed(4);
+   if(smk){smk.setLatLng([la,lo]);smap.setView([la,lo],11);}}
+  else{E('_locLat').value=la.toFixed(4);E('_locLon').value=lo.toFixed(4);E('_locMode').value='preset';
+   if(mk){mk.setLatLng([la,lo]);map.setView([la,lo],11);}}
+  msg.textContent='located';},
+  e=>{msg.textContent='geolocation blocked (needs https)';},{enableHighAccuracy:true,timeout:8000});}
 function focusHtml(){const d=(cur.ambientDay||'').split(',').map(s=>s.trim()),n=(cur.ambientNight||'').split(',').map(s=>s.trim());
  let h=`<p class=hint>Tick which tabs the device auto-tours when idle (day / night). No typing tab names.</p>
   <table><tr><td><b>tab</b></td><td>day</td><td>night</td></tr>`;
@@ -115,21 +127,44 @@ function bodiesHtml(){const ob=cur.orreryBodies||'';let h='<p class=hint>Extra m
  return h+'</div>';}
 function skiesHtml(){const la=cur.locLat??'',lo=cur.locLon??'';
  return `<p class=hint>Saved skies — the exact stars overhead at a moment and place (a birthday, an anniversary, a first night under the stars). Swipe up/down on the device's Star Map to cycle through them.</p>
- <label>Title<input id=_skyTitle type=text placeholder="e.g. Mia's birth - Phoenix"></label>
+ <label>Title<input id=_skyTitle type=text placeholder="e.g. Mia's birth"></label>
+ <label>Place name<input id=_skyPlace type=text placeholder="e.g. Phoenix, AZ"></label>
  <label>Date &amp; time (local)<input id=_skyWhen type=datetime-local></label>
+ <p class=hint>Click the map, drag the pin, or search an address to set the place.</p>
+ <div class=row><input id=_skyAddr type=text placeholder="address or place" style="flex:1"><button onclick=skyGeocode()>Find</button><button onclick=geoMe('sky')>My location</button></div>
+ <div id=smap></div>
  <label>Latitude<input id=_skyLat type=number step=any value="${la}"></label>
  <label>Longitude<input id=_skyLon type=number step=any value="${lo}"></label>
- <p class=hint>Tip: pin the place on the Location tab's map, then copy its lat/lon here.</p>
  <div class=row><button onclick=addSky()>+ Add memory sky</button></div>
  <table id=skylist></table>`;}
 function skyRows(){if(!E('skylist'))return;const L=cur.memorySkies||[];
  E('skylist').innerHTML=L.map((p,i)=>`<tr><td>${p.title||'(untitled)'}</td><td>${new Date((p.epoch||0)*1000).toLocaleString()}</td>
-  <td>${(+p.lat).toFixed(2)}, ${(+p.lon).toFixed(2)}</td><td style="text-align:right"><button onclick="delSky(${i})">x</button></td></tr>`).join('');}
+  <td>${(+p.lat).toFixed(2)}, ${(+p.lon).toFixed(2)}</td><td style="text-align:right"><button onclick="useSky(${i})">use</button><button onclick="delSky(${i})">x</button></td></tr>`).join('');}
+function initSkyMap(){if(smapDone||!E('smap'))return;try{
+ const lat=Number(E('_skyLat').value)||34,lon=Number(E('_skyLon').value)||-118;
+ smap=L.map('smap').setView([lat,lon],6);
+ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:13}).addTo(smap);
+ smk=L.marker([lat,lon],{draggable:true}).addTo(smap);
+ const setll=ll=>{E('_skyLat').value=ll.lat.toFixed(4);E('_skyLon').value=(((ll.lng+540)%360)-180).toFixed(4);};
+ smap.on('click',e=>{smk.setLatLng(e.latlng);setll(e.latlng);});
+ smk.on('dragend',()=>setll(smk.getLatLng()));smapDone=true;
+}catch(e){}}
+function skyGeocode(){const q=E('_skyAddr').value.trim();if(!q)return;
+ fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(q))
+ .then(r=>r.json()).then(a=>{if(!a[0])return;const la=+a[0].lat,lo=+a[0].lon;
+  E('_skyLat').value=la.toFixed(4);E('_skyLon').value=lo.toFixed(4);
+  if(!E('_skyPlace').value)E('_skyPlace').value=(a[0].display_name||q).split(',').slice(0,2).join(',').trim();
+  if(smk){smk.setLatLng([la,lo]);smap.setView([la,lo],8);}}).catch(e=>{msg.textContent='geocode failed';});}
+function useSky(i){const p=cur.memorySkies[i];E('_skyTitle').value=p.title||'';E('_skyPlace').value=p.place||'';
+ const d=new Date((p.epoch||0)*1000),pad=n=>String(n).padStart(2,'0');
+ E('_skyWhen').value=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+ E('_skyLat').value=p.lat;E('_skyLon').value=p.lon;
+ if(smk){smk.setLatLng([p.lat,p.lon]);smap.setView([p.lat,p.lon],8);}}
 function addSky(){const t=E('_skyTitle').value.trim(),w=E('_skyWhen').value;
  if(!w){msg.textContent='pick a date & time first';return;}
  const ep=Math.floor(new Date(w).getTime()/1000);
- cur.memorySkies=[...(cur.memorySkies||[]),{title:t||'Memory sky',epoch:ep,lat:Number(E('_skyLat').value),lon:Number(E('_skyLon').value)}];
- skyRows();E('_skyTitle').value='';E('_skyWhen').value='';}
+ cur.memorySkies=[...(cur.memorySkies||[]),{title:t||'Memory sky',place:E('_skyPlace').value.trim(),epoch:ep,lat:Number(E('_skyLat').value),lon:Number(E('_skyLon').value)}];
+ skyRows();E('_skyTitle').value='';E('_skyPlace').value='';E('_skyWhen').value='';}
 function delSky(i){cur.memorySkies.splice(i,1);skyRows();}
 
 function initMap(){if(mapDone||!E('map'))return;try{

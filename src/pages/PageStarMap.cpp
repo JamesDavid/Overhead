@@ -276,11 +276,13 @@ void PageStarMap::draw(App& app) {
     if (sx < -10 || sx > cw + 10 || sy < cy0 - 10 || sy > cy0 + ch + 10) continue;
     int r = s2.mag < 0.5f ? 3 : s2.mag < 1.5f ? 2 : 1;
     g.fillCircle(sx, sy, r, gTheme.fg);
-    bool zlabel = _zoom && _zoomT > 0.4f;            // zoomed -> name everything named in view
+    // Name the (bright, named) stars whenever zoomed in -- works for BOTH the
+    // constellation tour and tap-to-zoom, since t is the unified zoom amount.
+    bool zlabel = t > 0.4f;
     bool showName = s2.name[0] && (zlabel || (!_tour && !_zoom && _labels && s2.mag <= 1.6f));
     if (showName) {
       g.setTextDatum(textdatum_t::bottom_left);
-      g.setTextColor(gTheme.dim, gTheme.bg);
+      g.setTextColor(s2.mag <= 2.0f ? gTheme.fg : gTheme.dim, gTheme.bg);   // major names pop
       g.drawString(s2.name, sx + 4, sy - 1);
     }
   }
@@ -314,7 +316,12 @@ void PageStarMap::draw(App& app) {
     int sy0 = cy - (int)round(rr * cos(p.azDeg * astro::DEG2RAD));
     int sx, sy; xf(sx0, sy0, sx, sy);
     Color c = (i == 0) ? gTheme.warn : (i == 1) ? gTheme.fg : gTheme.ok;   // Sun / Moon / planets
-    g.fillCircle(sx, sy, i <= 1 ? 3 : 2, c);
+    if (i == 0) {                          // Sun: a small disc + a faint corona ring -- clearly the
+      g.fillCircle(sx, sy, 3, c);          // Sun, but restrained so it never washes out the chart
+      g.drawCircle(sx, sy, 5, c);
+    } else {
+      g.fillCircle(sx, sy, i == 1 ? 3 : 2, c);
+    }
     if (!_tour && (_labels || (_zoom && _zoomT > 0.4f))) {
       g.setTextDatum(textdatum_t::bottom_left);
       g.setTextColor(c, gTheme.bg);
@@ -365,19 +372,26 @@ void PageStarMap::draw(App& app) {
     g.setTextSize(1);
   }
 
-  // Memory-sky caption: the saved title + its instant (top-centre, when not touring).
-  if (_view >= 1 && !(_tour && t > 0.25f)) {
+  // Memory-sky caption (hidden once zoomed in, where the corners carry the zoom
+  // hint + az/el readout): title + place top-left, instant + lat/lon top-right.
+  if (_view >= 1 && t < 0.25f) {
     JsonObjectConst e = _settings.doc()["memorySkies"][_view - 1].as<JsonObjectConst>();
     const char* title = e["title"] | "Memory sky";
+    const char* place = e["place"] | "";
     time_t ep = (time_t)((jd - 2440587.5) * 86400.0 + 0.5);
     struct tm tmv; gmtime_r(&ep, &tmv);
     char db[40]; strftime(db, sizeof(db), "%b %e, %Y  %H:%MZ", &tmv);
-    g.setTextDatum(textdatum_t::top_center);
+    char ll[28]; snprintf(ll, sizeof(ll), "%.2f\xF7%c %.2f\xF7%c",
+                          fabs(latDeg), latDeg >= 0 ? 'N' : 'S', fabs(lonDeg), lonDeg >= 0 ? 'E' : 'W');
     g.setTextSize(1);
+    g.setTextDatum(textdatum_t::top_left);                 // title + place name
     g.setTextColor(gTheme.accent, gTheme.bg);
-    g.drawString(title, cw / 2, cy0 + 2);
+    g.drawString(title, 4, cy0 + 2);
+    if (place[0]) { g.setTextColor(gTheme.dim, gTheme.bg); g.drawString(place, 4, cy0 + 13); }
+    g.setTextDatum(textdatum_t::top_right);                // date/time + observer lat/lon
     g.setTextColor(gTheme.dim, gTheme.bg);
-    g.drawString(db, cw / 2, cy0 + 13);
+    g.drawString(db, cw - 4, cy0 + 2);
+    g.drawString(ll, cw - 4, cy0 + 13);
   }
 
   // Badge: magnitude limit.

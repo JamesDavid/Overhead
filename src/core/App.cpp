@@ -6,10 +6,13 @@
 #include "Theme.h"
 #include "../hal/Display.h"
 #include "../hal/Touch.h"
+#include "../services/Settings.h"
+#include "../services/LocationService.h"
 #include <Arduino.h>
 #include <WiFi.h>
 #include <time.h>
 #include <string.h>
+#include <math.h>
 
 // The one mutable global palette every widget reads.
 Theme gTheme = themes::dark;
@@ -183,6 +186,14 @@ bool App::dotsHit(int x) const {
 }
 
 void App::tapAt(int x, int y) {
+  if (_locPicker) {                                          // location picker open: pick a row or dismiss
+    if (y >= contentY()) {
+      int r = locPickerRow(x, y - contentY());
+      if (r >= 0) { applyLocation(r); closeLocPicker(); }
+      else closeLocPicker();
+    } else closeLocPicker();
+    return;
+  }
   if (_grid) {                                               // grid open: pick a cell or dismiss
     if (y >= contentY()) {
       int idx = gridCell(x, y - contentY());
@@ -202,7 +213,13 @@ void App::tapAt(int x, int y) {
   if (y < contentY()) {                                      // status strip
     if (x < 48 && _clock) { _clock->toggle(*this); return; } // tap the clock -> clock mode on/off
     if (dotsHit(x)) { openGrid(); return; }                  // tap the page dots -> grid
-    if (_pinned) _pinned = false;
+    const int W = _display.width();
+    if (x >= W - 15) {                                       // WiFi bars -> Device Health
+      int h = healthPageIndex();
+      if (h >= 0) { _mode = Mode::Manual; setPage(h); _statusDirty = true; return; }
+    }
+    if (x >= W - 46 && x < W - 30 && openLocPicker()) return; // crosshair -> saved-locations picker
+    if (_pinned) _pinned = false;                            // (mode-glyph zone + rest) -> toggle mode
     else _mode = (_mode == Mode::Auto) ? Mode::Manual : Mode::Auto;
     _statusDirty = true;
     return;
@@ -244,7 +261,8 @@ void App::tick(uint32_t nowMs) {
     int dx = _lastX - _pressX, dy = _lastY - _pressY;
     uint32_t held = _lastTouchMs - _pressStartMs;
     bool moved = abs(dx) > kTapMax || abs(dy) > kTapMax;
-    if (abs(dx) >= kSwipeMin && abs(dx) > abs(dy)) {       // horizontal swipe -> page nav
+    if (_locPicker) { tapAt(_pressX, _pressY); }            // picker up: any release picks/dismisses
+    else if (abs(dx) >= kSwipeMin && abs(dx) > abs(dy)) {   // horizontal swipe -> page nav
       if (_grid) closeGrid(); else { if (dx < 0) nextPage(); else prevPage(); }
     } else if (abs(dy) >= kSwipeMin && abs(dy) >= abs(dx)) {  // vertical swipe -> page scroll
       if (_grid) closeGrid();
@@ -259,12 +277,12 @@ void App::tick(uint32_t nowMs) {
     _wasTouched = false;
   }
 
-  // Inactivity: MANUAL -> AUTO (unless pinned or the grid is up) (spec §7.4).
-  if (_mode == Mode::Manual && !_pinned && !_grid && nowMs - _lastInteractMs > _inactivityMs) {
+  // Inactivity: MANUAL -> AUTO (unless pinned or an overlay is up) (spec §7.4).
+  if (_mode == Mode::Manual && !_pinned && !_grid && !_locPicker && nowMs - _lastInteractMs > _inactivityMs) {
     _mode = Mode::Auto; _statusDirty = true;
   }
 
-  if (_active >= 0 && !_grid) {                                // grid overlay holds the content
+  if (_active >= 0 && !_grid && !_locPicker) {                 // grid/picker overlay holds the content
     if (_clock && _clock->active()) {
       bool live = _pages[_active]->clockKeepLive();            // live pages keep running underneath
       if (_active != _clockShownPage) { _clock->invalidate(); _clockShownPage = _active; }
@@ -332,13 +350,19 @@ void App::drawStatus() {
   g.setTextSize(1);
   g.drawString(clk, 6, kStatusH / 2);
 
-  // WiFi state + mode + active page title, right-aligned.
-  g.setTextDatum(textdatum_t::middle_right);
-  String wifi = (WiFi.status() == WL_CONNECTED) ? String("WiFi ") + WiFi.RSSI() : "WiFi --";
-  const char* modeTag = _pinned ? "PIN" : (_mode == Mode::Auto ? "AUTO" : "MAN");
-  String right = (_active >= 0 ? String(_pages[_active]->title()) + "  " : "")
-               + modeTag + "  " + wifi;
-  g.drawString(right, _display.width() - 6, kStatusH / 2);
+  // Right cluster (left->right): page title, location crosshair, mode glyph, WiFi bars.
+  // Spaced so the three glyphs read as distinct tap targets.
+  const int cy = kStatusH / 2, barsRight = _display.width() - 4;
+  drawSignalBars(barsRight, cy);                  // tap -> Device Health
+  const int modeRight = barsRight - 17;
+  drawModeIcon(modeRight, cy);                     // AUTO / MAN / PIN
+  const int locCx = modeRight - 17;
+  if (_pickSettings) drawLocIcon(locCx, cy);       // tap -> saved-locations picker
+  if (_active >= 0) {
+    g.setTextDatum(textdatum_t::middle_right);
+    g.setTextColor(gTheme.fg, gTheme.grid);
+    g.drawString(_pages[_active]->title(), locCx - 11, cy);
+  }
 
   // Page-indicator dots just right of the clock. A badged page (Director has a
   // suppressed interrupt for it) shows a warn-coloured dot (spec §7.4).
@@ -352,4 +376,140 @@ void App::drawStatus() {
       else                g.drawCircle(x0 + i * gap, cy, 2, gTheme.dim);
     }
   }
+}
+
+// WiFi signal-strength glyph: four bars filled by RSSI; a disconnected radio shows
+// an empty outline with a warn slash. Right edge of the bars is at xRight.
+void App::drawSignalBars(int xRight, int cy) {
+  auto& g = _display.gfx();
+  bool up = (WiFi.status() == WL_CONNECTED);
+  int rssi = up ? WiFi.RSSI() : -127;
+  int lvl = !up ? 0 : rssi >= -55 ? 4 : rssi >= -65 ? 3 : rssi >= -75 ? 2 : 1;   // 0..4 bars
+  const int bw = 2, gap = 1, nb = 4;
+  int x0 = xRight - (nb * (bw + gap) - gap);   // leftmost bar
+  int baseY = cy + 6;                          // shared bar bottom
+  for (int i = 0; i < nb; ++i) {
+    int h = 3 + i * 3, bx = x0 + i * (bw + gap), by = baseY - h;
+    if (i < lvl) g.fillRect(bx, by, bw, h, gTheme.fg);
+    else         g.drawRect(bx, by, bw, h, gTheme.dim);
+  }
+  if (!up) g.drawLine(x0, baseY - 12, xRight, baseY, gTheme.warn);   // disconnected: slash
+}
+
+int App::healthPageIndex() const {
+  for (int i = 0; i < (int)_pages.size(); ++i)
+    if (!strcmp(_pages[i]->title(), "Device Health")) return i;
+  return -1;
+}
+
+// Mode glyph: AUTO = play (touring), MAN = pause (stopped on a page), PIN = padlock.
+void App::drawModeIcon(int xr, int cy) {
+  auto& g = _display.gfx();
+  if (_pinned) {                                  // padlock
+    g.drawRect(xr - 5, cy - 5, 4, 3, gTheme.warn); // shackle
+    g.fillRect(xr - 6, cy - 2, 6, 6, gTheme.warn); // body
+  } else if (_mode == Mode::Auto) {               // play triangle
+    g.fillTriangle(xr - 7, cy - 4, xr - 7, cy + 4, xr, cy, gTheme.ok);
+  } else {                                        // pause bars
+    g.fillRect(xr - 6, cy - 4, 2, 8, gTheme.fg);
+    g.fillRect(xr - 2, cy - 4, 2, 8, gTheme.fg);
+  }
+}
+
+// Location crosshair (GPS-style): a ring with four ticks. Opens the saved-locations picker.
+void App::drawLocIcon(int cx, int cy) {
+  auto& g = _display.gfx();
+  Color c = gTheme.accent;
+  g.drawCircle(cx, cy, 3, c);
+  g.drawFastVLine(cx, cy - 5, 2, c); g.drawFastVLine(cx, cy + 4, 2, c);
+  g.drawFastHLine(cx - 5, cy, 2, c); g.drawFastHLine(cx + 4, cy, 2, c);
+}
+
+bool App::openLocPicker() {
+  if (!_pickSettings) return false;
+  JsonArray locs = _pickSettings->doc()["locations"].as<JsonArray>();
+  if (locs.isNull() || locs.size() == 0) return false;   // nothing saved -> configure in the web UI
+  _locPicker = true; _mode = Mode::Manual; _statusDirty = true;
+  drawLocPicker();
+  return true;
+}
+
+void App::closeLocPicker() {
+  if (!_locPicker) return;
+  _locPicker = false;
+  _display.gfx().fillRect(0, contentY(), contentW(), contentH(), gTheme.bg);
+  if (_active >= 0) _pages[_active]->onEnter(*this);
+  _statusDirty = true;
+}
+
+static const int kPickRowH = 19, kPickTop = 32;   // picker row geometry (shared by draw + hit-test)
+
+void App::drawLocPicker() {
+  auto& g = _display.gfx();
+  const int cw = contentW(), ch = contentH(), y0 = contentY();
+  g.fillRect(0, y0, cw, ch, gTheme.bg);
+  g.setTextSize(1);
+  g.setTextDatum(textdatum_t::top_left);
+  g.setTextColor(gTheme.accent, gTheme.bg);
+  g.drawString("Choose location  (tap one - or outside to cancel)", 6, y0 + 4);
+
+  bool isAuto = _pickSettings->getString("locMode", "auto") != "preset";
+  String activeName = _pickSettings->getString("locName", "");
+  double aLat = _pickSettings->getFloat("locLat", 0), aLon = _pickSettings->getFloat("locLon", 0);
+  // Current selection, so it's clear what's active even if it isn't a saved entry.
+  g.setTextColor(gTheme.fg, gTheme.bg);
+  char curln[48];
+  if (isAuto) snprintf(curln, sizeof(curln), "current: Auto (IP)");
+  else        snprintf(curln, sizeof(curln), "current: %s  %.2f, %.2f", activeName.c_str(), aLat, aLon);
+  g.drawString(curln, 6, y0 + 16);
+
+  JsonArray locs = _pickSettings->doc()["locations"].as<JsonArray>();
+  g.setTextDatum(textdatum_t::middle_left);
+  int ry = y0 + kPickTop;
+  auto row = [&](const String& label, const String& sub, bool active) {
+    if (ry + kPickRowH > y0 + ch) return;
+    if (active) g.fillRect(4, ry, cw - 8, kPickRowH - 2, gTheme.grid);
+    g.setTextColor(active ? gTheme.accent : gTheme.fg, active ? gTheme.grid : gTheme.bg);
+    g.drawString(active ? ("\x10 " + label) : label, 10, ry + kPickRowH / 2 - 1);   // arrow marks the active row
+    if (sub.length()) {
+      g.setTextDatum(textdatum_t::middle_right);
+      g.setTextColor(gTheme.dim, active ? gTheme.grid : gTheme.bg);
+      g.drawString(sub, cw - 10, ry + kPickRowH / 2 - 1);
+      g.setTextDatum(textdatum_t::middle_left);
+    }
+    ry += kPickRowH;
+  };
+  row("Auto (IP geolocation)", "", isAuto);                        // row 0
+  for (JsonObject p : locs) {                                      // rows 1..n
+    double lat = p["lat"] | 0.0, lon = p["lon"] | 0.0;
+    char sub[24]; snprintf(sub, sizeof(sub), "%.2f, %.2f", lat, lon);
+    String nm = (const char*)(p["name"] | "(unnamed)");
+    bool active = !isAuto && (nm == activeName ||                  // match by name or by coordinates
+                              (fabs(lat - aLat) < 0.01 && fabs(lon - aLon) < 0.01));
+    row(nm, sub, active);
+  }
+}
+
+int App::locPickerRow(int x, int yRel) const {
+  if (yRel < kPickTop) return -1;
+  int r = (yRel - kPickTop) / kPickRowH;
+  int n = 1 + (int)_pickSettings->doc()["locations"].as<JsonArray>().size();
+  return (r >= 0 && r < n) ? r : -1;
+}
+
+void App::applyLocation(int row) {
+  if (!_pickSettings) return;
+  if (row == 0) {
+    _pickSettings->set("locMode", "auto");
+  } else {
+    JsonArray locs = _pickSettings->doc()["locations"].as<JsonArray>();
+    if (row - 1 >= (int)locs.size()) return;
+    JsonObject p = locs[row - 1];
+    _pickSettings->set("locMode", "preset");
+    _pickSettings->set("locName", (const char*)(p["name"] | "Preset"));
+    _pickSettings->set("locLat", (double)(p["lat"] | 0.0));
+    _pickSettings->set("locLon", (double)(p["lon"] | 0.0));
+  }
+  _pickSettings->save();
+  if (_pickLoc) _pickLoc->refresh();          // re-resolve + publish Location to all providers
 }

@@ -26,6 +26,16 @@ static const char* statusStr(ProviderStatus s) {
   }
 }
 
+// Compact duration: the two most-significant non-zero units (e.g. "2d3h", "5h12m",
+// "3m07s", "45s"). Keeps the narrow age column readable instead of huge second counts.
+static void fmtDur(uint32_t s, char* out, size_t n) {
+  uint32_t d = s / 86400, h = (s % 86400) / 3600, m = (s % 3600) / 60, sec = s % 60;
+  if (d)      snprintf(out, n, "%lud%luh", (unsigned long)d, (unsigned long)h);
+  else if (h) snprintf(out, n, "%luh%lum", (unsigned long)h, (unsigned long)m);
+  else if (m) snprintf(out, n, "%lum%02lus", (unsigned long)m, (unsigned long)sec);
+  else        snprintf(out, n, "%lus", (unsigned long)sec);
+}
+
 // Display-mode cycle: Auto / Day / Night (dark) / Night (red dark-adapt).
 static const char* kThemeNames[] = {"Auto", "Day", "Night", "Red"};
 static int themeModeIndex(Settings& s) {
@@ -125,7 +135,8 @@ void PageHealth::draw(App& app) {
        "  psram " + Display::psramSize(), gTheme.dim);
   size_t fsTot = LittleFS.totalBytes(), fsUse = LittleFS.usedBytes();
   line(String("fs ") + (fsUse / 1024) + "/" + (fsTot / 1024) + " KB  fw " + OVERHEAD_FW_VERSION, gTheme.dim);
-  line(String("uptime ") + (millis() / 1000) + "s  ntp " + (_time.synced() ? "ok" : "no"), gTheme.dim);
+  char up[12]; fmtDur(millis() / 1000, up, sizeof(up));
+  line(String("uptime ") + up + "  ntp " + (_time.synced() ? "ok" : "no"), gTheme.dim);
   const auto& loc = _loc.active();
   if (loc.valid) { char b[48]; snprintf(b, sizeof(b), "loc %s  %.3f,%.3f", loc.name.c_str(), loc.lat, loc.lon); line(b, gTheme.dim); }
 
@@ -135,7 +146,7 @@ void PageHealth::draw(App& app) {
   auto prow = [&](const char* name, ProviderStatus st, uint32_t fetched) {
     Color c = st == ProviderStatus::Ready ? gTheme.ok : st == ProviderStatus::Error ? gTheme.warn : gTheme.dim;
     char age[12] = "-";
-    if (fetched && now > fetched) snprintf(age, sizeof(age), "%lus", (unsigned long)(now - fetched));
+    if (fetched && now > fetched) fmtDur(now - fetched, age, sizeof(age));
     char b[48]; snprintf(b, sizeof(b), "%-14s  %-7s  %s", name, statusStr(st), age);
     g.setTextColor(c, gTheme.bg); g.drawString(padRight(b, 40), x0, y); y += 12;
   };

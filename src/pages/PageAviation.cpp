@@ -703,9 +703,30 @@ void PageAviation::drawPressure(App& app) {
         q.hpa = r->hpa; q.cloud = r->cloud; q.wdir = r->wdir; q.wspd = r->wspd; merged.push_back(q); }
     } }
   int mx = 2, my = cy0 + 16, mw = cw - 4, mh = ch - 16 - 12;
-  float zs = 1.f + _pZoomT * (2.6f - 1.f);                      // tap-to-zoom magnification about the focus
-  auto SX = [&](double lon) { int x = mx + (int)((lon - w0) / (w1 - w0) * mw); return _pFx + (int)(zs * (x - _pFx)); };
-  auto SY = [&](double lat) { int y = my + (int)((a1 - lat) / (a1 - a0) * mh); return _pFy + (int)(zs * (y - _pFy)); };
+  auto BX = [&](double lon) { return mx + (lon - w0) / (w1 - w0) * mw; };   // base (un-zoomed) projection
+  auto BY = [&](double lat) { return my + (a1 - lat) / (a1 - a0) * mh; };
+  // Tap-to-zoom frames the data CLUSTER: fit its bounding box to the map and centre
+  // it so a tight group (e.g. the Phoenix/DVT airports) fills the screen, instead of
+  // a fixed 2.6x. zMax comes from the cluster spread; the transform is identity at t=0.
+  const double mapCx = mx + mw / 2.0, mapCy = my + mh / 2.0;
+  double clCx = mapCx, clCy = mapCy; float zMax = 2.6f;
+  if (!merged.empty()) {
+    double minx = 1e9, maxx = -1e9, miny = 1e9, maxy = -1e9;
+    for (const auto& p : merged) {
+      if (p.lon < w0 || p.lon > w1 || p.lat < a0 || p.lat > a1) continue;
+      double bx = BX(p.lon), by = BY(p.lat);
+      if (bx < minx) minx = bx; if (bx > maxx) maxx = bx;
+      if (by < miny) miny = by; if (by > maxy) maxy = by;
+    }
+    if (maxx >= minx && maxy >= miny) {
+      clCx = (minx + maxx) / 2.0; clCy = (miny + maxy) / 2.0;
+      double clw = max(8.0, maxx - minx), clh = max(8.0, maxy - miny);
+      zMax = (float)max(1.5, min(9.0, min(mw * 0.85 / clw, mh * 0.85 / clh)));
+    }
+  }
+  float t = _pZoomT, zs = 1.f + t * (zMax - 1.f);
+  auto SX = [&](double lon) { return (int)(clCx + zs * (BX(lon) - clCx) + t * (mapCx - clCx)); };
+  auto SY = [&](double lat) { return (int)(clCy + zs * (BY(lat) - clCy) + t * (mapCy - clCy)); };
   g.drawRect(mx, my, mw, mh, gTheme.grid);
   // Coastlines + borders, then (regional view only) state/province lines, both
   // clipped to the bbox. Natural Earth coords are in 0.1-degree units.
