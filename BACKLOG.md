@@ -221,14 +221,13 @@ hazards, SPECI Director badge. Remaining:
 - TLEs retained WATCHLIST-ONLY (full lists ~18 KB of Strings froze TLS). Aircraft cap 24,
   METAR cap 12. On the PSRAM CrowPanel, keep full lists + a sprite double-buffer (board-conditional).
 - Boot fires ~12 HTTPS jobs serially — consider staggering to cut heap contention.
-- **Unified per-airport METAR cache.** The METAR feed is fetched 3x today from the same
-  aviationweather.gov API into separate blob caches: AviationWxProvider (nearby-box list),
-  PressureMapProvider (regional/US/world spread), and Aircraft's nearest-field. A shared
-  per-ICAO METAR store (one entry per airport: pressure/cloud/wind/cat/raw + fetchedAt)
-  that all three read/write would cut duplicate fetches + heap, and keep them consistent
-  (no more "AWC unavailable on the list but the pressure map has data"). Fetch by bbox,
-  upsert per station; consumers query by box or by id. (Stopgap shipped: each provider now
-  restores its own last-good cache on boot.)
+- **Unified per-airport METAR pool (v1 DONE, Jun 2026).** `services/MetarStore` is a
+  shared per-ICAO pool (lat/lon/hpa/cloud/wind/temp/cat/obs, bounded + LRU). The METAR
+  list + pressure map both UPSERT the stations they parse; the pressure map renders the
+  UNION of its scope points and the pool in the box — so a station fetched by one feed
+  shows for the others (no more "AWC unavailable but the map has data") and they stay
+  consistent + denser near the observer. REMAINING: actually de-duplicate the *fetches*
+  (consumers query the pool first, fetch only the gaps) and route raw/TAF through it.
 - **Two-phase boot: updater -> viewer (DONE, Jun 2026).** Gated by the `bootUpdater`
   setting (off by default): a lean boot brings up only WiFi/NTP/net + the cacheable
   providers (TLE/Launch/SpaceWx) — no UI, no live feeds, no screenshot buffer — refreshes
@@ -291,22 +290,21 @@ transit per body, upcoming meteor-showers page, naked-eye visibility.
   Satellites dropped the redundant pass az/el graph view.
 - **Remote** — `/remote` up/down scroll buttons + 2×2 layout; bigger screenshot.
 
-## Web UI overhaul + user-friendly configuration (backlog, Jun 2026)
-A proper settings web app instead of the single scroll form, plus friendlier config:
-- **Tabbed web UI** — left-column section nav (Location, Focus, Satellites, Bodies,
-  Star Maps, System...) with the active section's settings filling the main right pane.
-- **Locations tab** — add multiple saved locations via map pick *or* address/geocode
-  input (not just lat/lon), list them, and choose the current/default. (Pairs with the
-  saved-locations + status-bar location glyph item.)
-- **Focus tab** — choose the ambient-tour pages via a sortable / multi-select list
-  (drag to order, toggle to include) instead of a typo-prone comma-separated string;
-  same result, no string parsing.
-- **Satellites + celestial-bodies selectors** — full-featured pickers to select anything
-  trackable (search/filter the TLE catalog; full body list), not a short baked set.
-  (Pairs with "orrery bodies -> LittleFS + self-update".)
-- **Per-page explanations** — a short user-facing "what am I looking at" blurb on each
-  detail page.
-- **Personalized star maps** — configure the memory/birthday skies (location + date/time)
-  through the same friendly UI widgets. (Pairs with the personal-skies item.)
+## Web UI overhaul + user-friendly configuration (v1 DONE, Jun 2026)
+Tabbed settings app SHIPPED (left-nav: Location / Focus / Satellites / Bodies /
+Appearance / Aircraft / System). DONE:
+- **Tabbed layout** — all sections in the DOM, CSS-toggled, one Save.
+- **Locations tab** — Leaflet map + **address geocode** (Nominatim) + **saved-locations
+  list** (add / use / delete, persisted as the `locations` array) + name/lat/lon/source.
+- **Focus tab** — per-page **day/night ambient-tour checkboxes** (build ambientDay/Night;
+  no typo-prone strings) + lead/threshold fields.
+- **Satellites / Bodies** — checkbox pickers + comma-sep extras.
+REMAINING (stretch):
+- **Full sat/body pickers** — search/filter the live TLE catalog + full body list on the
+  device (the web UI still uses a baked preset + free-text). Pairs with orrery->LittleFS.
+- **Reorder the focus tour** (drag/up-down) — order currently follows the carousel.
+- **On-device location switch** from the saved `locations` list + status-bar glyph (M11).
+- **Per-page "what am I looking at" explanations.**
+- **Personalized star maps** config via the same UI (pairs with the personal-skies item).
 
 <!-- new milestones append below as they land -->
