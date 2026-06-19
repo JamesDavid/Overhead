@@ -146,7 +146,7 @@ void PageHealth::draw(App& app) {
   auto prow = [&](const char* name, ProviderStatus st, uint32_t fetched) {
     Color c = st == ProviderStatus::Ready ? gTheme.ok : st == ProviderStatus::Error ? gTheme.warn : gTheme.dim;
     char age[12] = "-";
-    if (fetched && now > fetched) fmtDur(now - fetched, age, sizeof(age));
+    if (fetched > 1600000000UL && now > fetched) fmtDur(now - fetched, age, sizeof(age));  // ignore pre-NTP stamps
     char b[48]; snprintf(b, sizeof(b), "%-14s  %-7s  %s", name, statusStr(st), age);
     g.setTextColor(c, gTheme.bg); g.drawString(padRight(b, 40), x0, y); y += 12;
   };

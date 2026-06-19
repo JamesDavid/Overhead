@@ -44,8 +44,9 @@ void WeatherProvider::refresh(bool force) {
   _net->get(url, [this](int code, const String& body) {
     _inflight = false;
     if (code == 200 && parse(body)) {
-      _cache->put("weather", body, code, (uint32_t)time(nullptr));
-      _lastFetched = (uint32_t)time(nullptr);
+      uint32_t nowt = (uint32_t)time(nullptr);
+      _cache->put("weather", body, code, nowt);
+      if (nowt > 1600000000UL) _lastFetched = nowt;   // don't stamp a pre-NTP (epoch-0-ish) time
       _status = ProviderStatus::Ready;
     } else if (_cloud.empty()) {
       _status = ProviderStatus::Error;
