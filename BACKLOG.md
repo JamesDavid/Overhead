@@ -50,7 +50,25 @@ Not built (small, optional — promote later if wanted):
 - Group filter chips + sunlit-only toggle; AMSAT mode/band sub-filters.
 - Source the live AMSAT transponder set (not the hand seed in Transponders.h).
 - Grayline / day-night terminator overlay on the ground track (needs Ephem subsolar).
-- Doppler: uplink correction + tuning readout.
+- **Doppler tuning cue (on-screen, no radio link) — near-term.** The pass view already
+  computes the live downlink/uplink shift; surface it as a glance-and-knob guide
+  ("set 145.805 -> step to 145.800 in 40s", with the current corrected freq big). Works
+  with ANY radio (incl. a Baofeng/TIDRADIO UV-3R-class HT, which have **no CAT/live
+  frequency control** — only K1 2-pin CHIRP memory programming, too slow to retune
+  mid-pass). This is the realistic Doppler feature for cheap HTs. Pairs with the existing
+  per-bird transponder DL/UL readout.
+- **CHIRP FM-sat channel-plan export.** Generate a memory bank stepped across the pass
+  (the classic split-memory FM-sat trick — DL in ~5 kHz steps) the user loads once with
+  CHIRP, then channel-ups through the pass. Semi-automated Doppler for HTs with no CAT.
+  Emit a CHIRP-compatible CSV (download via the web UI / `/api/...`).
+- **UART -> CAT automated Doppler — for CAT-capable rigs only.** Stream the computed
+  RX/TX Doppler shift over the ESP32 UART as rig-control commands (Kenwood / Yaesu /
+  Icom CI-V), level-shifted into the radio's CAT port — true closed-loop tracking on an
+  FT-817/818, IC-705/9700, TH-D74, etc. The MCU is never the bottleneck (a plain ESP32
+  UART suffices; no S3/USB-host needed) — the radio must have CAT. Sibling to the rotor
+  output item (same "device computes az/el + freq -> drives the hardware" pattern). NOTE:
+  the AIOC (USB audio+PTT device) is the wrong tool for *frequency* control; it'd only
+  matter for downlink AUDIO, which needs an S3 USB-host + UAC stack — its own milestone.
 - **Az/El rotor output + DIY rotor.** Stream the tracked az/el over serial (and/or
   TCP) in a standard rotor protocol — **GS-232** ("Wxxx yyy") or **EasyComm II**
   ("AZxxx.x ELyy.y") — so it drives Hamlib/rotctld or a hardware rotator. Works for ANY
