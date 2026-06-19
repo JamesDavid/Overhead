@@ -54,14 +54,19 @@ static int briIndex(Settings& s) {
 }
 
 void PageHealth::onTouch(App& app, int x, int y) {
-  if (y >= app.contentH() - 44 && y < app.contentH() - 26) {   // display / brightness row
-    if (x < app.contentW() / 2) {                              // left: cycle palette
+  if (y >= app.contentH() - 44 && y < app.contentH() - 26) {   // display / brightness / shots row
+    int col = x / (app.contentW() / 3);
+    if (col == 0) {                                            // cycle palette
       setThemeMode(_settings, (themeModeIndex(_settings) + 1) % 4);
-    } else {                                                   // right: cycle brightness
+      _theme.forceReapply();
+    } else if (col == 1) {                                     // cycle brightness
       _settings.set("backlight", (long)kBri[(briIndex(_settings) + 1) % 5]);
-      _settings.save();
+      _settings.save(); _theme.forceReapply();
+    } else {                                                   // toggle remote screenshots
+      bool on = !app.display().shotsEnabled();
+      app.display().setShotsEnabled(on);
+      _settings.set("debugShots", on); _settings.save();
     }
-    _theme.forceReapply();                        // apply palette/brightness immediately
     _dirty = _needClear = true;
     return;
   }
@@ -146,14 +151,16 @@ void PageHealth::draw(App& app) {
     g.drawString("refreshing providers...", cw / 2, cy0 + ch - 52);
   }
 
-  // Display-mode + brightness buttons (tap to cycle), above the action buttons.
-  int ty = cy0 + ch - 44, hw = cw / 2;
+  // Display-mode / brightness / screenshots buttons (tap to cycle/toggle).
+  int ty = cy0 + ch - 44, tw = cw / 3;
   g.setTextDatum(textdatum_t::middle_center);
-  g.drawRect(2, ty, hw - 4, 18, gTheme.grid);
   g.setTextColor(gTheme.accent, gTheme.bg);
-  g.drawString(String("Disp: ") + kThemeNames[themeModeIndex(_settings)], 2 + (hw - 4) / 2, ty + 9);
-  g.drawRect(hw + 2, ty, hw - 4, 18, gTheme.grid);
-  g.drawString(String("Bright: ") + kBriName[briIndex(_settings)], hw + 2 + (hw - 4) / 2, ty + 9);
+  g.drawRect(2, ty, tw - 4, 18, gTheme.grid);
+  g.drawString(String("Disp:") + kThemeNames[themeModeIndex(_settings)], tw / 2, ty + 9);
+  g.drawRect(tw + 2, ty, tw - 4, 18, gTheme.grid);
+  g.drawString(String("Bri:") + kBriName[briIndex(_settings)], tw + tw / 2, ty + 9);
+  g.drawRect(2 * tw + 2, ty, tw - 4, 18, gTheme.grid);
+  g.drawString(String("Shot:") + (app.display().shotsEnabled() ? "on" : "off"), 2 * tw + tw / 2, ty + 9);
 
   // Button row.
   int by = cy0 + ch - 22, bw = cw / 3;

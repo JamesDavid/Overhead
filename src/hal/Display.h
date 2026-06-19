@@ -30,6 +30,8 @@ public:
   void requestShot() { _shotReady = false; _shotPending = true; }
   void serviceShot();                     // call from the main loop each tick
   void freeShot();                        // release the 16KB buffer after serving (heap floor recovers)
+  void setShotsEnabled(bool on) { _shotsEnabled = on; if (!on) freeShot(); }  // runtime enable/disable
+  bool shotsEnabled() const { return _shotsEnabled; }
   bool shotReady() const { return _shotReady; }
   const uint8_t* jpeg() const { return _jpg; }
   size_t jpegLen() const { return _jpgLen; }
