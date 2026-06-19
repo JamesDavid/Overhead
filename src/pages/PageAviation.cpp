@@ -622,6 +622,36 @@ void PageAviation::drawTrends(App& app) {
   g.drawString(concl.substring(0, (cw - 8) / 6), 4, cy0 + ch - 2);
 }
 
+// Station wind barb: a staff in the FROM direction with barbs (full = 10 kt,
+// half = 5 kt, pennant = 50 kt), standard meteorological notation.
+static void windBarb(lgfx::LovyanGFX& g, int x, int y, int wdir, int wspd, Color col) {
+  if (wspd <= 0 || wdir < 0) return;
+  const double D2R = 3.14159265358979323846 / 180.0, a = wdir * D2R;
+  double dx = sin(a), dy = -cos(a);                 // staff direction (toward where wind comes from)
+  double px = cos(a), py = sin(a);                  // perpendicular (barbs hang to one side)
+  const int staff = 15;
+  int ex = x + (int)round(staff * dx), ey = y + (int)round(staff * dy);
+  g.drawLine(x, y, ex, ey, col);                    // staff
+  int kt = ((wspd + 2) / 5) * 5;                    // round to nearest 5
+  int pen = kt / 50; kt -= pen * 50;
+  int full = kt / 10, half = (kt % 10) >= 5 ? 1 : 0;
+  double bx = ex, by = ey;                          // build barbs from the upwind end inward
+  const double step = 3.5, blen = 6.0;
+  for (int i = 0; i < pen; ++i) {                   // pennant (triangle) per 50 kt
+    g.fillTriangle((int)bx, (int)by, (int)(bx - step * 1.6 * dx), (int)(by - step * 1.6 * dy),
+                   (int)(bx + blen * px), (int)(by + blen * py), col);
+    bx -= step * 2 * dx; by -= step * 2 * dy;
+  }
+  for (int i = 0; i < full; ++i) {                  // full barb per 10 kt
+    g.drawLine((int)bx, (int)by, (int)(bx + blen * px), (int)(by + blen * py), col);
+    bx -= step * dx; by -= step * dy;
+  }
+  if (half) {                                       // half barb for the trailing 5 kt
+    if (full == 0 && pen == 0) { bx -= step * dx; by -= step * dy; }   // hold a half off the very tip
+    g.drawLine((int)bx, (int)by, (int)(bx + blen * 0.55 * px), (int)(by + blen * 0.55 * py), col);
+  }
+}
+
 // Makeshift synoptic map from major-airport METARs: each station plotted on a
 // region coastline, coloured by sea-level pressure (blue high / red low) with the
 // max/min flagged H/L, or by cloud cover (top-left badge toggles). Not a real WPC
@@ -688,6 +718,7 @@ void PageAviation::drawPressure(App& app) {
     Color pc = p.hpa >= 1019 ? gTheme.accent : p.hpa <= 1009 ? gTheme.warn : gTheme.fg; // pressure band
     g.fillCircle(x, y, 2, cloud ? cc : pc);
     if (!cloud) g.drawCircle(x, y, 4, cc);                   // colour-coded cloud ring
+    if (_pZoomT > 0.4f) windBarb(g, x, y, p.wdir, p.wspd, gTheme.fg);   // wind barb when zoomed in
     String id = p.icao; if (id.length() == 4 && id[0] == 'K') id = id.substring(1);     // drop US K
     g.setTextDatum(textdatum_t::top_left);
     g.setTextColor(gTheme.dim, gTheme.bg); g.drawString(id, x + 3, y - 9);              // id
@@ -697,6 +728,10 @@ void PageAviation::drawPressure(App& app) {
     else if (_presMode == 1) snprintf(b, sizeof(b), "%.2f", p.hpa * 0.02953f);  // full inHg
     else                     snprintf(b, sizeof(b), "%d", p.hpa);               // full hPa
     g.setTextColor(cloud ? cc : pc, gTheme.bg); g.drawString(b, x + 3, y - 1);  // readout
+    if (_pZoomT > 0.4f && p.wspd >= 0) {                                        // wind speed below, when zoomed
+      g.setTextColor(gTheme.dim, gTheme.bg);
+      g.drawString(p.wspd == 0 ? String("calm") : String(p.wspd) + "kt", x + 3, y + 7);
+    }
   }
   if (!cloud) {                                                // H / L markers
     if (hi >= 0) { g.setTextDatum(textdatum_t::middle_center); g.setTextColor(gTheme.accent, gTheme.bg); g.drawString("H", SX(pts[hi].lon), SY(pts[hi].lat) - 8); }

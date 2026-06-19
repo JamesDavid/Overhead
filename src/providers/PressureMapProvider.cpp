@@ -94,7 +94,7 @@ static int coverPct(const String& c) {
 bool PressureMapProvider::parse(const String& body) {
   JsonDocument filter;
   JsonObject e = filter.add<JsonObject>();
-  e["icaoId"] = e["altim"] = e["lat"] = e["lon"] = true;   // coords come from the feed now
+  e["icaoId"] = e["altim"] = e["lat"] = e["lon"] = e["wdir"] = e["wspd"] = true;   // coords + wind from feed
   JsonObject c = e["clouds"].add<JsonObject>();
   c["cover"] = true;
   JsonDocument doc;
@@ -109,6 +109,8 @@ bool PressureMapProvider::parse(const String& body) {
     p.icao = (const char*)(o["icaoId"] | "");
     p.hpa = (int)lround((float)o["altim"]);
     p.lat = (float)o["lat"]; p.lon = (float)o["lon"];
+    p.wdir = o["wdir"].is<int>() ? (int)o["wdir"] : -1;
+    p.wspd = o["wspd"].is<int>() ? (int)o["wspd"] : -1;
     int cl = 0;
     for (JsonObject c2 : o["clouds"].as<JsonArray>()) { int v = coverPct((const char*)(c2["cover"] | "")); if (v > cl) cl = v; }
     p.cloud = cl;

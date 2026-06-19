@@ -20,6 +20,8 @@ struct PressurePt {
   float  lat = 0, lon = 0;
   int    hpa = -1;       // sea-level/altimeter pressure (hPa)
   int    cloud = -1;     // 0..100 from the max cloud layer
+  int    wdir = -1;      // wind FROM direction (deg); -1 unknown
+  int    wspd = -1;      // wind speed (kt); -1 unknown
 };
 
 class PressureMapProvider {
