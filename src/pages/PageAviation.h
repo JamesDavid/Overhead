@@ -23,6 +23,8 @@ public:
   const char* title() const override { return "Aviation Wx"; }
   void focusSpeci();              // Director: jump to the SPECI station's METAR view
   void focusAlert(App& app) override { focusSpeci(); }   // badged grid tile -> the SPECI
+  bool anyHazard() const;         // any AIRMET/SIGMET/PIREP loaded? (Director notice)
+  void focusWxNotice();           // Director: land on the most relevant wx view (hazards/metar)
   void onEnter(App& app) override;
   void onData(App& app, ProviderId id) override;
   void onTouch(App& app, int x, int y) override;
@@ -43,7 +45,8 @@ private:
   void drawHazards(App& app);
   void drawTrends(App& app);
   void drawPressure(App& app);
-  void stepView(int dir);                // advance the view (+1 next, -1 prev), skipping empty TAF
+  void stepView(int dir);                // advance the view (+1 next, -1 prev), skipping empty views
+  int  activeViews(View* out) const;     // ordered visible views (TAF/Hazards hidden when empty)
   void drillPressure(App& app, int absX, int absY);  // US/world map: fetch local airports around a tap
   bool anyTaf() const;                   // any loaded field currently carries a TAF?
   bool enterTaf();                       // point _sel at a TAF-bearing field; false if none have one

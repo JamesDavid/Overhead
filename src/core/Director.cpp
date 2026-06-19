@@ -100,9 +100,27 @@ void Director::tick(uint32_t nowMs) {
   // Low-priority geomagnetic indicator: badge Space Wx when Kp is high (spec §7.2).
   int swxIdx = _app->pageIndexByTitle("Space Wx");
   if (swxIdx >= 0) _app->setBadge(swxIdx, _spacewx && _spacewx->kp() >= 5.0f);
-  // Aviation: badge on an off-cycle SPECI special report (spec §14, phase 2b).
+  // Aviation notices: a SPECI special report, nearby EXTREME weather (thunderstorms
+  // /hail/heavy precip/strong wind, now or in the TAF), or an active AIRMET/SIGMET/
+  // PIREP. Badge persistently; announce the FIRST appearance of a new condition as a
+  // brief cross-tab alert so a change to something severe is noticed.
   int avIdx = _app->pageIndexByTitle("Aviation Wx");
-  if (avIdx >= 0) _app->setBadge(avIdx, _avwx && _avwx->hasSpeci());
+  bool avSpeci = _avwx && _avwx->hasSpeci();
+  String avWx; bool avFcst = false;
+  bool avExtreme = _avwx && _avwx->extremeWx(avWx, avFcst);
+  bool avHaz = _avPage && _avPage->anyHazard();
+  bool avNotice = avSpeci || avExtreme || avHaz;
+  if (avIdx >= 0) _app->setBadge(avIdx, avNotice);
+  String avKey = avExtreme ? avWx : avSpeci ? String("speci") : avHaz ? String("hazard") : String("");
+  if (avKey != _avWxKey) {                          // rising edge -> brief announcement
+    _avWxKey = avKey;
+    if (avKey.length()) {
+      _avAlertMsg = avExtreme ? ("WX " + avWx)
+                  : avSpeci   ? String("WX: new SPECI report")
+                              : String("WX: AIRMET/SIGMET nearby");
+      _avAlertUntil = nowMs + 9000;
+    }
+  }
 
   // Interrupt: pass wins ties if it starts first. A specific item is highlighted
   // (the bird / launch) rather than touring, so hold the tour clock.
@@ -130,7 +148,9 @@ void Director::tick(uint32_t nowMs) {
     if (!_app->autoFocus(lchIdx) && _app->activeIndex() != lchIdx) _app->setBadge(lchIdx, true);
     return;
   }
-  _app->setAlert("");          // nothing imminent -> clear the alert
+  // Nothing imminent: show a fresh weather announcement (if within its window), else clear.
+  if (nowMs < _avAlertUntil && _avAlertMsg.length()) _app->setAlert(_avAlertMsg);
+  else _app->setAlert("");
 
   // Ambient resting default + multi-page attract tour. ambientDay/Night may be a
   // comma-separated rotation of page titles (e.g. "Solar System,Star Map"): once
@@ -158,19 +178,20 @@ void Director::tick(uint32_t nowMs) {
   // Fold badged "notice" pages into the AUTO rotation so it periodically visits the
   // flag (Kp storm / Aviation SPECI) and returns, until it clears. (In MANUAL the
   // badge is the only signal — autoFocus is a no-op there.)
-  bool speci = _avwx && _avwx->hasSpeci();
   auto addNotice = [&](int idx, bool on) {
     if (!on || idx < 0 || np >= 10) return;
     for (int i = 0; i < np; ++i) if (pages[i] == idx) return;   // dedupe
     pages[np++] = idx;
   };
   addNotice(swxIdx, _spacewx && _spacewx->kp() >= 5.0f);
-  addNotice(avIdx, speci);
+  addNotice(avIdx, avNotice);
   if (np == 0) return;
   if (_ambPos >= np) _ambPos = 0;
   int amb = pages[_ambPos];
   bool switched = _app->autoFocus(amb);
-  if (switched && amb == avIdx && speci && _avPage) _avPage->focusSpeci();  // jump to the SPECI
+  if (switched && amb == avIdx && _avPage) {           // landed on Aviation -> the relevant wx view
+    if (avSpeci) _avPage->focusSpeci(); else _avPage->focusWxNotice();
+  }
 
   uint32_t dwell = (uint32_t)_s->getInt("tourDwellSec", 6) * 1000UL;
   if (_app->mode() == App::Mode::Auto && !_app->pinned() && _app->activeIndex() == amb) {

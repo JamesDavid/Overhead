@@ -33,6 +33,10 @@ public:
 
   const std::vector<Metar>& stations() const { return _stations; }
   bool hasSpeci() const { for (auto& m : _stations) if (m.raw.startsWith("SPECI")) return true; return false; }
+  // Nearby extreme weather now (METAR) or in the forecast (TAF): thunderstorms, hail,
+  // heavy precip, freezing rain, squall, strong wind. detail <- "ICAO: phenomenon";
+  // forecast <- true when it comes from a TAF. Returns false if nothing extreme.
+  bool extremeWx(String& detail, bool& forecast) const;
   ProviderStatus status() const { return _status; }
   uint32_t lastFetched() const { return _lastFetched; }
 

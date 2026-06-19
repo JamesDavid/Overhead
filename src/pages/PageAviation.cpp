@@ -84,12 +84,32 @@ void PageAviation::focusSpeci() {
     if (st[i].raw.startsWith("SPECI")) { _sel = i; _view = View::Metar; _needClear = _dirty = true; return; }
 }
 
+// Director notice landing: hazards view if there's an advisory, else the METAR card
+// (which carries the SPECI / extreme present-weather line).
+void PageAviation::focusWxNotice() {
+  _view = anyHazard() ? View::Hazards : View::Metar;
+  _needClear = _dirty = true;
+}
+
+// Ordered list of currently-visible views. TAF is hidden when no field has one;
+// Hazards is hidden when there's no AIRMET/SIGMET/PIREP nearby (a hazard surfaces
+// instead as a Director notice). So the carousel + view dots only show real views.
+int PageAviation::activeViews(View* out) const {
+  static const View all[] = { View::Map, View::Metar, View::Taf, View::Sounding, View::Hazards, View::Trends, View::Pressure };
+  int n = 0;
+  for (View v : all) {
+    if (v == View::Taf && !anyTaf()) continue;
+    if (v == View::Hazards && !anyHazard()) continue;
+    out[n++] = v;
+  }
+  return n;
+}
+
 void PageAviation::stepView(int dir) {
-  static const View order[] = { View::Map, View::Metar, View::Taf, View::Sounding, View::Hazards, View::Trends, View::Pressure };
-  const int n = 7;
-  int cur = 0; for (int i = 0; i < n; ++i) if (order[i] == _view) { cur = i; break; }
-  cur = (cur + dir + n) % n; _view = order[cur];
-  if (_view == View::Taf && !enterTaf()) { cur = (cur + dir + n) % n; _view = order[cur]; }  // skip empty TAF
+  View vs[7]; int n = activeViews(vs);
+  int cur = 0; for (int i = 0; i < n; ++i) if (vs[i] == _view) { cur = i; break; }
+  cur = (cur + dir + n) % n; _view = vs[cur];
+  if (_view == View::Taf) enterTaf();          // point _sel at a TAF-bearing field
   resetPresZoom();
   _needClear = _dirty = true;
 }
@@ -114,21 +134,15 @@ bool PageAviation::anyTaf() const {
   for (const auto& s : _wx.stations()) if (s.taf.length()) return true;
   return false;
 }
+bool PageAviation::anyHazard() const { return !_haz.hazards().empty(); }
 
-// View-dot count/index. The TAF view is skipped when no field has a TAF, so it
-// drops out of the indicator too (6 dots, not 7 with a never-landed-on gap).
-int PageAviation::viewCount() const { return anyTaf() ? 7 : 6; }
+// View-dot count/index follow the visible set, so TAF/Hazards drop out cleanly when
+// empty (no never-landed-on gap dot).
+int PageAviation::viewCount() const { View vs[7]; return activeViews(vs); }
 int PageAviation::viewIndex() const {
-  bool t = anyTaf();
-  switch (_view) {
-    case View::Map:      return 0;
-    case View::Metar:    return 1;
-    case View::Taf:      return 2;
-    case View::Sounding: return t ? 3 : 2;
-    case View::Hazards:  return t ? 4 : 3;
-    case View::Trends:   return t ? 5 : 4;
-    default:             return t ? 6 : 5;   // Pressure
-  }
+  View vs[7]; int n = activeViews(vs);
+  for (int i = 0; i < n; ++i) if (vs[i] == _view) return i;
+  return 0;
 }
 
 bool PageAviation::enterTaf() {
@@ -148,6 +162,8 @@ void PageAviation::onData(App& app, ProviderId id) {
   if (_sel >= n) _sel = n ? n - 1 : 0;
   bool empty = (n == 0);
   if (empty != _wasEmpty) { _wasEmpty = empty; }
+  if ((_view == View::Taf && !anyTaf()) || (_view == View::Hazards && !anyHazard()))
+    _view = View::Metar;                 // current view just became hidden -> fall back
   _dirty = _needClear = true;
 }
 
@@ -197,13 +213,13 @@ void PageAviation::onTouch(App& app, int x, int y) {
 bool PageAviation::autoAdvance(App&) {
   bool cycled = false;
   auto nextView = [&]() {
-    bool wasLast = (_view == View::Pressure);
-    _view = _view == View::Map ? View::Metar : _view == View::Metar ? View::Taf
-          : _view == View::Taf ? View::Sounding : _view == View::Sounding ? View::Hazards
-          : _view == View::Hazards ? View::Trends : _view == View::Trends ? View::Pressure : View::Map;
+    View vs[7]; int n = activeViews(vs);
+    int cur = 0; for (int i = 0; i < n; ++i) if (vs[i] == _view) { cur = i; break; }
+    bool wasLast = (cur == n - 1);
+    _view = vs[(cur + 1) % n];
     _tourN = 0; _sel = 0;
-    if (_view == View::Taf && !enterTaf()) _view = View::Sounding;    // skip TAF if no field has one
-    if (wasLast) cycled = true;            // Pressure -> Map = full cycle
+    if (_view == View::Taf) enterTaf();
+    if (wasLast) cycled = true;            // wrapped past the last visible view = full cycle
   };
   int n = (int)_wx.stations().size();
   if (_view == View::Taf && n > 0) {       // tour only TAF-bearing fields

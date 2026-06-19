@@ -12,6 +12,36 @@
 
 static constexpr double DEG = 3.14159265358979323846 / 180.0;
 
+// Map an (uppercase) present-weather / forecast fragment to a plain-language extreme
+// phenomenon, or nullptr if nothing notable. Order = rough severity.
+static const char* extremeTok(const String& w) {
+  if (w.indexOf("TS")   >= 0) return "thunderstorms";
+  if (w.indexOf("FC")   >= 0) return "funnel cloud";
+  if (w.indexOf("FZRA") >= 0) return "freezing rain";
+  if (w.indexOf("GR")   >= 0) return "hail";
+  if (w.indexOf("SQ")   >= 0) return "squall";
+  if (w.indexOf("+SN")  >= 0) return "heavy snow";
+  if (w.indexOf("+RA")  >= 0 || w.indexOf("+SHRA") >= 0) return "heavy rain";
+  if (w.indexOf("DS")   >= 0 || w.indexOf("SS") >= 0)    return "dust/sand storm";
+  return nullptr;
+}
+
+bool AviationWxProvider::extremeWx(String& detail, bool& forecast) const {
+  // Current conditions first (stations are distance-sorted, so nearest wins).
+  for (const auto& m : _stations) {
+    const char* t = m.wx.length() ? extremeTok(m.wx) : nullptr;
+    if (!t && m.wspd >= 30) t = "strong wind";
+    if (t) { detail = m.icao + ": " + t; forecast = false; return true; }
+  }
+  // Then the forecast (TAF body, past the leading "TAF <ICAO>" so the id can't match).
+  for (const auto& m : _stations) {
+    if (m.taf.length() < 9) continue;
+    const char* t = extremeTok(m.taf.substring(8));
+    if (t) { detail = m.icao + " fcst: " + t; forecast = true; return true; }
+  }
+  return false;
+}
+
 static float distNm(double lat1, double lon1, double lat2, double lon2) {
   double dlat = (lat2 - lat1) * DEG, dlon = (lon2 - lon1) * DEG;
   double a = sin(dlat / 2) * sin(dlat / 2)

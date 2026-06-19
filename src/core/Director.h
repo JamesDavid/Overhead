@@ -61,4 +61,7 @@ private:
   uint32_t _lastTourMs = 0;       // attract-tour dwell clock
   bool     _ambNight = false;     // last day/night state (reset rotation on flip)
   int      _ambPos = 0;           // index into the ambient page rotation
+  String   _avWxKey;              // last aviation-notice key (rising-edge announce)
+  String   _avAlertMsg;           // pending weather announcement text
+  uint32_t _avAlertUntil = 0;     // show _avAlertMsg until this millis()
 };
