@@ -35,14 +35,13 @@ detail, with real screenshots. The "boring" setup lives in a separate linked fil
 - **Caption every screenshot** with what's cool about that view — never dump bare
   images into a grid with no words. The caption carries the "what it shows / what's
   cool / how to operate it".
-- **Use a 2-column table at most.** Put the **image in one column and its caption/
-  description in the other**, and **alternate** sides down the page (image-left/text-
-  right, then text-left/image-right) for visual rhythm. Do NOT make wide 3-/4-up image
-  grids — they read as a screenshot dump.
-- **Use the 2-column image+caption table even for a single screenshot** (e.g. Space
-  Weather, Agenda, Health) — one row, image one side, caption the other. Consistency.
-- For a page with several sub-views, stack them as successive 2-col rows (alternating
-  sides), each captioned.
+- **One image per table, as a 1-column / 2-row table: the image on top, its caption in
+  the row below.** This keeps every screenshot at full width — 2-/3-/4-up grids squeeze
+  the 320×240 shots down small, which reads as a screenshot dump and loses detail.
+- **Every screenshot gets its own such table, including single-shot pages** (Agenda,
+  Space Weather, Health) — one image, one caption, full width.
+- For a page with several sub-views, stack a separate 1-col image+caption table per
+  sub-view.
 
 ## 2. Required README structure (in order)
 

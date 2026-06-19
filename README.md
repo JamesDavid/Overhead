@@ -2,9 +2,10 @@
 
 **An air-&-space situational-awareness dashboard for a $10 touchscreen — the sky, on your desk, updating in real time.**
 
-![The 2017 Great American Eclipse, recreated as a saved "memory sky"](docs/img/starmap-memory.jpg)
-
-*Above: a saved **memory sky** — the exact sky over Hopkinsville, KY at 18:25 UTC on 21 Aug 2017, the moment of greatest eclipse, with the Sun (note the corona ring), Regulus right beside it, and the planets strung along the ecliptic, recreated on the device.*
+| |
+|---|
+| ![The 2017 Great American Eclipse, recreated as a saved "memory sky"](docs/img/starmap-memory.jpg) |
+| *A saved **memory sky** — the exact sky over Hopkinsville, KY at 18:25 UTC on 21 Aug 2017, the moment of greatest eclipse, with the Sun (note the corona ring), Regulus right beside it, and the planets strung along the ecliptic, recreated on the device.* |
 
 ---
 
@@ -62,32 +63,56 @@ long-press to **pin**.
 
 ### 0 · Agenda — *your night at a glance*
 
-| | |
-|---|---|
-| ![Agenda](docs/img/page0-agenda.jpg) | The **Sky Window**: a 24 h timeline that shades day → civil → nautical → astronomical darkness, paints a cloud-cover heat band across the top of each hour and a moon-up band along the bottom, and tick-marks every event with a legend. Underneath: the **clear-&-dark verdict** ("Clear & dark 02:35–04:35"), a **tonight's-sky** line of the naked-eye planets and the constellations with ≥3 stars up during the darkest hour (it even calls out an active meteor shower's ZHR), and a scrollable **Upcoming** list with cloud-% coloured per event. **Tap any event — in the timeline or the list — to jump straight to its tab and focus that exact item.** |
+| |
+|---|
+| ![Agenda](docs/img/page0-agenda.jpg) |
+| The **Sky Window**: a 24 h timeline that shades day → civil → nautical → astronomical darkness, paints a cloud-cover heat band across the top of each hour and a moon-up band along the bottom, and tick-marks every event with a legend. Underneath: the **clear-&-dark verdict** ("Clear & dark 02:35–04:35"), a **tonight's-sky** line of the naked-eye planets and the constellations with ≥3 stars up during the darkest hour (it even calls out an active meteor shower's ZHR), and a scrollable **Upcoming** list with cloud-% coloured per event. **Tap any event — in the timeline or the list — to jump straight to its tab and focus that exact item.** |
 
 ### 1 · Launches — *what's going up*
 
-| | |
-|---|---|
-| The next launch: provider, vehicle, mission, pad, country, a colour-coded **status pill** (Go / Hold / TBD), and a big `T-` countdown — precise launches tick `T-HH:MM:SS`, vague ones show `~ MMM DD` with the precision noted. The line **"see: 809 km W — faint (night, far)"** is the **visibility verdict**: Overhead works out whether *you* could see the launch (twilight-plume geometry, distance, cloud) and rates it likely / faint / unlikely. The upcoming list marks each with a green/amber visibility dot. *(This frame also shows the Director's **"Launch in 6m"** interrupt banner in the status strip.)* | ![Launch card with the Director's launch alert + visibility verdict](docs/img/director-alert.jpg) |
-| ![Launches map](docs/img/launches-map.jpg) | The **Map**: a world map with a marker at every upcoming launch site. The selected pad gets a ring and a **launch-corridor azimuth arrow**, and a sight-line from your crosshair coloured by the visibility verdict. Side-tap steps launches; bottom chips filter by **time window** (24 h / 7 d / 30 d / all), **hide-TBD**, **visible-only**, **site**, and **provider**. |
+| |
+|---|
+| ![Launch card with the Director's launch alert + visibility verdict](docs/img/director-alert.jpg) |
+| The next launch: provider, vehicle, mission, pad, country, a colour-coded **status pill** (Go / Hold / TBD), and a big `T-` countdown — precise launches tick `T-HH:MM:SS`, vague ones show `~ MMM DD`. The line **"see: 809 km W — faint (night, far)"** is the **visibility verdict**: Overhead works out whether *you* could see the launch (twilight-plume geometry, distance, cloud) and rates it likely / faint / unlikely. *(This frame also caught the Director's **"Launch in 6m"** interrupt banner in the status strip — the cross-tab alert in action.)* |
+
+| |
+|---|
+| ![Launches map](docs/img/launches-map.jpg) |
+| The **Map** (centre-tap toggles to it): a world map with a marker at every upcoming launch site. The selected pad gets a ring and a **launch-corridor azimuth arrow**, and a sight-line from your crosshair coloured by the visibility verdict. Side-tap steps launches; bottom chips filter by **time window** (24 h / 7 d / 30 d / all), **hide-TBD**, **visible-only**, **site**, and **provider**. |
 
 ### 2 · Aircraft — *who's overhead right now*
 
-| | |
-|---|---|
-| ![Aircraft radar](docs/img/page2-aircraft.jpg) | A north-up **ADS-B radar** with range rings (your range + 5/10 nm reference), per-blip **heading chevrons**, and **dead-reckoned** motion between updates. Tap a blip → callsign, type, altitude, ground speed + track, distance/bearing, and the **look az/el** (where to point binoculars). An **emergency squawk** (7700/7600/7500) rings the contact and raises a banner; HOME + airport chips recenter the radar; chips filter range / on-ground / altitude / category; a marquee scrolls the **nearest airport + its frequencies**. *(Shown at a quiet field — and note a real limit: on a no-PSRAM board the live ADS-B fetch competes with the screenshot buffer for heap, so a busy radar is hard to **screenshot** even when it's lively on the glass — see Limitations.)* |
+| |
+|---|
+| ![Aircraft radar](docs/img/page2-aircraft.jpg) |
+| A north-up **ADS-B radar** with range rings (your range + 5/10 nm reference), per-blip **heading chevrons**, and **dead-reckoned** motion between updates. Tap a blip → callsign, type, altitude, ground speed + track, distance/bearing, and the **look az/el** (where to point binoculars). An **emergency squawk** (7700/7600/7500) rings the contact and raises a banner; HOME + airport chips recenter the radar; chips filter range / on-ground / altitude / category; a marquee scrolls the **nearest airport + its frequencies**. *(Shown at a quiet field — and note a real limit: on a no-PSRAM board the live ADS-B fetch competes with the screenshot buffer for heap, so a busy radar is hard to **screenshot** even when it's lively on the glass — see Limitations.)* |
 
 ### 3 · Aviation weather — *the sky's flight briefing*
 
-| | |
-|---|---|
-| ![Flight-category map](docs/img/aviation-map.jpg) | **Map** — airports coloured by flight category (VFR green / MVFR cyan / IFR-LIFR orange), wind barbs + id labels, observer crosshair, tappable zoom. |
-| **METAR** — a fully decoded card: Zulu + local obs time, wind (kt + mph), visibility, ceiling, temp/dewpoint (°C + °F), QNH (hPa + inHg), present-weather, and the raw text. Station chips jump between nearby fields. | ![Decoded METAR card](docs/img/aviation-metar.jpg) |
-| ![Skew-T sounding](docs/img/aviation-sounding.jpg) | **Sounding** — a Skew-T model profile: temperature + dewpoint vs altitude, the **freezing level**, **winds aloft** at 3/10/20/30 kft, a dashed dry-parcel line, and a soaring **stability analysis** (cloud base / top-of-lift / inversion). |
-| **Trends** — 24 h area sparklines for temp / dewpoint / cloud / pressure with a plain-language conclusion ("pressure steady", "+ fog/low-cld risk", "clearing"). | ![24h area trends](docs/img/aviation-trends.jpg) |
-| ![Synoptic pressure map](docs/img/aviation-pressure.jpg) | **Pressure** — a makeshift synoptic map from major-airport METARs: H/L markers, blue-high/red-low colouring, cloud rings, hPa/inHg/cloud modes, and **tap-to-zoom levels** (off / 2.6× / 4.5× / 7×) that bring in wind barbs. *(Denser inland regions fill this in more than a coastal one.)* |
+| |
+|---|
+| ![Flight-category map](docs/img/aviation-map.jpg) |
+| **Map** — airports coloured by flight category (VFR green / MVFR cyan / IFR-LIFR orange), with **wind barbs**, id labels, an observer crosshair, and tappable zoom. Side-tap steps fields; centre-tap cycles views. |
+
+| |
+|---|
+| ![Decoded METAR card](docs/img/aviation-metar.jpg) |
+| **METAR** — a fully decoded card: Zulu + local obs time, wind (kt + mph), visibility, ceiling, temp/dewpoint (°C + °F), QNH (hPa + inHg), present-weather, and the raw text. Station chips jump between nearby fields. |
+
+| |
+|---|
+| ![Skew-T sounding](docs/img/aviation-sounding.jpg) |
+| **Sounding** — a Skew-T model profile: temperature + dewpoint vs altitude, the **freezing level**, **winds aloft** at 3/10/20/30 kft, a dashed dry-parcel line, and a soaring **stability analysis** (cloud base / top-of-lift / inversion). |
+
+| |
+|---|
+| ![24h area trends](docs/img/aviation-trends.jpg) |
+| **Trends** — 24 h area sparklines for temp / dewpoint / cloud / pressure with a plain-language conclusion ("pressure steady", "+ fog/low-cld risk", "clearing"). |
+
+| |
+|---|
+| ![Synoptic pressure map](docs/img/aviation-pressure.jpg) |
+| **Pressure** — a makeshift synoptic map from major-airport METARs: H/L markers, blue-high/red-low colouring, cloud rings, hPa/inHg/cloud modes, and **tap-to-zoom levels** (off / 2.6× / 4.5× / 7×) that bring in wind barbs. |
 
 Two more views appear **only when there's data**: a **TAF** view (decoded FM/BECMG/TEMPO/PROB
 periods) when a field carries one, and a **Hazards** view (AIRMET/SIGMET/PIREP in plain
@@ -97,43 +122,93 @@ strong wind) is surfaced cross-tab as a notice instead (see the Director).
 
 ### 4 · Satellites — *catch the pass*
 
-| | |
-|---|---|
-| ![Polar pass view](docs/img/satellites-polar.jpg) | **Polar** — a sky-dome with the predicted **pass-trajectory arc** (solid above your min-elevation, dashed below), AOS/LOS markers + times, max elevation, sunlit-vs-eclipsed flag, live range, and — for FM birds — **live Doppler** uplink/downlink ("DL 145.800 −1.2k"). Counts down "AOS T-7h17m max 44°". |
-| **Ground** — the world **ground track** for ~one orbit, the sub-satellite point (sunlit/eclipsed), the day/night-aware subsolar marker, and your location. Side-tap steps your watchlist; a chip cycles the **min-elevation filter**. Passes use SGP4 from cached TLEs — so it **works offline**. | ![Ground track](docs/img/satellites-ground.jpg) |
+| |
+|---|
+| ![Polar pass view](docs/img/satellites-polar.jpg) |
+| **Polar** — a sky-dome with the predicted **pass-trajectory arc** (solid above your min-elevation, dashed below), AOS/LOS markers + times, max elevation, sunlit-vs-eclipsed flag, live range, and — for FM birds — **live Doppler** uplink/downlink ("DL 145.800 −1.2k"). Counts down "AOS T-7h17m max 44°". |
+
+| |
+|---|
+| ![Ground track](docs/img/satellites-ground.jpg) |
+| **Ground** — the world **ground track** for ~one orbit, the sub-satellite point (sunlit/eclipsed), the day/night-aware subsolar marker, and your location. Side-tap steps your watchlist; a chip cycles the **min-elevation filter**. Passes use SGP4 from cached TLEs — so it **works offline**. |
 
 ### 5 · Space weather — *is the Sun acting up?*
 
-| | |
-|---|---|
-| ![Space weather](docs/img/page5-spacewx.jpg) | A **Kp** gauge + a 3-day history sparkline, the solar flux index, GOES **X-ray flare class** (C/M/X), **solar-wind speed** and **IMF Bz**, an **aurora-chance** read for your own geomagnetic latitude (it computes the auroral-oval boundary from Kp), and an HF **band-conditions** table (80–10 m, day/night) from an SFI+Kp heuristic. |
+| |
+|---|
+| ![Space weather](docs/img/page5-spacewx.jpg) |
+| A **Kp** gauge + a 3-day history sparkline, the solar flux index, GOES **X-ray flare class** (C/M/X), **solar-wind speed** and **IMF Bz**, an **aurora-chance** read for your own geomagnetic latitude (it computes the auroral-oval boundary from Kp), and an HF **band-conditions** table (80–10 m, day/night) from an SFI+Kp heuristic. |
 
 ### 6 · Solar System — *the neighbourhood tour*
 
-| | |
-|---|---|
-| ![Sky-dome](docs/img/solar-skydome.jpg) | **Sky-dome** — Sun/Moon/planets by az/el on a horizon dome, each with a **naked-eye visibility rating** (easy/twilight/washed/scope), rise/transit/set, the closest **conjunction** when bodies are <5° apart, and an optional constellation-line star overlay. |
-| **Orbits** — a top-down **orrery** at live heliocentric longitudes (√-scaled rings so Mercury isn't crushed by Pluto), with minor bodies/Starman, and each body's **orbital speed around the Sun in km/h and mph**. | ![Orbits](docs/img/solar-orbits.jpg) |
-| ![Moon](docs/img/solar-moon.jpg) | **Moon** — phase + illumination %, distance, and **near/far-side maps** with Apollo crewed, robotic, and 2024+ CLPS **landing sites**, plus the sub-Earth/sub-solar points. |
-| **Jupiter** — the four Galilean moons strung along the equator in Jupiter-radii, with the whole system **tilted by the parallactic angle to match your sky** ("field tilt N° for your sky"). | ![Jupiter](docs/img/solar-jupiter.jpg) |
-| ![Saturn](docs/img/solar-saturn.jpg) | **Saturn** — the disk + rings with the live **opening angle** ("rings 26° open, north face") and a Cassini-division hint, also tilted to your sky. |
-| **Deep Space** — Voyager 1/2 & New Horizons distances in AU + light-hours, plus in-flight missions (Psyche, Europa Clipper, JWST, Parker). | ![Deep space](docs/img/solar-deepspace.jpg) |
-| ![Meteor showers](docs/img/solar-showers.jpg) | **Meteor showers** — upcoming showers in date order with ZHR, days-to-peak, and a **radiant-quality** rating from your latitude (great/good/low/poor); active showers flagged "NOW". |
+| |
+|---|
+| ![Sky-dome](docs/img/solar-skydome.jpg) |
+| **Sky-dome** — Sun/Moon/planets by az/el on a horizon dome, each with a **naked-eye visibility rating** (easy/twilight/washed/scope), rise/transit/set, the closest **conjunction** when bodies are <5° apart, and an optional constellation-line star overlay. |
+
+| |
+|---|
+| ![Orbits](docs/img/solar-orbits.jpg) |
+| **Orbits** — a top-down **orrery** at live heliocentric longitudes (√-scaled rings so Mercury isn't crushed by Pluto), with minor bodies/Starman, and each body's **orbital speed around the Sun in km/h and mph**. |
+
+| |
+|---|
+| ![Moon](docs/img/solar-moon.jpg) |
+| **Moon** — phase + illumination %, distance, and **near/far-side maps** with Apollo crewed, robotic, and 2024+ CLPS **landing sites**, plus the sub-Earth/sub-solar points. |
+
+| |
+|---|
+| ![Mars](docs/img/solar-mars.jpg) |
+| **Mars** — distance + light-time, a surface map with polar caps and Olympus/Marineris, the sub-Earth circle, and **rover sols** (Perseverance/Curiosity) with status. |
+
+| |
+|---|
+| ![Jupiter](docs/img/solar-jupiter.jpg) |
+| **Jupiter** — the four Galilean moons strung along the equator in Jupiter-radii, with the whole system **tilted by the parallactic angle to match your sky** ("field tilt N° for your sky"). |
+
+| |
+|---|
+| ![Saturn](docs/img/solar-saturn.jpg) |
+| **Saturn** — the disk + rings with the live **opening angle** ("rings 26° open, north face") and a Cassini-division hint, also tilted to your sky. |
+
+| |
+|---|
+| ![Deep space](docs/img/solar-deepspace.jpg) |
+| **Deep Space** — Voyager 1/2 & New Horizons distances in AU + light-hours, plus in-flight missions (Psyche, Europa Clipper, JWST, Parker). |
+
+| |
+|---|
+| ![Meteor showers](docs/img/solar-showers.jpg) |
+| **Meteor showers** — upcoming showers in date order with ZHR, days-to-peak, and a **radiant-quality** rating from your latitude (great/good/low/poor); active showers flagged "NOW". |
 
 ### 7 · Star Map — *the whole sky, and the night you remember*
 
-| | |
-|---|---|
-| ![Full sky](docs/img/starmap-full.jpg) | **Full sky** — an all-sky azimuthal chart from a real generated catalogue (HYG + d3-celestial): ~1500 stars, all 88 **constellation figures**, Messier **deep-sky markers**, the ecliptic, and the Sun (a small **corona ring** so it reads clearly without washing out the chart)/Moon/planets. |
-| **Tap to zoom** — tap any region and it magnifies: fainter stars fade in and star + constellation names appear, with a centre az/el readout. | ![Tap to zoom](docs/img/starmap-zoom.jpg) |
-| ![Constellation tour](docs/img/starmap-tour.jpg) | **Tour** — a badge auto-zooms each above-horizon constellation in turn (here, Andromeda), naming its stars, then moves on. Bottom badges cycle the **magnitude limit** and toggle the Sun/planets overlay + the tour. |
-| **Memory skies** — save "the sky at *this moment* from *this place*" (a birthday, an eclipse) and it renders the **full** sky for that exact instant and lat/lon, captioned title + place (top-left) and date + coordinates (top-right). **Swipe up/down to cycle** between the live sky and your saved skies — the **view dots on the right edge** show where you are. Add/edit them in the web UI's **Memory Skies** tab. | ![Memory sky](docs/img/starmap-memory.jpg) |
+| |
+|---|
+| ![Full sky](docs/img/starmap-full.jpg) |
+| **Full sky** — an all-sky azimuthal chart from a real generated catalogue (HYG + d3-celestial): ~1500 stars, all 88 **constellation figures**, Messier **deep-sky markers**, the ecliptic, and the Sun (a small **corona ring** so it reads clearly without washing out the chart)/Moon/planets. |
+
+| |
+|---|
+| ![Tap to zoom](docs/img/starmap-zoom.jpg) |
+| **Tap to zoom** — tap any region and it magnifies: fainter stars fade in and star + constellation names appear, with a centre az/el readout. |
+
+| |
+|---|
+| ![Constellation tour](docs/img/starmap-tour.jpg) |
+| **Tour** — a badge auto-zooms each above-horizon constellation in turn (here, Andromeda), naming its stars, then moves on. Bottom badges cycle the **magnitude limit** and toggle the Sun/planets overlay + the tour. |
+
+| |
+|---|
+| ![Memory sky](docs/img/starmap-memory.jpg) |
+| **Memory skies** — save "the sky at *this moment* from *this place*" (a birthday, an eclipse) and it renders the **full** sky for that exact instant and lat/lon, captioned title + place (top-left) and date + coordinates (top-right). **Swipe up/down to cycle** between the live sky and your saved skies — the **view dots on the right edge** show where you are. Add/edit them in the web UI's **Memory Skies** tab. |
 
 ### 8 · Device Health — *under the hood*
 
-| | |
-|---|---|
-| ![Health](docs/img/page8-health.jpg) | The system table (WiFi, heap + **largest-block low-water** + **httpsSkip**, filesystem, uptime, location) and per-provider **status + age in d/h/m/s**, plus on-device controls: cycle the display palette (Auto/Day/Night/Red) and brightness, toggle remote screenshots, **Refresh** all providers, **Recalibrate** touch, and a two-tap **Reboot**. *(WiFi SSID and LAN IP boxed out here.)* |
+| |
+|---|
+| ![Health](docs/img/page8-health.jpg) |
+| The system table (WiFi, heap + **largest-block low-water** + **httpsSkip**, filesystem, uptime, location) and per-provider **status + age in d/h/m/s**, plus on-device controls: cycle the display palette (Auto/Day/Night/Red) and brightness, toggle remote screenshots, **Refresh** all providers, **Recalibrate** touch, and a two-tap **Reboot**. *(WiFi SSID and LAN IP boxed out here.)* |
 
 ---
 
@@ -141,15 +216,24 @@ strong wind) is surfaced cross-tab as a notice instead (see the Director).
 
 These have no single tab — they're part of the whole experience.
 
-| | |
-|---|---|
-| ![Clock-mode overlay](docs/img/clock-overlay.jpg) | **Clock-mode overlay** — tap the time and a big clock stamps over the live page (static lower-right on data pages, corner-hopping on calm ones for burn-in); chips toggle 24 h/AM-PM and digital/analog, with a date complication. |
-| **3×3 quick-jump grid** — tap the page dots and every tile shows a live micro-status (next launch T-, ISS AOS, nearest METAR, Kp, constellations up…); tap a badged tile to land on its alert. | ![3x3 quick-jump grid](docs/img/grid.jpg) |
-| ![Red dark-adapt theme](docs/img/red-theme.jpg) | **Day / Night / Red dark-adapt themes** — auto by sun altitude or forced from Health; the red palette preserves night vision at the eyepiece. |
+| |
+|---|
+| ![Clock-mode overlay](docs/img/clock-overlay.jpg) |
+| **Clock-mode overlay** — tap the time and a big clock stamps over the live page (static lower-right on data pages, corner-hopping on calm ones for burn-in); chips toggle 24 h/AM-PM and digital/analog, with a date complication. |
+
+| |
+|---|
+| ![3x3 quick-jump grid](docs/img/grid.jpg) |
+| **3×3 quick-jump grid** — tap the page dots and every tile shows a live micro-status (next launch T-, ISS AOS, nearest METAR, Kp, constellations up…); tap a badged tile to land on its alert. |
+
+| |
+|---|
+| ![Red dark-adapt theme](docs/img/red-theme.jpg) |
+| **Day / Night / Red dark-adapt themes** — auto by sun altitude or forced from Health; the red palette preserves night vision at the eyepiece. *(Shown here on a memory sky.)* |
 
 - **Intelligent Focus director** — the cross-tab brain. An ambient resting tab by
   day/night with a multi-page attract tour; **interrupts** that seize focus for an
-  imminent **pass** ("ISS 45° in 3m · VIS") or **launch** ("Launch in 6m" — *as in the
+  imminent **pass** ("ISS 45° in 3m · VIS") or **launch** ("Launch in 6m" — *the
   Launches shot above*); and **notice badges** for Kp storms, aviation SPECIs, hazards,
   and extreme weather. In AUTO it switches the carousel (with a brief **"▸ page"**
   banner) and pre-focuses the exact item; in MANUAL it just badges the tab. A *new*
