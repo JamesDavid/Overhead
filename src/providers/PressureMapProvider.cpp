@@ -3,6 +3,7 @@
 #include "../services/NetClient.h"
 #include "../services/Cache.h"
 #include "../services/LocationService.h"
+#include "../services/MetarStore.h"
 #include <ArduinoJson.h>
 #include <math.h>
 #include <time.h>
@@ -130,6 +131,9 @@ bool PressureMapProvider::parse(const String& body) {
     int cl = 0;
     for (JsonObject c2 : o["clouds"].as<JsonArray>()) { int v = coverPct((const char*)(c2["cover"] | "")); if (v > cl) cl = v; }
     p.cloud = cl;
+    MetarRec r; r.icao = p.icao; r.lat = p.lat; r.lon = p.lon; r.hpa = p.hpa;   // feed the shared pool
+    r.cloud = p.cloud; r.wdir = p.wdir; r.wspd = p.wspd; r.fetchedAt = (uint32_t)time(nullptr);
+    MetarStore::instance().upsert(r);
     out.push_back(p);
     if (out.size() >= 48) break;                    // cap to bound heap on dense regions
   }

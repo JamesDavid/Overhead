@@ -10,6 +10,7 @@
 #include "../assets/Coastline.h"
 #include "../services/LocationService.h"
 #include "../services/Settings.h"
+#include "../services/MetarStore.h"
 #include <math.h>
 #include <functional>
 
@@ -692,6 +693,15 @@ void PageAviation::drawPressure(App& app) {
   g.setTextColor(gTheme.fg, gTheme.grid); g.drawString(sc, cw - 4, cy0 + 3);
 
   double w0, w1, a0, a1; _pmap.bbox(w0, w1, a0, a1);            // bbox from the active scope
+  // Render the UNION of this scope's points and the shared per-airport pool in the
+  // box (so the map shows whatever any feed has fetched for this area).
+  std::vector<PressurePt> merged(pts.begin(), pts.end());
+  { std::vector<const MetarRec*> sr; MetarStore::instance().inBox(a0, w0, a1, w1, sr);
+    for (auto* r : sr) {
+      bool have = false; for (auto& q : merged) if (q.icao == r->icao) { have = true; break; }
+      if (!have && r->hpa >= 0) { PressurePt q; q.icao = r->icao; q.lat = r->lat; q.lon = r->lon;
+        q.hpa = r->hpa; q.cloud = r->cloud; q.wdir = r->wdir; q.wspd = r->wspd; merged.push_back(q); }
+    } }
   int mx = 2, my = cy0 + 16, mw = cw - 4, mh = ch - 16 - 12;
   float zs = 1.f + _pZoomT * (2.6f - 1.f);                      // tap-to-zoom magnification about the focus
   auto SX = [&](double lon) { int x = mx + (int)((lon - w0) / (w1 - w0) * mw); return _pFx + (int)(zs * (x - _pFx)); };
@@ -711,7 +721,7 @@ void PageAviation::drawPressure(App& app) {
   drawLines(kCoastline, kCoastlineCount, gTheme.dim);
   if (!world) drawLines(kStateLines, kStateLinesCount, gTheme.grid);   // state lines only at regional zoom
 
-  if (pts.empty()) {                                            // outline drawn; no station data yet
+  if (merged.empty()) {                                         // outline drawn; no station data yet
     g.setTextDatum(textdatum_t::middle_center);
     g.setTextColor(gTheme.dim, gTheme.bg);
     g.drawString(_pmap.status() == ProviderStatus::Error ? "feed down" : String("loading ") + sc + "...",
@@ -721,13 +731,13 @@ void PageAviation::drawPressure(App& app) {
   }
 
   int hi = -1, lo = -1, hv = -9999, lv = 9999;
-  for (size_t i = 0; i < pts.size(); ++i) {
-    int p = pts[i].hpa; if (p < 0) continue;
+  for (size_t i = 0; i < merged.size(); ++i) {
+    int p = merged[i].hpa; if (p < 0) continue;
     if (p > hv) { hv = p; hi = (int)i; }
     if (p < lv) { lv = p; lo = (int)i; }
   }
-  for (size_t i = 0; i < pts.size(); ++i) {
-    const PressurePt& p = pts[i];
+  for (size_t i = 0; i < merged.size(); ++i) {
+    const PressurePt& p = merged[i];
     int x = SX(p.lon), y = SY(p.lat);
     if (x < mx || x > mx + mw || y < my || y > my + mh) continue;
     Color cc = p.cloud < 30 ? gTheme.ok : p.cloud < 70 ? gTheme.accent : gTheme.warn;   // cloud band
@@ -750,8 +760,8 @@ void PageAviation::drawPressure(App& app) {
     }
   }
   if (!cloud) {                                                // H / L markers
-    if (hi >= 0) { g.setTextDatum(textdatum_t::middle_center); g.setTextColor(gTheme.accent, gTheme.bg); g.drawString("H", SX(pts[hi].lon), SY(pts[hi].lat) - 8); }
-    if (lo >= 0) { g.setTextDatum(textdatum_t::middle_center); g.setTextColor(gTheme.warn,   gTheme.bg); g.drawString("L", SX(pts[lo].lon), SY(pts[lo].lat) - 8); }
+    if (hi >= 0) { g.setTextDatum(textdatum_t::middle_center); g.setTextColor(gTheme.accent, gTheme.bg); g.drawString("H", SX(merged[hi].lon), SY(merged[hi].lat) - 8); }
+    if (lo >= 0) { g.setTextDatum(textdatum_t::middle_center); g.setTextColor(gTheme.warn,   gTheme.bg); g.drawString("L", SX(merged[lo].lon), SY(merged[lo].lat) - 8); }
   }
   // Observer location marker.
   if (_loc.active().valid) {

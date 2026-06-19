@@ -2,6 +2,7 @@
 #include "../services/Settings.h"
 #include "../services/NetClient.h"
 #include "../services/Cache.h"
+#include "../services/MetarStore.h"
 #include "../services/LocationService.h"
 #include "../core/EventBus.h"
 #include <ArduinoJson.h>
@@ -124,6 +125,10 @@ bool AviationWxProvider::parseMetars(const String& body) {
     m.ceilingFt = ceil; m.cloud = cov;
     m.cat = flightCat(ceil, m.visSm);
     m.distNm = distNm(olat, olon, m.lat, m.lon);
+    MetarRec r; r.icao = m.icao; r.lat = m.lat; r.lon = m.lon; r.hpa = m.altimHpa;   // feed the shared pool
+    r.cloud = m.cloud; r.wdir = m.wdir; r.wspd = m.wspd; r.tempC = m.tempC; r.cat = m.cat;
+    r.obsTime = m.obsTime; r.fetchedAt = (uint32_t)time(nullptr);
+    MetarStore::instance().upsert(r);
     out.push_back(m);
   }
   if (out.empty()) return false;
