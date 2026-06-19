@@ -213,10 +213,11 @@ void PageAviation::onTouch(App& app, int x, int y) {
     // US/world: a tap drills into that point, fetching the regional airports there to
     // populate data (the wide views are sparse on their own).
     if (_pmap.scope() != 0) { drillPressure(app, absX, absY); return; }
-    // Regional (200mi): tapping ON a plotted dot selects it (METAR shows in the bottom
-    // strip; re-tap to clear); tapping empty map area steps the zoom about that point.
+    // Regional (200mi): zoom about the tapped point until we're zoomed in far enough
+    // that the dots are well separated -- only THEN does tapping a dot select it (its
+    // METAR shows in the bottom strip; re-tap to clear). Below that, every tap zooms.
     int best = -1, bestD2 = 12 * 12;
-    for (int i = 0; i < _mapDotN; ++i) {
+    if (_pZoomCur > 2.0f) for (int i = 0; i < _mapDotN; ++i) {
       int dx = absX - _mapDotX[i], dy = absY - _mapDotY[i], d2 = dx * dx + dy * dy;
       if (d2 < bestD2) { bestD2 = d2; best = i; }
     }
