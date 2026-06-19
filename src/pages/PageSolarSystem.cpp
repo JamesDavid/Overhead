@@ -439,15 +439,25 @@ void PageSolarSystem::draw(App& app) {
 
 // Top-down orrery: Sun at centre, sqrt-scaled orbit rings (so the inner planets
 // aren't crushed by Pluto's 39 AU), each body at its live heliocentric longitude.
+// Big body-name title (size 2, left) + a dim nav hint (right), matching Moon/Mars.
+static void bigTitle(lgfx::LovyanGFX& g, int cw, int cy0, const char* name, const char* hint) {
+  g.setTextDatum(textdatum_t::top_left);
+  g.setTextColor(gTheme.fg, gTheme.bg);
+  g.setTextSize(2); g.drawString(name, 4, cy0 + 1); g.setTextSize(1);
+  g.setTextColor(gTheme.dim, gTheme.bg);
+  g.setTextDatum(textdatum_t::top_right);
+  g.drawString(hint, cw - 4, cy0 + 3);
+  g.setTextDatum(textdatum_t::top_left);
+  g.setTextColor(gTheme.fg, gTheme.bg);
+}
+
 void PageSolarSystem::drawOrbit(App& app) {
   auto& g = app.display().gfx();
   const int cw = app.contentW(), ch = app.contentH(), cy0 = app.contentY();
   const double D2R = 3.14159265358979323846 / 180.0;
   double jd = _time.julianDate();
 
-  g.setTextDatum(textdatum_t::top_left);
-  g.setTextColor(gTheme.fg, gTheme.bg);
-  g.drawString("Orbits (top-down)  [tap mid: Moon]", 4, cy0 + 1);
+  bigTitle(g, cw, cy0, "Orbits", "[mid: Moon]");
 
   int cx = cw / 2, cy = cy0 + (ch - 14) / 2 + 12;
   int maxR = min(cw / 2, (ch - 26) / 2) - 8;
@@ -521,12 +531,10 @@ void PageSolarSystem::drawJupiter(App& app) {
   double q = parallacticDeg(_st[5], _loc.active().lat, lstR) * D2R;   // sky tilt
   double cq = cos(q), sq = sin(q);
 
-  g.setTextDatum(textdatum_t::top_left);
-  g.setTextColor(gTheme.fg, gTheme.bg);
-  g.drawString("Jupiter - Galilean moons  [tap mid: Saturn]", 4, cy0 + 1);
+  bigTitle(g, cw, cy0, "Jupiter", "[mid: Saturn]");
   g.setTextColor(gTheme.dim, gTheme.bg);
   g.drawString(String(_st[5].above ? "up" : "below horizon") + "   el " + (int)round(_st[5].elDeg)
-               + "\xF7  az " + (int)round(_st[5].azDeg) + "\xF7", 4, cy0 + 16);
+               + "\xF7  az " + (int)round(_st[5].azDeg) + "\xF7", 4, cy0 + 20);
 
   int cx = cw / 2, cyc = cy0 + ch / 2;
   double mx[4]; astro::galileanMoons(jd, mx);
@@ -572,13 +580,11 @@ void PageSolarSystem::drawSaturn(App& app) {
   double q = parallacticDeg(_st[6], _loc.active().lat, lstR) * D2R;   // sky tilt
   double B = astro::saturnRingTiltDeg(jd);
 
-  g.setTextDatum(textdatum_t::top_left);
-  g.setTextColor(gTheme.fg, gTheme.bg);
-  g.drawString("Saturn - rings  [tap mid: Deep Space]", 4, cy0 + 1);
+  bigTitle(g, cw, cy0, "Saturn", "[mid: Deep Space]");
   g.setTextColor(gTheme.dim, gTheme.bg);
   g.drawString(String(_st[6].above ? "up" : "below horizon") + "   el " + (int)round(_st[6].elDeg)
-               + "\xF7  az " + (int)round(_st[6].azDeg) + "\xF7", 4, cy0 + 16);
-  g.drawString(String("rings ") + (int)round(fabs(B)) + "\xF7 open  (" + (B >= 0 ? "north" : "south") + " face)", 4, cy0 + 28);
+               + "\xF7  az " + (int)round(_st[6].azDeg) + "\xF7", 4, cy0 + 20);
+  g.drawString(String("rings ") + (int)round(fabs(B)) + "\xF7 open  (" + (B >= 0 ? "north" : "south") + " face)", 4, cy0 + 31);
 
   int cx = cw / 2, cyc = cy0 + ch / 2;
   double rMaj = 70, rMin = rMaj * fabs(sin(B * D2R));
