@@ -349,6 +349,7 @@ void WebPortal::stop() {
   _server.end();                         // close the listener (routes stay registered)
   MDNS.end();
   _running = false;
+  _everStopped = true;                   // any re-enable now needs a reboot (TIME_WAIT holds :80)
   Serial.printf("[web] server OFF  largest free block = %u\n", (unsigned)ESP.getMaxAllocHeap());
 }
 

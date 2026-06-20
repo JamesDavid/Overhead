@@ -1,8 +1,28 @@
 # Polish backlog
 
 Deferred polish — cut from the first pass to keep momentum. Pick up later.
-(Bugs/blocking work go in commits, not here.) Items shipped are removed; this list
-is the *remaining* work as of the latest sweep.
+Items shipped are removed; this list is the *remaining* work as of the latest sweep.
+
+## Bugs (playtest 2026-06-20)
+Found during a systematic page-by-page playtest. Fixed items get struck through and
+move out on the next sweep.
+- [x] **Web on/off toggle (Health) re-enable wedged after a client had connected —
+  FIXED (Jun 2026).** Root cause: once a browser/curl hits :80, `stop()` leaves that
+  socket in TIME_WAIT holding the port; AsyncTCP sets no `SO_REUSEADDR`, so the next
+  `start()`→`begin()` fails with `bind error: -8` yet still reported `running()=true`
+  ("says on, isn't serving"). Fix: a re-enable after any `stop()` (tracked via
+  `WebPortal::everStopped()`) reboots for a clean bind instead of an in-place start;
+  the first enable each boot still starts live. Health chip + serial `web on` both
+  route through it. Verified on-device: first-enable 200, disable 000, reboot-reenable
+  200 (no -8).
+
+## Tooling ideas
+- **Web flasher on GitHub Pages** (Web Serial / esptool-js, like the ESP Web Tools
+  "Install" button) so anyone can flash the firmware from Chrome with no PlatformIO
+  toolchain. Host a `manifest.json` + the built `firmware.bin`/bootloader/partition
+  images on Pages; add an `<esp-web-install-button>`. CI step to publish artifacts on
+  a tagged release. Caveat: needs the full flash image set (bootloader @0x1000,
+  partitions, boot_app0, app) — wire it from the PlatformIO build output.
 
 ## UX shell — desk-clock (SHIPPED via overlay, Jun 2026)
 Built as a device-wide **clock-mode overlay** (tap the time in the status strip)

@@ -394,9 +394,15 @@ static void serviceSerialCmd() {
   String cmd = Serial.readStringUntil('\n'); cmd.trim(); cmd.toLowerCase();
   if (cmd.startsWith("web")) {
     String a = cmd.substring(3); a.trim();
-    if (a == "on")        web.start();
-    else if (a == "off")  web.stop();
-    else                  { if (web.running()) web.stop(); else web.start(); }
+    bool wantOn = (a == "on") || (a != "off" && !web.running());   // explicit on, or toggle-from-off
+    if (!wantOn) {
+      web.stop();
+    } else if (web.everStopped()) {       // re-enable after a stop -> reboot for a clean re-bind (:80 TIME_WAIT)
+      settings.set("webOnBoot", true); settings.save();
+      Serial.println("[cmd] web re-enable needs a clean re-bind -> rebooting"); delay(100); ESP.restart();
+    } else {
+      web.start();
+    }
     Serial.printf("[cmd] web %s\n", web.running() ? "ON" : "OFF");
   } else if (cmd == "heap") {
     Serial.printf("[cmd] free=%u largestBlock=%u\n", (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getMaxAllocHeap());

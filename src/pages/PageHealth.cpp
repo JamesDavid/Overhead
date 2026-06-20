@@ -78,9 +78,16 @@ void PageHealth::onTouch(App& app, int x, int y) {
       app.display().setShotsEnabled(on);
       _settings.set("debugShots", on); _settings.save();
     } else if (_web) {                                         // toggle the web server (frees heap)
-      if (_web->running()) _web->stop(); else _web->start();
-      _settings.set("webOnBoot", _web->running());             // persist the boot preference
-      _settings.save();
+      if (_web->running()) {                                   // ON -> OFF: live stop frees heap now
+        _web->stop();
+        _settings.set("webOnBoot", false); _settings.save();
+      } else if (_web->everStopped()) {                        // re-enable after a stop: a client left
+        _settings.set("webOnBoot", true); _settings.save();    // :80 in TIME_WAIT, so reboot to re-bind
+        delay(150); ESP.restart();                             // cleanly (in-place start() would -8)
+      } else {                                                 // first enable this boot: clean start
+        _web->start();
+        _settings.set("webOnBoot", true); _settings.save();
+      }
     }
     _dirty = _needClear = true;
     return;

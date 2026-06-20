@@ -21,11 +21,15 @@ public:
 
   // Stop/start the listener to reclaim contiguous heap for the feeds (the AsyncTCP/
   // server footprint). Routes stay registered — start() just re-opens the socket +
-  // mDNS. Runtime-only (a reboot always comes up with the server ON), so there's no
-  // permanent lockout: re-enable from the Health "Web" toggle or the serial console.
+  // mDNS. Boots OFF by default (webOnBoot); re-enable from the Health "Web" toggle or
+  // the serial console. NOTE: once a client has connected, stop() leaves that socket in
+  // TIME_WAIT holding port 80, and AsyncTCP sets no SO_REUSEADDR, so an in-place
+  // start() then fails to re-bind (logs "bind error: -8" but still reports running).
+  // So a RE-enable after a stop must reboot for a clean bind — see everStopped().
   void stop();
   void start();
   bool running() const { return _running; }
+  bool everStopped() const { return _everStopped; }   // a stop() happened -> re-bind needs a reboot
 
   // main injects a filler for /api/status (heap, wifi, time, location) so the
   // portal stays decoupled from the services it reports on.
@@ -45,4 +49,5 @@ private:
   String _apiUser, _apiPass;             // Basic-auth creds gating the API (= OTA creds)
   String _host;                          // mDNS hostname (for restart)
   bool   _running = false;               // listener up?
+  bool   _everStopped = false;           // a stop() happened this boot (re-bind needs a reboot)
 };
