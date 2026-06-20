@@ -216,7 +216,7 @@ void PageAviation::onTouch(App& app, int x, int y) {
     // Regional (200mi): zoom about the tapped point until we're zoomed in far enough
     // that the dots are well separated -- only THEN does tapping a dot select it (its
     // METAR shows in the bottom strip; re-tap to clear). Below that, every tap zooms.
-    int best = -1, bestD2 = 12 * 12;
+    int best = -1, bestD2 = 16 * 16;     // generous target: dots are far apart when zoomed in
     if (_pZoomCur > 2.0f) for (int i = 0; i < _mapDotN; ++i) {
       int dx = absX - _mapDotX[i], dy = absY - _mapDotY[i], d2 = dx * dx + dy * dy;
       if (d2 < bestD2) { bestD2 = d2; best = i; }
@@ -808,11 +808,13 @@ void PageAviation::drawPressure(App& app) {
     g.setTextColor(catColor(s->cat), gTheme.bg);
     g.drawString(s->icao + " " + (s->cat.length() ? s->cat : String("--"))
                  + (_mapSelIcao.length() ? "" : "  (nearest)"), 4, by);
-    char b[64];
-    snprintf(b, sizeof(b), "vis%.0f cig%d %d/%dC w%d@%d", s->visSm, s->ceilingFt,
-             s->tempC, s->dewpC, s->wdir < 0 ? 0 : s->wdir, s->wspd < 0 ? 0 : s->wspd);
+    String det = String("vis") + (s->visSm >= 0 ? String(s->visSm, 0) : String("--"))
+               + (s->ceilingFt >= 0 ? "  cig" + String(s->ceilingFt) : String("  cig none"));
+    if (s->tempC > -999) det += String("  ") + s->tempC + "/" + s->dewpC + "C";
+    det += String("  w") + (s->wspd == 0 ? String("calm")
+                            : (s->wdir < 0 ? String("VRB") : String(s->wdir)) + "@" + s->wspd);
     g.setTextDatum(textdatum_t::top_right); g.setTextColor(gTheme.fg, gTheme.bg);
-    g.drawString(b, cw - 4, by);
+    g.drawString(det, cw - 4, by);
     g.setTextDatum(textdatum_t::top_left);
     if (s->raw.length()) drawWrapped(g, s->raw, 4, by + 11, (cw - 8) / 6, 2, gTheme.dim);
   } else if (tgt.length()) {                          // a wide-area dot we have no raw METAR for

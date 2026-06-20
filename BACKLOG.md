@@ -16,6 +16,16 @@ move out on the next sweep.
   route through it. Verified on-device: first-enable 200, disable 000, reboot-reenable
   200 (no -8).
 
+### Aviation Wx (playtested 2026-06-20 — clean)
+- [x] Map bottom strip showed `cig-1` / `w0@0` for clear/calm — FIXED to `cig none` /
+  `wcalm`, guards `vis--` + missing temp. Map/METAR/Sounding/Trends verified; TAF +
+  Hazards correctly auto-hidden when empty. Selection hit radius widened (12→16px).
+
+### Playtest harness note
+- OTA-flashing while the device is heap-starved (web + screenshot buffer up) can wedge
+  the UI render loop (stale screenshots, frozen clock) — a clean **serial** reboot/flash
+  recovers it. Prefer serial flashing on the no-PSRAM CYD during playtests.
+
 ## Tooling ideas
 - **Web flasher on GitHub Pages** (Web Serial / esptool-js, like the ESP Web Tools
   "Install" button) so anyone can flash the firmware from Chrome with no PlatformIO
