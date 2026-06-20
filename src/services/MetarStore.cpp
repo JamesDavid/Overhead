@@ -7,10 +7,13 @@ void MetarStore::upsert(const MetarRec& r) {
       if (r.obsTime > e.obsTime || (r.obsTime == e.obsTime && r.fetchedAt >= e.fetchedAt)) {
         // keep any richer fields a sparser source (e.g. the pressure feed) lacks
         MetarRec m = r;
-        if (m.tempC == -999 && e.tempC != -999) m.tempC = e.tempC;
-        if (m.cat.length() == 0)                m.cat = e.cat;
-        if (m.cloud < 0 && e.cloud >= 0)        m.cloud = e.cloud;
-        if (m.wspd < 0 && e.wspd >= 0)          { m.wspd = e.wspd; m.wdir = e.wdir; }
+        if (m.tempC == -999 && e.tempC != -999)  m.tempC = e.tempC;
+        if (m.dewpC == -999 && e.dewpC != -999)  m.dewpC = e.dewpC;
+        if (m.cat.length() == 0)                 m.cat = e.cat;
+        if (m.cloud < 0 && e.cloud >= 0)         m.cloud = e.cloud;
+        if (m.visSm < 0 && e.visSm >= 0)         m.visSm = e.visSm;
+        if (m.ceilingFt < 0 && e.ceilingFt >= 0) m.ceilingFt = e.ceilingFt;
+        if (m.wspd < 0 && e.wspd >= 0)           { m.wspd = e.wspd; m.wdir = e.wdir; }
         e = m;
       }
       return;

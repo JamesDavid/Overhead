@@ -108,12 +108,23 @@ static int coverPct(const String& c) {
   return 0;
 }
 
+// Flight category from ceiling + visibility (mirrors AviationWxProvider::flightCat so
+// the unified map colours every fetched station, not just the METAR-feed ones).
+static String flightCat(int ceilFt, float visSm) {
+  bool haveCeil = ceilFt >= 0;
+  if ((haveCeil && ceilFt < 500)  || (visSm >= 0 && visSm < 1)) return "LIFR";
+  if ((haveCeil && ceilFt < 1000) || (visSm >= 0 && visSm < 3)) return "IFR";
+  if ((haveCeil && ceilFt < 3000) || (visSm >= 0 && visSm < 5)) return "MVFR";
+  return "VFR";
+}
+
 bool PressureMapProvider::parse(const String& body) {
   JsonDocument filter;
   JsonObject e = filter.add<JsonObject>();
   e["icaoId"] = e["altim"] = e["lat"] = e["lon"] = e["wdir"] = e["wspd"] = true;   // coords + wind from feed
+  e["visib"] = e["temp"] = e["dewp"] = true;                        // + vis/temp/dewp (full decode -> cache)
   JsonObject c = e["clouds"].add<JsonObject>();
-  c["cover"] = true;
+  c["cover"] = c["base"] = true;                                    // cover + base (ceiling -> category)
   JsonDocument doc;
   if (deserializeJson(doc, body, DeserializationOption::Filter(filter))) return false;
   JsonArray arr = doc.as<JsonArray>();
@@ -128,11 +139,22 @@ bool PressureMapProvider::parse(const String& body) {
     p.lat = (float)o["lat"]; p.lon = (float)o["lon"];
     p.wdir = o["wdir"].is<int>() ? (int)o["wdir"] : -1;
     p.wspd = o["wspd"].is<int>() ? (int)o["wspd"] : -1;
-    int cl = 0;
-    for (JsonObject c2 : o["clouds"].as<JsonArray>()) { int v = coverPct((const char*)(c2["cover"] | "")); if (v > cl) cl = v; }
+    int cl = 0, ceil = -1;
+    for (JsonObject c2 : o["clouds"].as<JsonArray>()) {
+      String cv = (const char*)(c2["cover"] | "");
+      int v = coverPct(cv); if (v > cl) cl = v;
+      if ((cv == "BKN" || cv == "OVC" || cv == "OVX") && c2["base"].is<int>()) {
+        int b = c2["base"]; if (ceil < 0 || b < ceil) ceil = b;             // lowest broken/overcast = ceiling
+      }
+    }
     p.cloud = cl;
+    float visSm = atof(String((const char*)(o["visib"] | "-1")).c_str());
+    p.cat = flightCat(ceil, visSm);
     MetarRec r; r.icao = p.icao; r.lat = p.lat; r.lon = p.lon; r.hpa = p.hpa;   // feed the shared pool
-    r.cloud = p.cloud; r.wdir = p.wdir; r.wspd = p.wspd; r.fetchedAt = (uint32_t)time(nullptr);
+    r.cloud = p.cloud; r.wdir = p.wdir; r.wspd = p.wspd; r.cat = p.cat;
+    r.visSm = visSm; r.ceilingFt = ceil; r.fetchedAt = (uint32_t)time(nullptr);
+    if (o["temp"].is<float>()) r.tempC = (int)lround((float)o["temp"]);
+    if (o["dewp"].is<float>()) r.dewpC = (int)lround((float)o["dewp"]);
     MetarStore::instance().upsert(r);
     out.push_back(p);
     if (out.size() >= 48) break;                    // cap to bound heap on dense regions

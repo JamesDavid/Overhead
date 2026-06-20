@@ -799,31 +799,38 @@ void PageAviation::drawPressure(App& app) {
       g.drawFastHLine(x - 3, y, 7, gTheme.ok); g.drawFastVLine(x, y - 3, 7, gTheme.ok);
     }
   }
-  // Bottom strip: decoded METAR for the selected/closest field (full raw text when we
-  // have it), else — no fields at all — a one-line mode legend.
+  // Bottom strip: decoded METAR for the selected/closest field, sourced from the unified
+  // MetarStore so ANY plotted station shows data; the nearby-feed record adds raw text +
+  // dewpoint where it has them. With no fields loaded at all, a one-line mode legend.
   int by = my + mh + 2;
-  const Metar* s = tgt.length() ? findStation(tgt) : nullptr;
-  if (s) {
+  const MetarRec* mr = nullptr;
+  if (tgt.length()) for (auto& e : MetarStore::instance().all()) if (e.icao == tgt) { mr = &e; break; }
+  const Metar* s = tgt.length() ? findStation(tgt) : nullptr;       // nearby feed: carries raw + dewpoint
+  if (mr || s) {
+    String cat = (s && s->cat.length()) ? s->cat : mr ? mr->cat : String();
+    float  vis = (s && s->visSm >= 0) ? s->visSm : mr ? mr->visSm : -1;
+    int    cig = (s && s->ceilingFt >= 0) ? s->ceilingFt : mr ? mr->ceilingFt : -1;
+    int    tC, dC;
+    if (s && s->tempC > -999) { tC = s->tempC; dC = s->dewpC; }
+    else if (mr)              { tC = mr->tempC; dC = mr->dewpC; }
+    else                      { tC = dC = -999; }
+    int wd = s ? s->wdir : mr ? mr->wdir : -1;
+    int ws = s ? s->wspd : mr ? mr->wspd : -1;
     g.setTextDatum(textdatum_t::top_left);
-    g.setTextColor(catColor(s->cat), gTheme.bg);
-    g.drawString(s->icao + " " + (s->cat.length() ? s->cat : String("--"))
+    g.setTextColor(cat.length() ? catColor(cat) : gTheme.fg, gTheme.bg);
+    g.drawString(tgt + " " + (cat.length() ? cat : String("--"))
                  + (_mapSelIcao.length() ? "" : "  (nearest)"), 4, by);
-    String det = String("vis") + (s->visSm >= 0 ? String(s->visSm, 0) : String("--"))
-               + (s->ceilingFt >= 0 ? "  cig" + String(s->ceilingFt) : String("  cig none"));
-    if (s->tempC > -999) det += String("  ") + s->tempC + "/" + s->dewpC + "C";
-    det += String("  w") + (s->wspd == 0 ? String("calm")
-                            : (s->wdir < 0 ? String("VRB") : String(s->wdir)) + "@" + s->wspd);
+    String det = String("vis") + (vis >= 0 ? String(vis, 0) : String("--"))
+               + (cig >= 0 ? "  cig" + String(cig) : String("  cig none"));
+    if (tC > -999) det += String("  ") + tC + "/" + dC + "C";
+    det += String("  w") + (ws == 0 ? String("calm")
+                            : (wd < 0 ? String("VRB") : String(wd)) + "@" + ws);
     g.setTextDatum(textdatum_t::top_right); g.setTextColor(gTheme.fg, gTheme.bg);
     g.drawString(det, cw - 4, by);
     g.setTextDatum(textdatum_t::top_left);
-    if (s->raw.length()) drawWrapped(g, s->raw, 4, by + 11, (cw - 8) / 6, 2, gTheme.dim);
-  } else if (tgt.length()) {                          // a wide-area dot we have no raw METAR for
-    const PressurePt* mp = nullptr; for (auto& q : merged) if (q.icao == tgt) { mp = &q; break; }
-    g.setTextDatum(textdatum_t::top_left); g.setTextColor(gTheme.fg, gTheme.bg);
-    if (mp) { char b[80]; snprintf(b, sizeof(b), "%s  %dhPa  cloud %d%%  w%d@%d  (no raw METAR here)",
-                mp->icao.c_str(), mp->hpa, mp->cloud, mp->wdir < 0 ? 0 : mp->wdir, mp->wspd < 0 ? 0 : mp->wspd);
-              g.drawString(b, 4, by); }
-    else g.drawString(tgt + "  (no data)", 4, by);
+    if (s && s->raw.length()) drawWrapped(g, s->raw, 4, by + 11, (cw - 8) / 6, 2, gTheme.dim);
+    else { g.setTextColor(gTheme.dim, gTheme.bg);
+           g.drawString("(decoded from area feed - no raw METAR here)", 4, by + 11); }
   } else {
     g.setTextDatum(textdatum_t::bottom_left); g.setTextColor(gTheme.dim, gTheme.bg);
     if (catv)                g.drawString("flight category  green VFR / blue MVFR / red IFR", 4, cy0 + ch - 1);

@@ -13,10 +13,15 @@
 struct MetarRec {
   String   icao;
   float    lat = 0, lon = 0;
-  int      hpa = -1, cloud = -1, wdir = -1, wspd = -1, tempC = -999;
-  String   cat;
+  int      hpa = -1, cloud = -1, wdir = -1, wspd = -1, tempC = -999, dewpC = -999;
+  float    visSm = -1;        // visibility (statute miles); -1 unknown
+  int      ceilingFt = -1;    // lowest BKN/OVC base (ft); -1 = none/unknown
+  String   cat;               // VFR|MVFR|IFR|LIFR
   time_t   obsTime = 0;       // observation time; newer obs wins on upsert
   uint32_t fetchedAt = 0;
+  // NOTE: raw METAR text is deliberately NOT pooled here — 80 records * ~80 chars of
+  // String would push the no-PSRAM TLS heap floor. Raw stays on AviationWxProvider's
+  // nearby list; the cache holds the decoded fields every consumer needs.
 };
 
 class MetarStore {
