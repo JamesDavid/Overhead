@@ -231,8 +231,8 @@ void App::tapAt(int x, int y) {
   }
   if (y < contentY()) {                                      // status strip
     if (x < 48 && _clock) { _clock->toggle(*this); return; } // tap the clock -> clock mode on/off
-    if (_alert.length() && _alertTarget >= 0) {              // tap the alert banner -> the page it's about
-      _mode = Mode::Manual; setPage(_alertTarget); _statusDirty = true; return;
+    if (_alert.length() && _alertTarget >= 0 && x < _display.width() - 49) {  // tap the alert text ->
+      _mode = Mode::Manual; setPage(_alertTarget); _statusDirty = true; return;  // its page (glyphs stay)
     }
     if (dotsHit(x)) { openGrid(); return; }                  // tap the page dots -> grid
     const int W = _display.width();
@@ -346,19 +346,6 @@ void App::drawStatus() {
     strftime(clk, sizeof(clk), "%H:%M", &tm);
   }
 
-  // Alert mode: paint the whole strip warn and show the Director's message — this
-  // is the cross-tab "ISS pass NOW" notice, visible on any page (spec §7.4).
-  if (_alert.length()) {
-    g.fillRect(0, 0, _display.width(), kStatusH, gTheme.warn);
-    g.setTextSize(1);
-    g.setTextDatum(textdatum_t::middle_left);
-    g.setTextColor(gTheme.bg, gTheme.warn);
-    g.drawString(clk, 6, kStatusH / 2);
-    g.setTextDatum(textdatum_t::middle_right);
-    g.drawString(String("\xC2 ") + _alert, _display.width() - 6, kStatusH / 2);
-    return;
-  }
-
   // Auto-switch banner: announce an ambient/Director page change for ~2.5s (the
   // interrupt case already shows _alert above; this covers the silent tour jumps).
   if (_switchBannerMs && millis() - _switchBannerMs < 4000) {
@@ -386,16 +373,20 @@ void App::drawStatus() {
   drawModeIcon(modeRight, cy);                     // AUTO / MAN / PIN
   const int locCx = modeRight - 17;
   if (_pickSettings) drawLocIcon(locCx, cy);       // tap -> saved-locations picker
-  if (_active >= 0) {
+  if (_alert.length()) {                            // alert REPLACES the title (warn) but leaves the
+    g.setTextDatum(textdatum_t::middle_right);       // clock + right glyphs visible/tappable (not full-strip)
+    g.setTextColor(gTheme.warn, gTheme.grid);
+    g.drawString(String("\xC2 ") + _alert, locCx - 11, cy);
+  } else if (_active >= 0) {
     g.setTextDatum(textdatum_t::middle_right);
     g.setTextColor(gTheme.fg, gTheme.grid);
     g.drawString(_pages[_active]->title(), locCx - 11, cy);
   }
 
-  // Page-indicator dots just right of the clock. A badged page (Director has a
-  // suppressed interrupt for it) shows a warn-coloured dot (spec §7.4).
+  // Page-indicator dots just right of the clock — hidden while an alert occupies that
+  // space. A badged page (suppressed interrupt) shows a warn-coloured dot (spec §7.4).
   int n = (int)_pages.size();
-  if (n > 1) {
+  if (n > 1 && !_alert.length()) {
     int gap = 8, x0 = 52, cy = kStatusH / 2;
     for (int i = 0; i < n; ++i) {
       bool badged = (i < (int)_badge.size() && _badge[i]);

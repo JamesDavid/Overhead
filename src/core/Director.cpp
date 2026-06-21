@@ -125,8 +125,10 @@ void Director::tick(uint32_t nowMs) {
 
   // Aircraft (nearly) overhead: cross-tab alert + Aircraft badge. Lower priority than an
   // imminent pass/launch (which return early below), so it shows in the quiet window.
-  String ohMsg; bool overhead = _aircraft && _aircraft->overhead(ohMsg);
+  String ohMsg;
   int acIdx = _app->pageIndexByTitle("Aircraft");
+  // No point alerting/badging about a plane overhead when you're already on the radar.
+  bool overhead = _aircraft && _aircraft->overhead(ohMsg) && _app->activeIndex() != acIdx;
   if (acIdx >= 0) _app->setBadge(acIdx, overhead);
 
   // Interrupt: pass wins ties if it starts first. A specific item is highlighted
