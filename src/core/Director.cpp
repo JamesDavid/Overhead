@@ -125,15 +125,20 @@ void Director::tick(uint32_t nowMs) {
 
   // Aircraft (nearly) overhead: cross-tab alert + Aircraft badge. Lower priority than an
   // imminent pass/launch (which return early below), so it shows in the quiet window.
+  // Which pages may raise the cross-tab alert (configurable). Satellite + launch on by
+  // default; aircraft-overhead off by default (it can be chatty); weather on.
+  bool aSat = _s->getBool("alertSat", true), aLaunch = _s->getBool("alertLaunch", true);
+  bool aAircraft = _s->getBool("alertAircraft", false), aWx = _s->getBool("alertWx", true);
+
   String ohMsg;
   int acIdx = _app->pageIndexByTitle("Aircraft");
   // No point alerting/badging about a plane overhead when you're already on the radar.
-  bool overhead = _aircraft && _aircraft->overhead(ohMsg) && _app->activeIndex() != acIdx;
+  bool overhead = aAircraft && _aircraft && _aircraft->overhead(ohMsg) && _app->activeIndex() != acIdx;
   if (acIdx >= 0) _app->setBadge(acIdx, overhead);
 
   // Interrupt: pass wins ties if it starts first. A specific item is highlighted
   // (the bird / launch) rather than touring, so hold the tour clock.
-  if (passNow && (!launchNow || _passAos <= lnet)) {
+  if (passNow && aSat && (!launchNow || !aLaunch || _passAos <= lnet)) {
     _lastTourMs = nowMs;
     // Prominent cross-tab alert in the status strip (the badge alone was missable).
     long dt = (long)(_passAos - now);
@@ -150,7 +155,7 @@ void Director::tick(uint32_t nowMs) {
     }
     return;
   }
-  if (launchNow) {
+  if (launchNow && aLaunch) {
     _lastTourMs = nowMs;
     long dt = (long)(lnet - now);
     _app->setAlert(String("Launch ") + (dt > 0 ? "in " + String(dt / 60 + 1) + "m" : "NOW"), lchIdx);
@@ -158,8 +163,8 @@ void Director::tick(uint32_t nowMs) {
     return;
   }
   // Nothing imminent: a plane overhead, else a fresh weather announcement, else clear.
-  if (overhead)                                           _app->setAlert("Overhead " + ohMsg, acIdx);
-  else if (nowMs < _avAlertUntil && _avAlertMsg.length()) _app->setAlert(_avAlertMsg, avIdx);
+  if (overhead)                                                  _app->setAlert("Overhead " + ohMsg, acIdx);
+  else if (aWx && nowMs < _avAlertUntil && _avAlertMsg.length()) _app->setAlert(_avAlertMsg, avIdx);
   else _app->setAlert("");
 
   // Ambient resting default + multi-page attract tour. ambientDay/Night may be a

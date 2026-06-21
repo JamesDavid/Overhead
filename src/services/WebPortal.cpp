@@ -43,6 +43,7 @@ const FIELD={
  themeMode:['theme','sel',['auto','day','night']],nightPalette:['night palette','sel',['dark','red']],
  nightBacklight:['night backlight','n'],themeNightAlt:['night sun-alt','n'],dimAfterSec:['dim after (s)','n'],dimLevel:['dim level','n'],
  focusEnabled:['focus enabled','c'],passLeadMin:['pass lead (min)','n'],launchLeadMin:['launch lead (min)','n'],satMinEl:['min pass el','n'],
+ alertSat:['alert: satellite pass','c'],alertLaunch:['alert: launch','c'],alertAircraft:['alert: aircraft overhead','c'],alertWx:['alert: weather','c'],
  nightAmbientAlt:['night ambient sun-alt','n'],inactivitySec:['inactivity->auto (s)','n'],
  adsbMode:['mode','sel',['cloud','local']],adsbHost:['local host','t'],adsbRadiusNm:['radius (nm)','n'],
  refreshLaunchMin:['launches (min)','n'],refreshTleHour:['TLE (h)','n'],refreshSpaceWxMin:['space wx (min)','n'],refreshWeatherMin:['weather (min)','n'],
@@ -115,7 +116,7 @@ function focusHtml(){const d=(cur.ambientDay||'').split(',').map(s=>s.trim()),n=
  for(const p of PAGES)h+=`<tr><td>${p}</td>
   <td><input type=checkbox class=fday value="${p}" ${d.includes(p)?'checked':''}></td>
   <td><input type=checkbox class=fnight value="${p}" ${n.includes(p)?'checked':''}></td></tr>`;
- h+='</table>'+['focusEnabled','passLeadMin','launchLeadMin','satMinEl','nightAmbientAlt','inactivitySec'].map(fld).join('');
+ h+='</table>'+['focusEnabled','passLeadMin','launchLeadMin','satMinEl','nightAmbientAlt','inactivitySec','alertSat','alertLaunch','alertAircraft','alertWx'].map(fld).join('');
  return h;}
 function satsHtml(){const wl=(cur.watchlist||[]).map(s=>s.toUpperCase());
  let h='<p class=hint>Pick satellites to track (matched by name, case-insensitive contains).</p><div class=grid>';

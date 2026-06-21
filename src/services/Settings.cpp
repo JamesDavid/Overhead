@@ -85,6 +85,10 @@ void Settings::fillDefaults(JsonDocument& _doc) {
   _doc["nightAmbientAlt"] = -12;      // Sun alt to switch to the night ambient tab
   _doc["passLeadMin"]   = 5;          // minutes before AOS to seize focus
   _doc["launchLeadMin"] = 10;         // minutes before T-0 to seize focus
+  _doc["alertSat"]      = true;       // which pages may raise the cross-tab alert banner
+  _doc["alertLaunch"]   = true;
+  _doc["alertAircraft"] = false;      // plane-overhead alert off by default (can be chatty)
+  _doc["alertWx"]       = true;
   _doc["inactivitySec"] = 90;         // MANUAL -> AUTO after this idle time
   _doc["dimAfterSec"]   = 120;        // backlight dims after this idle time (spec §13)
   _doc["dimLevel"]      = 20;         // dimmed backlight (0..255)

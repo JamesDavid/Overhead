@@ -231,10 +231,10 @@ void App::tapAt(int x, int y) {
   }
   if (y < contentY()) {                                      // status strip
     if (x < 48 && _clock) { _clock->toggle(*this); return; } // tap the clock -> clock mode on/off
-    if (_alert.length() && _alertTarget >= 0 && x < _display.width() - 49) {  // tap the alert text ->
-      _mode = Mode::Manual; setPage(_alertTarget); _statusDirty = true; return;  // its page (glyphs stay)
+    if (dotsHit(x)) { openGrid(); return; }                  // tap the page "oooo" dots -> grid (even mid-alert)
+    if (_alert.length() && _alertTarget >= 0) {              // tap the orange alert bar -> the page it's about
+      _mode = Mode::Manual; setPage(_alertTarget); _statusDirty = true; return;
     }
-    if (dotsHit(x)) { openGrid(); return; }                  // tap the page dots -> grid
     const int W = _display.width();
     if (x >= W - 15) {                                       // WiFi bars -> Device Health
       int h = healthPageIndex();
@@ -359,6 +359,26 @@ void App::drawStatus() {
     return;
   }
 
+  // Alert mode: the orange attention bar (spec §7.4) — but it deliberately keeps the
+  // clock and the page "oooo" dots uncovered so you can still read the time and open
+  // the quick-jump while an alert is up. Tap the bar (off the clock/dots) -> its page.
+  if (_alert.length()) {
+    g.fillRect(0, 0, _display.width(), kStatusH, gTheme.warn);
+    g.setTextSize(1);
+    g.setTextColor(gTheme.bg, gTheme.warn);
+    g.setTextDatum(textdatum_t::middle_right);
+    g.drawString(String("\xC2 ") + _alert, _display.width() - 6, kStatusH / 2);
+    g.setTextDatum(textdatum_t::middle_left);
+    g.drawString(clk, 6, kStatusH / 2);                          // time stays readable
+    int na = (int)_pages.size();                                 // dots stay (drawn last, on top)
+    if (na > 1) for (int i = 0; i < na; ++i) {
+      int x = 52 + i * 8, cyd = kStatusH / 2;
+      if (i == _active) g.fillCircle(x, cyd, 2, gTheme.bg);
+      else              g.drawCircle(x, cyd, 2, gTheme.bg);
+    }
+    return;
+  }
+
   g.fillRect(0, 0, _display.width(), kStatusH, gTheme.grid);
   g.setTextDatum(textdatum_t::middle_left);
   g.setTextColor(gTheme.fg, gTheme.grid);
@@ -373,20 +393,16 @@ void App::drawStatus() {
   drawModeIcon(modeRight, cy);                     // AUTO / MAN / PIN
   const int locCx = modeRight - 17;
   if (_pickSettings) drawLocIcon(locCx, cy);       // tap -> saved-locations picker
-  if (_alert.length()) {                            // alert REPLACES the title (warn) but leaves the
-    g.setTextDatum(textdatum_t::middle_right);       // clock + right glyphs visible/tappable (not full-strip)
-    g.setTextColor(gTheme.warn, gTheme.grid);
-    g.drawString(String("\xC2 ") + _alert, locCx - 11, cy);
-  } else if (_active >= 0) {
+  if (_active >= 0) {
     g.setTextDatum(textdatum_t::middle_right);
     g.setTextColor(gTheme.fg, gTheme.grid);
     g.drawString(_pages[_active]->title(), locCx - 11, cy);
   }
 
-  // Page-indicator dots just right of the clock — hidden while an alert occupies that
-  // space. A badged page (suppressed interrupt) shows a warn-coloured dot (spec §7.4).
+  // Page-indicator dots just right of the clock. A badged page (Director has a
+  // suppressed interrupt for it) shows a warn-coloured dot (spec §7.4).
   int n = (int)_pages.size();
-  if (n > 1 && !_alert.length()) {
+  if (n > 1) {
     int gap = 8, x0 = 52, cy = kStatusH / 2;
     for (int i = 0; i < n; ++i) {
       bool badged = (i < (int)_badge.size() && _badge[i]);

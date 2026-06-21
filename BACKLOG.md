@@ -139,14 +139,22 @@ Not built (small, optional — promote later if wanted):
   output item (same "device computes az/el + freq -> drives the hardware" pattern). NOTE:
   the AIOC (USB audio+PTT device) is the wrong tool for *frequency* control; it'd only
   matter for downlink AUDIO, which needs an S3 USB-host + UAC stack — its own milestone.
-- **Az/El rotor output + DIY rotor.** Stream the tracked az/el over serial (and/or
-  TCP) in a standard rotor protocol — **GS-232** ("Wxxx yyy") or **EasyComm II**
-  ("AZxxx.x ELyy.y") — so it drives Hamlib/rotctld or a hardware rotator. Works for ANY
-  az/el the device computes (sat pass, Moon/planet, even a launch look-angle). Plus a
-  companion **ESP32 rotor firmware**: two 28BYJ-48 steppers on ULN2003 drivers (az +
-  el), accepting the same protocol over serial/Wi-Fi, with limit/home + microstep
-  ramping — a cheap build-your-own rotor. Keep the protocol the contract between the
-  two so either end is swappable (commercial rotor or our build).
+- **Az/El rotor output + universal object tracking + DIY rotor.** Two parts:
+  - **Track any focused object.** A `Page::trackTarget(az, el, label)` virtual so each
+    page hands back its *currently focused* object's live az/el — satellite (selected
+    bird), Sun/Moon/planet, a star or constellation (RA/Dec→az/el), the selected
+    aircraft (its look-angle), even a launch look-angle. One uniform "point at the thing
+    I'm looking at" contract across every object type.
+  - **Stream it to a rotor.** Output that az/el in a **switchable** standard protocol —
+    **GS-232** ("Wxxx yyy") *and* **EasyComm II** ("AZxxx.x ELyy.y"), a setting picks
+    which — so it drives Hamlib/rotctld or a commercial rotator. Plus a companion
+    **ESP32 rotor firmware**: two 28BYJ-48 steppers on ULN2003 drivers (az + el), limit
+    /home + microstep ramping — a cheap build-your-own rotor that speaks one of the same
+    protocols. Keep the protocol the contract so either end is swappable.
+  - **Transport (decided): ESPNOW or Wi-Fi between the two ESP32s** — both have radios,
+    so no cable; Overhead pushes az/el and the rotor board slews. (Hamlib-over-USB-serial
+    is a secondary path for commercial rotators.) Skipped for now — revisit as its own
+    project once a target rotor exists.
 - **IMU handheld antenna-aim mode.** Wire an I2C 6-DOF/9-DOF IMU (e.g. MPU6050 6-DOF,
   or MPU9250/BNO055 9-DOF with magnetometer for absolute heading) to the CYD's exposed
   I2C, mount the whole thing on a handheld Yagi/arrow antenna, and add a "manual track"
