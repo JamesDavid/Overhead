@@ -30,6 +30,7 @@ public:
   void cycleView(int dir) override;            // up/down swipe: Polar <-> Ground
   int  viewCount() const override { return 2; }
   int  viewIndex() const override { return _view == View::Ground ? 1 : 0; }
+  const char* viewName(int i) const override { return i == 0 ? "Pass (polar)" : i == 1 ? "Ground track" : nullptr; }
   void tick(App& app, uint32_t nowMs) override;
   String gridStatus() override;
   bool autoAdvance(App& app) override;
@@ -70,6 +71,7 @@ private:
   int   _sel      = -1;                // absolute provider index (= _order[_orderPos])
   bool  _loaded   = false;
   astro::SatPass _pass;
+  int   _passVis = 0;                   // naked-eye state: 0 n/a (radio bird) 1 visible 2 daylight 3 shadow
   std::vector<TrackPt> _track;
   std::vector<float>   _graphEl;       // elevation samples aos..los
   std::vector<float>   _passAz;        // matching azimuth samples (for the polar arc)

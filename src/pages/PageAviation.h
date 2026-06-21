@@ -32,6 +32,7 @@ public:
   void cycleView(int dir) override;           // up/down swipe -> next/prev view
   int  viewCount() const override;            // 7, or 6 when no field has a TAF (TAF view is skipped)
   int  viewIndex() const override;
+  const char* viewName(int i) const override; // for the tap-the-title views menu
   void tick(App& app, uint32_t nowMs) override;
   bool autoAdvance(App& app) override;
   String gridStatus() override;          // nearest METAR: cat + temp/wind

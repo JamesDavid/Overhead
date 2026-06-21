@@ -26,6 +26,7 @@ public:
   void cycleView(int dir) override;            // up/down swipe: card <-> map
   int  viewCount() const override { return 2; }
   int  viewIndex() const override { return _map ? 1 : 0; }
+  const char* viewName(int i) const override { return i == 0 ? "Card" : i == 1 ? "Map" : nullptr; }
   void onData(App& app, ProviderId id) override;
   void onTouch(App& app, int x, int y) override;
   void tick(App& app, uint32_t nowMs) override;

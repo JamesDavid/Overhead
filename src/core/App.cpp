@@ -201,6 +201,17 @@ void App::tapAt(int x, int y) {
     } else closeLocPicker();
     return;
   }
+  if (_viewMenu) {                                           // views menu open: jump to a view or dismiss
+    int r = (y >= contentY()) ? viewMenuRow(y - contentY()) : -1;
+    if (r >= 0 && _active >= 0) {
+      Page* p = _pages[_active];
+      int cur = p->viewIndex(), n = p->viewCount();
+      int steps = ((r - cur) % n + n) % n;                   // step forward (cycleView skips hidden views)
+      for (int s = 0; s < steps; ++s) p->cycleView(1);
+    }
+    closeViewMenu();
+    return;
+  }
   if (_grid) {                                               // grid open: pick a cell or dismiss
     if (y >= contentY()) {
       int idx = gridCell(x, y - contentY());
@@ -226,6 +237,7 @@ void App::tapAt(int x, int y) {
       if (h >= 0) { _mode = Mode::Manual; setPage(h); _statusDirty = true; return; }
     }
     if (x >= W - 46 && x < W - 30 && openLocPicker()) return; // crosshair -> saved-locations picker
+    if (titleHit(x) && openViewMenu()) return;               // page title -> views menu
     if (_pinned) _pinned = false;                            // (mode-glyph zone + rest) -> toggle mode
     else _mode = (_mode == Mode::Auto) ? Mode::Manual : Mode::Auto;
     _statusDirty = true;
@@ -268,7 +280,7 @@ void App::tick(uint32_t nowMs) {
     int dx = _lastX - _pressX, dy = _lastY - _pressY;
     uint32_t held = _lastTouchMs - _pressStartMs;
     bool moved = abs(dx) > kTapMax || abs(dy) > kTapMax;
-    if (_locPicker) { tapAt(_pressX, _pressY); }            // picker up: any release picks/dismisses
+    if (_locPicker || _viewMenu) { tapAt(_pressX, _pressY); } // modal up: any release picks/dismisses
     else if (abs(dx) >= kSwipeMin && abs(dx) > abs(dy)) {   // horizontal swipe -> page nav
       if (_grid) closeGrid(); else { if (dx < 0) nextPage(); else prevPage(); }
     } else if (abs(dy) >= kSwipeMin && abs(dy) >= abs(dx)) {  // vertical swipe -> page scroll
@@ -285,7 +297,7 @@ void App::tick(uint32_t nowMs) {
   }
 
   // Inactivity: MANUAL -> AUTO (unless pinned or an overlay is up) (spec §7.4).
-  if (_mode == Mode::Manual && !_pinned && !_grid && !_locPicker && nowMs - _lastInteractMs > _inactivityMs) {
+  if (_mode == Mode::Manual && !_pinned && !_grid && !_locPicker && !_viewMenu && nowMs - _lastInteractMs > _inactivityMs) {
     _mode = Mode::Auto; _statusDirty = true;
   }
   // Clock screensaver: when idle in AUTO and the "auto" chip is on, raise the clock.
@@ -294,7 +306,7 @@ void App::tick(uint32_t nowMs) {
     _clock->toggle(*this);
   }
 
-  if (_active >= 0 && !_grid && !_locPicker) {                 // grid/picker overlay holds the content
+  if (_active >= 0 && !_grid && !_locPicker && !_viewMenu) {   // grid/picker/views overlay holds the content
     if (_clock && _clock->active()) {
       bool live = _pages[_active]->clockKeepLive();            // live pages keep running underneath
       if (_active != _clockShownPage) { _clock->invalidate(); _clockShownPage = _active; }
@@ -507,6 +519,58 @@ int App::locPickerRow(int x, int yRel) const {
   int r = (yRel - kPickTop) / kPickRowH;
   int n = 1 + (int)_pickSettings->doc()["locations"].as<JsonArray>().size();
   return (r >= 0 && r < n) ? r : -1;
+}
+
+// Tap the page title (status strip) -> a modal list of the active page's views; tap one
+// to jump straight to it (vs. centre-tap/swipe stepping). Only opens when >1 view.
+bool App::titleHit(int x) const {
+  if (_active < 0) return false;
+  int tw = (int)strlen(_pages[_active]->title()) * 6;
+  int right = _display.width() - 49;            // title right edge (left of crosshair/mode/bars)
+  return x <= right + 2 && x >= right - tw - 2;
+}
+
+bool App::openViewMenu() {
+  if (_active < 0 || _pages[_active]->viewCount() <= 1) return false;
+  _viewMenu = true; _mode = Mode::Manual; _statusDirty = true;
+  drawViewMenu();
+  return true;
+}
+
+void App::closeViewMenu() {
+  if (!_viewMenu) return;
+  _viewMenu = false;
+  _display.gfx().fillRect(0, contentY(), contentW(), contentH(), gTheme.bg);
+  if (_active >= 0) _pages[_active]->onEnter(*this);
+  _statusDirty = true;
+}
+
+void App::drawViewMenu() {
+  auto& g = _display.gfx();
+  const int cw = contentW(), ch = contentH(), y0 = contentY();
+  Page* p = _pages[_active];
+  g.fillRect(0, y0, cw, ch, gTheme.bg);
+  g.setTextSize(1);
+  g.setTextDatum(textdatum_t::top_left);
+  g.setTextColor(gTheme.accent, gTheme.bg);
+  g.drawString(String(p->title()) + " views  (tap one - or outside to cancel)", 6, y0 + 4);
+  int n = p->viewCount(), cur = p->viewIndex(), ry = y0 + kPickTop;
+  g.setTextDatum(textdatum_t::middle_left);
+  for (int i = 0; i < n && ry + kPickRowH <= y0 + ch; ++i) {
+    bool active = (i == cur);
+    if (active) g.fillRect(4, ry, cw - 8, kPickRowH - 2, gTheme.grid);
+    g.setTextColor(active ? gTheme.accent : gTheme.fg, active ? gTheme.grid : gTheme.bg);
+    const char* nm = p->viewName(i);
+    String label = nm ? String(nm) : ("View " + String(i + 1));
+    g.drawString(active ? ("\x10 " + label) : label, 10, ry + kPickRowH / 2 - 1);
+    ry += kPickRowH;
+  }
+}
+
+int App::viewMenuRow(int yRel) const {
+  if (_active < 0 || yRel < kPickTop) return -1;
+  int r = (yRel - kPickTop) / kPickRowH;
+  return (r >= 0 && r < _pages[_active]->viewCount()) ? r : -1;
 }
 
 void App::applyLocation(int row) {

@@ -28,6 +28,7 @@ public:
   void cycleView(int dir) override;
   int  viewCount() const override { return 1 + memCount(); }
   int  viewIndex() const override { return _view; }
+  const char* viewName(int i) const override;   // "Live sky" + memory-sky titles
 
 private:
   void draw(App& app);

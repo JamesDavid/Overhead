@@ -8,6 +8,8 @@
 #include "../services/TimeService.h"
 #include "../services/Settings.h"
 #include "../assets/Coastline.h"
+#include "../astro/Sun.h"
+#include "../astro/Time.h"
 #include <math.h>
 #include <time.h>
 
@@ -88,9 +90,22 @@ void PageSatellites::reloadSelected() {
 }
 
 void PageSatellites::recomputePass(time_t now) {
-  if (!_loaded) { _pass = astro::SatPass{}; _graphEl.clear(); _passAz.clear(); return; }
+  if (!_loaded) { _pass = astro::SatPass{}; _graphEl.clear(); _passAz.clear(); _passVis = 0; return; }
   _pass = _eng.nextPass(now, (double)minEl(), 60);
   recomputeGraph();
+  // Naked-eye state for THIS pass. Only bright birds (ISS/Tiangong/Hubble) are eye-
+  // visible at all; for them it needs a dark sky (civil dark) AND the sat sunlit at peak.
+  // Radio birds (SO-50, etc.) stay n/a — naked-eye isn't the point. Same test the Director uses.
+  _passVis = 0;
+  if (_pass.valid && _sel >= 0 && _sel < (int)_tle.sats().size() && _loc.active().valid) {
+    const String& nm = _tle.sats()[_sel].name;
+    bool bright = nm.startsWith("ISS") || nm.startsWith("CSS") || nm.indexOf("TIANGONG") >= 0 || nm.startsWith("HST");
+    if (bright) {
+      double jd = astro::julianDate(_pass.tca);
+      bool dark = astro::sunAltitudeDeg(jd, _loc.active().lat, _loc.active().lon) < -6.0;
+      _passVis = !dark ? 2 : !_eng.observe(_pass.tca).sunlit ? 3 : 1;
+    }
+  }
 }
 
 void PageSatellites::recomputeGraph() {
@@ -288,6 +303,9 @@ void PageSatellites::drawInfoColumn(App& app, int ix, int iy, const astro::SatOb
   line(String("az ") + (int)round(o.azDeg) + "  el " + (int)round(o.elDeg), up ? gTheme.ok : gTheme.dim);
   line(String("range ") + (int)round(o.rangeKm) + " km", gTheme.fg);
   line(o.sunlit ? "sunlit" : "eclipsed", o.sunlit ? gTheme.warn : gTheme.dim);
+  if (_passVis == 1)      line("** VISIBLE to eye **", gTheme.ok);       // bright, sunlit, dark sky
+  else if (_passVis == 2) line("daylight: not visible", gTheme.dim);
+  else if (_passVis == 3) line("in shadow: not visible", gTheme.dim);
 
   auto hm = [](time_t t) { struct tm tm; localtime_r(&t, &tm); char b[8]; snprintf(b, sizeof(b), "%02d:%02d", tm.tm_hour, tm.tm_min); return String(b); };
   if (up) {

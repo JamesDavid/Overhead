@@ -36,6 +36,8 @@ public:
   // Default: single view (no dots).
   virtual int viewCount() const { return 1; }
   virtual int viewIndex() const { return 0; }
+  // Name of view i (0..viewCount-1) for the tap-the-title views menu; null = "View N".
+  virtual const char* viewName(int i) const { return nullptr; }
   virtual void onData(App& app, ProviderId id) {}  // EventBus delivery
   virtual String gridStatus() { return String(); }  // one live token for the 3x3 grid tile
 

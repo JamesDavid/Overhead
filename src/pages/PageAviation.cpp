@@ -155,6 +155,20 @@ int PageAviation::viewIndex() const {
   return 0;
 }
 
+const char* PageAviation::viewName(int i) const {
+  View vs[7]; int n = activeViews(vs);
+  if (i < 0 || i >= n) return nullptr;
+  switch (vs[i]) {
+    case View::Pressure: return "Map";
+    case View::Metar:    return "METAR";
+    case View::Taf:      return "TAF";
+    case View::Sounding: return "Sounding";
+    case View::Hazards:  return "Hazards";
+    case View::Trends:   return "Trends";
+  }
+  return nullptr;
+}
+
 bool PageAviation::enterTaf() {
   const auto& st = _wx.stations(); int n = (int)st.size();
   if (_sel >= 0 && _sel < n && st[_sel].taf.length()) return true;   // current field already has one
@@ -761,8 +775,8 @@ void PageAviation::drawPressure(App& app) {
     Color pc  = p.hpa >= 1019 ? gTheme.accent : p.hpa <= 1009 ? gTheme.warn : gTheme.fg; // inHg band -> the dot
     Color ctc = p.cat.length() ? catColor(p.cat) : gTheme.dim;                           // flight category -> id text
     bool seld = (tgt.length() && p.icao == tgt);
-    if (!seld) {                                              // declutter: thin dots crowding an already-
-      int minPx = _pZoomCur > 1.6f ? 15 : 26;                // drawn one (the 200mi view is dense); zooming
+    if (!seld && scope == 0) {                                // declutter ONLY at the dense 200mi/drilled
+      int minPx = _pZoomCur > 1.6f ? 15 : 26;                // scope (US/world are sparse — show every dot)
       bool crowd = false;                                    // spreads them so more reveal. Selected/nearest
       for (int k = 0; k < _mapDotN; ++k) {                   // is exempt so it always shows.
         int dx = x - _mapDotX[k], dy = y - _mapDotY[k];

@@ -87,6 +87,11 @@ private:
   void drawLocPicker();
   int  locPickerRow(int x, int yRel) const; // picker row under a tap, or -1
   void applyLocation(int row);           // switch the active location (row 0 = Auto/IP)
+  bool openViewMenu();                   // tap the page title: list the active page's views; true if opened
+  void closeViewMenu();
+  void drawViewMenu();
+  int  viewMenuRow(int yRel) const;      // view-menu row under a tap, or -1
+  bool titleHit(int x) const;            // x falls on the status-strip page title
 
   Display&   _display;
   Touch&     _touch;
@@ -114,6 +119,7 @@ private:
 
   bool     _grid = false;              // 3x3 quick-jump grid overlay is showing
   bool     _locPicker = false;         // saved-locations modal overlay is showing
+  bool     _viewMenu = false;          // page-title views menu overlay is showing
   Settings*        _pickSettings = nullptr;   // for the location picker (saved `locations`)
   LocationService* _pickLoc = nullptr;
   Mode     _mode = Mode::Auto;

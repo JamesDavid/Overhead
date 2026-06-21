@@ -30,6 +30,11 @@ int PageStarMap::memCount() const {
   return _settings.doc()["memorySkies"].as<JsonArrayConst>().size();
 }
 
+const char* PageStarMap::viewName(int i) const {
+  if (i <= 0) return "Live sky";
+  return _settings.doc()["memorySkies"][i - 1]["title"] | (const char*)nullptr;   // memory-sky title
+}
+
 // Effective time + observer for the active view: the live now/here sky (view 0),
 // or a saved Memory Sky's instant + place. Returns false only when the live view
 // has no clock/location yet (a saved sky is a fixed moment, always renderable).

@@ -25,6 +25,10 @@ public:
   void cycleView(int dir) override;            // up/down swipe: step the 8 sub-views
   int  viewCount() const override { return kViews; }
   int  viewIndex() const override { return _view; }
+  const char* viewName(int i) const override {
+    static const char* nm[] = {"Sky dome","Orbits","Moon","Mars","Jupiter","Saturn","Deep Space","Meteors"};
+    return (i >= 0 && i < (int)(sizeof(nm)/sizeof(nm[0]))) ? nm[i] : nullptr;
+  }
   void tick(App& app, uint32_t nowMs) override;
   bool autoAdvance(App& app) override;
   String gridStatus() override;          // Moon illumination %
