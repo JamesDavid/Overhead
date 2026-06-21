@@ -756,7 +756,8 @@ void PageAviation::drawPressure(App& app) {
     const PressurePt& p = merged[i];
     int x = SX(p.lon), y = SY(p.lat);
     if (x < mx || x > mx + mw || y < my || y > my + mh) continue;
-    Color cc  = p.cloud < 30 ? gTheme.ok : p.cloud < 70 ? gTheme.accent : gTheme.warn;   // cloud band
+    Color cc  = p.cloud < 0 ? gTheme.dim : p.cloud < 30 ? gTheme.ok : p.cloud < 70 ? gTheme.accent : gTheme.warn; // cloud band (dim=unknown)
+    String cld = p.cloud >= 0 ? String(p.cloud) + "%" : String("--");                    // cloud cover (-- = unknown)
     Color pc  = p.hpa >= 1019 ? gTheme.accent : p.hpa <= 1009 ? gTheme.warn : gTheme.fg; // inHg band -> the dot
     Color ctc = p.cat.length() ? catColor(p.cat) : gTheme.dim;                           // flight category -> id text
     bool seld = (tgt.length() && p.icao == tgt);
@@ -769,7 +770,7 @@ void PageAviation::drawPressure(App& app) {
     if (zoom2) {                                              // 2.6x+: wind barb + multi-line readout near the dot
       windBarb(g, x, y, p.wdir, p.wspd, gTheme.fg);
       g.setTextColor(ctc, gTheme.bg); g.drawString(id, x + 5, y - 10);                              // line 1: id (cat) ...
-      g.setTextColor(cc, gTheme.bg);  g.drawString(String(p.cloud) + "%", x + 5 + ((int)id.length() + 1) * 6, y - 10);  // ... + cloud%
+      g.setTextColor(cc, gTheme.bg);  g.drawString(cld, x + 5 + ((int)id.length() + 1) * 6, y - 10);  // ... + cloud%
       if (inhg[0]) { g.setTextColor(pc, gTheme.bg); g.drawString(inhg, x + 5, y - 1); }            // line 2: inHg (pressure colour)
       if (zoom3 && p.wspd >= 0) {                                                                   // line 3 (4.5x+): wind kt
         g.setTextColor(gTheme.dim, gTheme.bg);
@@ -779,7 +780,7 @@ void PageAviation::drawPressure(App& app) {
       g.setTextColor(ctc, gTheme.bg); g.drawString(id, x + 4, y - 4);
       int lx = x + 4 + ((int)id.length() + 1) * 6;
       if (_presMode == 0) { if (p.cat.length()) g.drawString(p.cat, lx, y - 4); }                   // category (id colour shows it)
-      else if (_presMode == 1) { g.setTextColor(cc, gTheme.bg); g.drawString(String(p.cloud) + "%", lx, y - 4); }
+      else if (_presMode == 1) { g.setTextColor(cc, gTheme.bg); g.drawString(cld, lx, y - 4); }
       else if (_presMode == 2) { windBarb(g, x, y, p.wdir, p.wspd, gTheme.fg);
         if (p.wspd >= 0) { g.setTextColor(gTheme.dim, gTheme.bg);
           g.drawString(p.wspd == 0 ? String("calm") : String(p.wspd) + "kt", lx, y - 4); } }
