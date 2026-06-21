@@ -8,6 +8,7 @@
 #include "../providers/SpaceWxProvider.h"
 #include "../providers/AviationWxProvider.h"
 #include "../providers/WeatherProvider.h"
+#include "../providers/AircraftProvider.h"
 #include "../pages/PageSatellites.h"
 #include "../pages/PageAviation.h"
 #include "../astro/Sun.h"
@@ -122,6 +123,12 @@ void Director::tick(uint32_t nowMs) {
     }
   }
 
+  // Aircraft (nearly) overhead: cross-tab alert + Aircraft badge. Lower priority than an
+  // imminent pass/launch (which return early below), so it shows in the quiet window.
+  String ohMsg; bool overhead = _aircraft && _aircraft->overhead(ohMsg);
+  int acIdx = _app->pageIndexByTitle("Aircraft");
+  if (acIdx >= 0) _app->setBadge(acIdx, overhead);
+
   // Interrupt: pass wins ties if it starts first. A specific item is highlighted
   // (the bird / launch) rather than touring, so hold the tour clock.
   if (passNow && (!launchNow || _passAos <= lnet)) {
@@ -148,8 +155,9 @@ void Director::tick(uint32_t nowMs) {
     if (!_app->autoFocus(lchIdx) && _app->activeIndex() != lchIdx) _app->setBadge(lchIdx, true);
     return;
   }
-  // Nothing imminent: show a fresh weather announcement (if within its window), else clear.
-  if (nowMs < _avAlertUntil && _avAlertMsg.length()) _app->setAlert(_avAlertMsg);
+  // Nothing imminent: a plane overhead, else a fresh weather announcement, else clear.
+  if (overhead)                                           _app->setAlert("Overhead " + ohMsg);
+  else if (nowMs < _avAlertUntil && _avAlertMsg.length()) _app->setAlert(_avAlertMsg);
   else _app->setAlert("");
 
   // Ambient resting default + multi-page attract tour. ambientDay/Night may be a

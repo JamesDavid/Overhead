@@ -30,6 +30,19 @@ void AircraftProvider::begin(Settings* s, NetClient* net, EventBus* bus, Locatio
 double AircraftProvider::centerLat() const { return _ctrSet ? _ctrLat : _loc->active().lat; }
 double AircraftProvider::centerLon() const { return _ctrSet ? _ctrLon : _loc->active().lon; }
 
+bool AircraftProvider::overhead(String& msg, float nm, float elMin) const {
+  bool found = false; float bestEl = elMin;
+  for (const auto& a : _ac) {
+    if (a.onGround || a.distNm <= 0 || a.distNm > nm || a.altFt <= 0) continue;
+    float el = atan2f(a.altFt / 6076.12f, a.distNm) * 57.2957795f;   // elevation angle (deg)
+    if (el >= bestEl) {                                              // highest overhead contact wins
+      bestEl = el; found = true;
+      msg = (a.flight.length() ? a.flight : a.hex) + "  " + String((int)a.altFt) + "ft  " + (int)el + "\xF7";
+    }
+  }
+  return found;
+}
+
 void AircraftProvider::poll() {
   if (_inflight || !_loc->active().valid) return;
   // Drop a contact set that hasn't refreshed in >60s. Two reasons: (1) don't show

@@ -12,6 +12,7 @@ class LaunchProvider;
 class SpaceWxProvider;
 class AviationWxProvider;
 class WeatherProvider;
+class AircraftProvider;
 class PageSatellites;
 class PageAviation;
 
@@ -29,6 +30,7 @@ public:
   void setAviation(AviationWxProvider* a) { _avwx = a; }
   void setAviationPage(PageAviation* p) { _avPage = p; }
   void setWeather(WeatherProvider* w) { _wx = w; }
+  void setAircraft(AircraftProvider* a) { _aircraft = a; }
   void tick(uint32_t nowMs);
 
 private:
@@ -43,6 +45,7 @@ private:
   SpaceWxProvider* _spacewx = nullptr;
   AviationWxProvider* _avwx = nullptr;
   WeatherProvider* _wx = nullptr;
+  AircraftProvider* _aircraft = nullptr;
   PageSatellites*  _satPage = nullptr;
   PageAviation*    _avPage = nullptr;
 

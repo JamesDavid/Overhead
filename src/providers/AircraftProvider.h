@@ -43,6 +43,11 @@ public:
   bool           local() const { return _local; }
   float          radiusNm() const { return _radiusNm; }
   bool           hideGround() const { return _hideGround; }
+  // A contact passing (nearly) overhead: within `nm` horizontal AND above `elMin`
+  // elevation angle (atan(alt / horizontal range)). For a cross-tab "plane overhead"
+  // alert. msg <- "FLIGHT  ALTft" of the highest such contact.
+  bool           overhead(String& msg, float nm = 5.0f, float elMin = 20.0f) const;
+
   // Any contact squawking a 75/76/7700 emergency code (for a cross-tab alert).
   bool           hasEmergency() const {
     for (const auto& a : _ac)

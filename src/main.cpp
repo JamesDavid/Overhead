@@ -381,6 +381,7 @@ void setup() {
   director.setAviation(&avwxProv);
   director.setAviationPage(aviationPage);
   director.setWeather(&weatherProv);
+  director.setAircraft(&aircraftProv);
 
   Serial.printf("[boot] done. free heap=%u  largest=%u\n",
                 Display::freeHeap(), Display::largestFreeBlock());
