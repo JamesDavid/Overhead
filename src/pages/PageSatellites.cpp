@@ -139,6 +139,7 @@ bool PageSatellites::autoAdvance(App&) {
 
 void PageSatellites::onTouch(App& app, int x, int y) {
   if (handleMinElTap(app, x, y)) return;          // small bottom-left badge
+  if (handleChipTap(app, x, y)) return;           // tracked-sat selector chips (top band)
   if (_order.empty()) return;
   int third = app.contentW() / 3;
   if (x < third)          selectPos(_orderPos - 1);
@@ -222,12 +223,41 @@ void PageSatellites::draw(App& app) {
     g.fillRect(0, app.contentY(), app.contentW(), app.contentH(), gTheme.bg);
     _needClear = false; _pdx = _pdy = -1;
   }
+  drawChips(app);                                  // tracked-sat chips (sets the top band)
   if (_view == View::Polar) drawPolarView(app, o);
   else                      drawGroundView(app, o);
   drawMinElBadge(app);
   g.setTextDatum(textdatum_t::bottom_right);       // consistent control hint across views
   g.setTextColor(gTheme.dim, gTheme.bg); g.setTextSize(1);
   g.drawString("[side tap: sat  mid: view]", app.contentW() - 4, app.contentY() + app.contentH() - 1);
+}
+
+// Tracked-satellite selector chips along the top (same shared chip row the Aircraft
+// page uses for airports). Tap a chip to jump to that bird; reserves a top band the
+// views offset below. Hidden when there's 0/1 bird (nothing to pick).
+void PageSatellites::drawChips(App& app) {
+  _chipN = 0; _chipBandH = 0;
+  int n = (int)_order.size();
+  if (n <= 1) return;
+  const auto& sats = _tle.sats();
+  String labels[kMaxChips]; int m = 0, sel = 0;
+  for (int i = 0; i < n && m < kMaxChips; ++i) {
+    String nm = sats[_order[i]].name;
+    int lp = nm.indexOf('('), rp = nm.indexOf(')');
+    if (lp >= 0 && rp > lp) nm = nm.substring(lp + 1, rp);          // prefer the (designator), e.g. SO-50
+    else { int sp = nm.indexOf(' '); if (sp > 0) nm = nm.substring(0, sp); }
+    if (i == _orderPos) sel = m;
+    labels[m++] = nm;
+  }
+  _chipN = app.drawChipRow(2, app.contentY() + 3, 13, labels, m, sel, _chipX, _chipW, kMaxChips);
+  _chipBandH = 18;
+}
+
+bool PageSatellites::handleChipTap(App& app, int x, int yRel) {
+  if (_chipBandH == 0 || yRel >= _chipBandH) return false;
+  for (int i = 0; i < _chipN; ++i)
+    if (x >= _chipX[i] && x < _chipX[i] + _chipW[i]) { selectPos(i); _needClear = _dirty = true; return true; }
+  return false;
 }
 
 void PageSatellites::drawMinElBadge(App& app) {
@@ -287,7 +317,7 @@ void PageSatellites::drawInfoColumn(App& app, int ix, int iy, const astro::SatOb
 
 void PageSatellites::drawPolarView(App& app, const astro::SatObservation& o) {
   auto& g = app.display().gfx();
-  const int cw = app.contentW(), ch = app.contentH(), cy0 = app.contentY();
+  const int cw = app.contentW(), ch = app.contentH() - _chipBandH, cy0 = app.contentY() + _chipBandH;
 
   int size = min(ch - 8, cw / 2 - 8);
   int R = size / 2 - 12;
@@ -347,7 +377,7 @@ void PageSatellites::drawPolarView(App& app, const astro::SatObservation& o) {
 
 void PageSatellites::drawGroundView(App& app, const astro::SatObservation& o) {
   auto& g = app.display().gfx();
-  const int cw = app.contentW(), cy0 = app.contentY(), ch = app.contentH();
+  const int cw = app.contentW(), cy0 = app.contentY() + _chipBandH, ch = app.contentH() - _chipBandH;
   const int topH = 28;
   const int mx = 0, my = cy0 + topH, mw = cw, mh = ch - topH;
 

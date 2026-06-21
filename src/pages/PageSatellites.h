@@ -53,6 +53,11 @@ private:
   void drawGroundView(App& app, const astro::SatObservation& o);
   void drawInfoColumn(App& app, int ix, int iy, const astro::SatObservation& o);
   void drawMinElBadge(App& app);
+  void drawChips(App& app);                    // tracked-sat selector chips (shared chip row)
+  bool handleChipTap(App& app, int x, int yRel);
+
+  static constexpr int kMaxChips = 12;
+  int _chipX[kMaxChips] = {0}, _chipW[kMaxChips] = {0}, _chipN = 0, _chipBandH = 0;
 
   TleProvider&     _tle;
   LocationService& _loc;
