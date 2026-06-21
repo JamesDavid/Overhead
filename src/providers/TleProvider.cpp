@@ -92,8 +92,15 @@ bool TleProvider::keepName(const String& name, size_t kept) const {
 
 void TleProvider::rebuildMerged() {
   _sats.clear();
+  // De-dupe by name: a bird can appear in more than one CelesTrak group (e.g.
+  // ISS (ZARYA) is in both 'stations' and 'amateur'), which otherwise showed it twice
+  // in the watchlist selector / pass scans.
   for (int i = 0; i < kGroupCount; ++i)
-    for (auto& e : _groupSats[i]) _sats.push_back(e);
+    for (auto& e : _groupSats[i]) {
+      bool dup = false;
+      for (auto& s : _sats) if (s.name == e.name) { dup = true; break; }
+      if (!dup) _sats.push_back(e);
+    }
 }
 
 void TleProvider::parseInto(std::vector<TleEntry>& target, const String& tleText) {
