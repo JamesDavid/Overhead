@@ -39,7 +39,7 @@ static Color catColor(const String& c) {
 }
 
 
-static int drawWrapped(LGFX& g, const String& text, int x, int y, int maxChars, int maxLines, Color c) {
+static int drawWrapped(lgfx::LovyanGFX& g, const String& text, int x, int y, int maxChars, int maxLines, Color c) {
   g.setTextColor(c, gTheme.bg);
   g.setTextDatum(textdatum_t::top_left);
   int line = 0, i = 0, n = text.length();

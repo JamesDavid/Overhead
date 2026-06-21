@@ -116,7 +116,7 @@ static const char* moonPhaseName(double deg) {
 }
 
 // Small drawn moon-phase disk (waxing lit on the right). phaseDeg: 0 new..180 full..360.
-static void drawMoonPhase(LGFX& g, int cx, int cy, int r, double phaseDeg) {
+static void drawMoonPhase(lgfx::LovyanGFX& g, int cx, int cy, int r, double phaseDeg) {
   const double D2R = 3.14159265358979323846 / 180.0;
   double c = cos(phaseDeg * D2R);
   g.fillCircle(cx, cy, r, gTheme.grid);                  // dark disk

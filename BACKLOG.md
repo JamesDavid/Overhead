@@ -456,21 +456,26 @@ REMAINING (stretch):
 
 <!-- new milestones append below as they land -->
 
-## CrowPanel V1.2 — eliminate display tearing
+## CrowPanel V1.2 — display tearing (double-buffer IMPLEMENTED, pending eyes-on confirm)
 
-The 5.0" V1.2 panel now renders correctly (see the crowpanel commit), but there's
-visible tearing. Root cause (verified against the Elecrow V1.2 factory repo): the
-factory uses **LVGL with two full-screen PSRAM draw buffers** and `pushImageDMA` —
-i.e. it renders a complete frame off-screen, then pushes it. LovyanGFX's `Panel_RGB`
-is **single-framebuffer** (its `config_detail` exposes only `use_psram`), so Overhead
-draws straight into the buffer that's being scanned out → the scan catches mid-draw.
+Root cause (verified vs the Elecrow V1.2 factory repo): LovyanGFX's `Panel_RGB` is a
+single framebuffer scanned continuously from PSRAM; Overhead drawing (or a full-frame
+copy) into it lets the scan catch a half-updated frame → tearing. The factory dodges it
+with LVGL's tiny dirty-rect `pushImageDMA`; Overhead repaints large areas so it can't.
+The registry IDF 4.4 `esp_lcd` has no `num_fbs`/bounce-buffer (no HW double-buffer).
 
-Fix options (in rough order of preference):
-- **esp_lcd RGB with `num_fbs = 2`** (double framebuffer, swapped on vsync) — the only
-  true tear-free path. Earlier esp_lcd blit attempt showed a byte-order mismatch (blue
-  text); resolve by drawing into esp_lcd's own FB (via `get_frame_buffer`, if present on
-  IDF 4.4) or matching LovyanGFX's RGB565 byte order to esp_lcd's scan.
-- Off-screen LGFX_Sprite canvas + one `pushImageDMA` per frame timed to vblank (the
-  factory principle) — reduces but may not fully eliminate tearing on a single FB.
-- Both need the Display/touch split (gfx() -> sprite, touch read via a Display wrapper
-  since LGFX_Sprite has no getTouch). Bring-up is iterative (needs eyes-on each build).
+**Implemented** (this commit): true double-buffering with two PSRAM scan framebuffers.
+`hal/Display` keeps an off-screen canvas the app draws into, copies the finished frame
+into whichever framebuffer ISN'T being scanned, then asks the panel to switch to it at
+the next vblank. The swap is a small patch to LovyanGFX `Bus_RGB` (`setScanBuffer()` +
+a VSYNC-ISR descriptor repoint), applied on a fresh build by `scripts/patch_lovyangfx.py`
+(LovyanGFX pinned to 1.2.21 for the anchors). The vblank swap was verified firing on
+device (scan pointer alternates A↔B). `gfx()` now returns the base type; touch reads via
+`Display::getTouch()` since the canvas/sprite has no `getTouch`.
+
+Remaining / watch:
+- Final eyes-on confirmation that tearing is gone (can't be checked from firmware — a
+  screenshot reads a settled buffer).
+- Possible PSRAM-bandwidth pressure: the per-frame 768 KB canvas→back copy competes with
+  the 21 MHz scan. If it flickers, copy only dirty rows, or skip the copy on unchanged
+  frames (needs an app "frame dirty" signal).

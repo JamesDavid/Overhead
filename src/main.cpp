@@ -116,6 +116,7 @@ static void splash(const char* msg) {
   g.setTextColor(gTheme.dim, gTheme.bg);
   g.drawString("github.com/JamesDavid/Overhead", g.width() / 2, g.height() - 22);
   g.drawString("DE KE7AQA", g.width() / 2, g.height() - 10);
+  display.flushFramebuffer();   // push the off-screen canvas now (loop isn't running yet)
 }
 
 // Shown while the WiFi captive portal is open: how to set up WiFi, plus the
@@ -142,6 +143,7 @@ static void splashPortal(const String& ap) {
   g.setTextSize(1);
   g.setTextColor(gTheme.dim, gTheme.bg);
   g.drawString("to use OFFLINE (cached data)", g.width() / 2, g.height() - 30);
+  display.flushFramebuffer();   // push the off-screen canvas now (loop isn't running yet)
 }
 
 // Two-phase boot (spec backlog): on a no-PSRAM board the big cacheable HTTPS

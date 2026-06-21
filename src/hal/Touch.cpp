@@ -48,7 +48,7 @@ bool Touch::calibrate(Display& display) {
 }
 
 bool Touch::read(Display& display, int16_t& x, int16_t& y) {
-  if (!display.gfx().getTouch(&x, &y)) return false;
+  if (!display.getTouch(&x, &y)) return false;   // via Display (gfx() may be an off-screen canvas)
   // Board-specific correction for panels whose rotation flip throws off the
   // calibrated touch axes (see Board.h).
 #if defined(TOUCH_INVERT_X) && TOUCH_INVERT_X

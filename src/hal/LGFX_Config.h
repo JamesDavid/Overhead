@@ -266,6 +266,8 @@ public:
   // draws land in the (write-back) cache — so the panel shows stale/black PSRAM while
   // the cache holds the real image. Expose the FB so hal/Display can flush the cache.
   uint8_t* framebuffer() { return _bus.getDMABuffer(0); }
+  // Double-buffering: ask the scan to switch to `fb` at the next vblank (no tearing).
+  void setScanBuffer(uint8_t* fb) { _bus.setScanBuffer(fb); }
 };
 
 #endif

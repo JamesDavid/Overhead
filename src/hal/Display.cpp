@@ -7,9 +7,22 @@
 #else
   static constexpr int kBlChannel = 7;   // LEDC channel for the backlight PWM
 #endif
-// LovyanGFX's Bus_RGB scans its own framebuffer continuously (the factory V1.2 path),
-// so there's nothing to push each frame. Kept as a no-op for the shared main loop.
-void Display::flushFramebuffer() {}
+// RGB panel double-buffer: copy the finished canvas into the framebuffer that is NOT
+// being scanned, then ask the panel to swap to it at the next vblank. The scanned buffer
+// is never written, so the panel never shows a torn frame.
+void Display::flushFramebuffer() {
+#if defined(BOARD_CROWPANEL_S3_5HMI)
+  if (!_canvas.getBuffer() || !_fbA || !_fbB) return;
+  size_t len = (size_t)_lcd.width() * _lcd.height() * 2;
+  // Pick the framebuffer that ISN'T currently being scanned (use the live scan pointer,
+  // which the VSYNC ISR updates, so a not-yet-applied swap can't make us write the front).
+  uint8_t* front = _lcd.framebuffer();
+  uint8_t* back  = (front == _fbA) ? _fbB : _fbA;
+  memcpy(back, _canvas.getBuffer(), len);   // write the OFF-screen buffer (never torn)
+  _lcd.setScanBuffer(back);                  // panel swaps to it at the next vblank
+  _scanFront = back;
+#endif
+}
 
 bool Display::begin(bool enableShots) {
   _shotsEnabled = enableShots;
@@ -28,6 +41,24 @@ bool Display::begin(bool enableShots) {
 
   _lcd.setRotation(DISPLAY_DEFAULT_ROTATION);
   _lcd.fillScreen(TFT_BLACK);
+#if defined(BOARD_CROWPANEL_S3_5HMI)
+  // Off-screen canvas (full-screen, PSRAM) that all drawing targets, plus a second scan
+  // framebuffer for true double-buffering: flushFramebuffer() copies the finished canvas
+  // into whichever framebuffer ISN'T being scanned, then swaps the scan to it at vblank
+  // -> the panel never shows a half-updated frame (no tearing).
+  _canvas.setColorDepth(16);
+  _canvas.setPsram(true);
+  if (!_canvas.createSprite(_lcd.width(), _lcd.height()))
+    Serial.println("[disp] canvas sprite alloc FAILED");
+  else
+    _canvas.fillScreen(TFT_BLACK);
+  size_t fbLen = (size_t)_lcd.width() * _lcd.height() * 2;
+  _fbA = _lcd.framebuffer();                                   // Bus_RGB's framebuffer (initial scan)
+  _fbB = (uint8_t*)heap_caps_malloc(fbLen, MALLOC_CAP_SPIRAM); // second scan buffer
+  if (_fbB) memset(_fbB, 0, fbLen);
+  _scanFront = _fbA;
+  Serial.printf("[disp] double-buffer A=%p B=%p\n", _fbA, _fbB);
+#endif
 #if !BACKLIGHT_VIA_EXPANDER
   // Drive the backlight PWM ourselves (LovyanGFX's Light_PWM didn't actually vary
   // brightness on the cyd28 unit — stuck dim). Same channel as the LGFX config;
