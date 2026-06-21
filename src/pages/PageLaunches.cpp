@@ -358,6 +358,13 @@ void PageLaunches::drawMap(App& app) {
     g.drawLine(px(a.lon / 10.0f), py(a.lat / 10.0f), px(b.lon / 10.0f), py(b.lat / 10.0f), gTheme.dim);
   }
 
+  // Observer location: green circle + black centre dot (matches the Satellites map).
+  if (_loc.active().valid) {
+    int ox = px(_loc.active().lon), oy = py(_loc.active().lat);
+    g.fillCircle(ox, oy, 4, gTheme.ok);
+    g.fillCircle(ox, oy, 1, 0x0000);
+  }
+
   // Markers for every filtered launch's site; selected one ringed + labelled last.
   int selX = -1, selY = -1; bool selKnown = false;
   for (int fi = 0; fi < (int)_filtered.size(); ++fi) {

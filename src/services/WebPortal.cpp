@@ -220,6 +220,7 @@ a{color:#50aaff}</style></head><body>
 <button onclick=sw('next')>next &#9654;</button></td>
 <td></td></tr></table>
 <p id=m>tap the screen to interact</p>
+<p><label><input type=checkbox id=ss onchange=toggleShots()> remote screenshots / control (frees ~16KB when off)</label></p>
 <p><a href=/>settings</a></p>
 <script>
 const img=document.getElementById('s'),m=document.getElementById('m');let busy=false;
@@ -231,6 +232,11 @@ function tap(e){const r=img.getBoundingClientRect();
  fetch('/api/tap?x='+x+'&y='+y).then(()=>{m.textContent='tap '+x+','+y;setTimeout(ref,300);});}
 function sw(d){fetch('/api/swipe?dir='+d).then(()=>setTimeout(ref,400));}
 img.addEventListener('click',tap);
+const ss=document.getElementById('ss');
+fetch('/api/settings').then(r=>r.json()).then(d=>{ss.checked=!!d.debugShots;});
+function toggleShots(){const on=ss.checked;
+ fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({debugShots:on})})
+  .then(()=>{m.textContent='remote screenshots '+(on?'ON':'OFF');if(on)ref();});}
 ref();
 </script></body></html>
 )HTML";

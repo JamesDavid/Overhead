@@ -381,8 +381,8 @@ void PageSatellites::drawGroundView(App& app, const astro::SatObservation& o) {
   // Observer + current sub-satellite point.
   const auto& loc = _loc.active();
   int oxv = px(loc.lon), oyv = py(loc.lat);
-  g.drawFastHLine(oxv - 3, oyv, 7, gTheme.ok);
-  g.drawFastVLine(oxv, oyv - 3, 7, gTheme.ok);
+  g.fillCircle(oxv, oyv, 4, gTheme.ok);          // observer: green circle + black centre dot
+  g.fillCircle(oxv, oyv, 1, 0x0000);
   int spx = px(o.subLonDeg), spy = py(o.subLatDeg);
   g.fillCircle(spx, spy, 3, o.sunlit ? gTheme.warn : gTheme.fg);
   _pdx = spx; _pdy = spy;
@@ -393,6 +393,16 @@ void PageSatellites::drawGroundView(App& app, const astro::SatObservation& o) {
   g.setTextSize(1);
   g.setTextColor(gTheme.accent, gTheme.bg);
   g.drawString(sat.name.substring(0, 16), 4, cy0 + 3);
+  if (_pass.valid) {                               // next AOS / max-el / LOS under the name
+    auto hm2 = [](time_t t){ struct tm tm; localtime_r(&t,&tm); char b[8]; snprintf(b,sizeof(b),"%02d:%02d",tm.tm_hour,tm.tm_min); return String(b); };
+    long dt = (long)_pass.aos - (long)time(nullptr);
+    char pl[52];
+    if (dt > 0) snprintf(pl, sizeof(pl), "AOS %s  max %d\xF7  LOS %s", hm2(_pass.aos).c_str(), (int)round(_pass.maxElDeg), hm2(_pass.los).c_str());
+    else        snprintf(pl, sizeof(pl), "NOW  max %d\xF7  LOS %s", (int)round(_pass.maxElDeg), hm2(_pass.los).c_str());
+    g.setTextDatum(textdatum_t::top_left); g.setTextColor(gTheme.dim, gTheme.bg);
+    g.drawString(pl, 4, cy0 + 15);
+  }
+  g.setTextDatum(textdatum_t::top_right);
   g.setTextColor(o.elDeg > 0 ? gTheme.ok : gTheme.dim, gTheme.bg);
   char b[40];
   snprintf(b, sizeof(b), "el %d  %s", (int)round(o.elDeg), o.sunlit ? "sun" : "ecl");
