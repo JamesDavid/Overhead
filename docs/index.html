@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Overhead — flash your CYD sky dashboard</title>
+<style>
+  :root { --bg:#0b0f17; --card:#141b26; --line:#243043; --fg:#e8eef6; --dim:#9fb0c4; --accent:#4ea1ff; --ok:#37d67a; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui,Segoe UI,Roboto,sans-serif; }
+  .wrap { max-width:880px; margin:0 auto; padding:28px 20px 64px; }
+  h1 { font-size:2rem; margin:.2em 0 .1em; }
+  h2 { margin:1.8em 0 .5em; font-size:1.3rem; border-bottom:1px solid var(--line); padding-bottom:.3em; }
+  .tag { color:var(--accent); font-size:1.05rem; margin:0 0 1.2em; }
+  p { color:var(--fg); } .dim { color:var(--dim); }
+  a { color:var(--accent); }
+  .flash { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:22px; margin:18px 0; text-align:center; }
+  .flash esp-web-install-button { --esp-tools-button-color:#0b0f17; --esp-tools-button-bg:var(--accent); }
+  .btnfallback { display:none; color:var(--dim); font-size:.9rem; margin-top:10px; }
+  .need { display:flex; flex-wrap:wrap; gap:14px; margin:14px 0; }
+  .need div { flex:1 1 200px; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 14px; }
+  .gal { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:18px; }
+  figure { margin:0; background:var(--card); border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+  figure img { width:100%; display:block; image-rendering:pixelated; background:#000; }
+  figcaption { padding:10px 12px; font-size:.9rem; color:var(--dim); }
+  figcaption b { color:var(--fg); }
+  code { background:#0e1420; padding:1px 5px; border-radius:4px; color:#cfe0f5; }
+  .foot { margin-top:40px; color:var(--dim); font-size:.9rem; border-top:1px solid var(--line); padding-top:16px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Overhead</h1>
+  <p class="tag">A whole observation deck for the sky — on a $12 touchscreen.</p>
+
+  <p>Overhead turns a <b>Cheap Yellow Display</b> (ESP32-2432S028R) into an always-on
+  air-&-space situational-awareness dashboard: satellites passing overhead, rocket
+  launches, nearby aircraft, aviation &amp; space weather, the solar system, a live
+  star map, and a tonight-at-a-glance agenda — all location-aware, with an
+  "Intelligent Focus" director that surfaces the thing worth looking at right now.
+  Its heart: putting the awe of far-away missions <b>on a kid's bedside table</b>,
+  updating in real time — "look, the ISS goes over <i>our house</i> in 4 minutes."</p>
+
+  <h2>Flash it from your browser</h2>
+  <div class="flash">
+    <p>Plug the board in over USB, then click <b>Install</b> and pick its serial port.
+    Flashing takes ~1 minute and erases the device.</p>
+    <esp-web-install-button manifest="flash/manifest.json">
+      <button slot="activate">⚡ Install Overhead</button>
+      <span slot="unsupported" class="btnfallback" style="display:block">
+        Your browser can't do Web Serial — use desktop <b>Chrome</b> or <b>Edge</b>.</span>
+      <span slot="not-allowed" class="btnfallback" style="display:block">
+        Serial access was blocked — allow it and retry.</span>
+    </esp-web-install-button>
+    <p class="dim" style="margin-bottom:0">Target: ESP32 (2.8" CYD, ILI9341). After flashing,
+    join the <code>Overhead-setup</code> Wi-Fi to enter your network.</p>
+  </div>
+
+  <div class="need">
+    <div><b>Board</b><br>ESP32-2432S028R "CYD" (2.8" ILI9341, resistive touch). ~$10–15.</div>
+    <div><b>Browser</b><br>Desktop Chrome or Edge (Web Serial). Won't work on Firefox/Safari/mobile.</div>
+    <div><b>Cable</b><br>A data USB cable + the CH340 driver if your OS needs it.</div>
+  </div>
+
+  <h2>What you get</h2>
+  <div class="gal">
+
+    <figure><img src="img/solar-skydome.jpg" alt="Solar System sky-dome">
+      <figcaption><b>Solar System — what's up tonight.</b> Sun/Moon/planets by az/el with
+      naked-eye visibility, moon phase, rise/transit/set and the closest conjunction.</figcaption></figure>
+
+    <figure><img src="img/aviation-map.jpg" alt="Aviation map">
+      <figcaption><b>Aviation Wx — the sky's weather.</b> Each airport dot is coloured by
+      pressure (inHg) and its code by flight category; layers cycle category / cloud /
+      wind / pressure, and zooming reveals per-field barbs + readouts.</figcaption></figure>
+
+    <figure><img src="img/satellites-polar.jpg" alt="Satellite pass">
+      <figcaption><b>Satellites — catch the pass.</b> Polar az/el trajectory with AOS/LOS,
+      max elevation, a "✱ VISIBLE to eye ✱" verdict, live Doppler, and tap-chips per
+      tracked bird.</figcaption></figure>
+
+    <figure><img src="img/launches-card.jpg" alt="Launches card">
+      <figcaption><b>Launches — what's going up.</b> Next launch with a big T- countdown,
+      vehicle/mission/pad, and a visibility verdict ("see it from here?").</figcaption></figure>
+
+    <figure><img src="img/starmap-full.jpg" alt="Star map">
+      <figcaption><b>Star Map — the whole sky.</b> ~1500 stars, constellation figures,
+      Messier markers, planets &amp; the ecliptic; tap to zoom, plus saved "memory skies".</figcaption></figure>
+
+    <figure><img src="img/solar-moon.jpg" alt="Moon view">
+      <figcaption><b>Moon — near &amp; far side.</b> Phase, distance, landing-site map and
+      day/night terminator, with a hand-kept mission timeline.</figcaption></figure>
+
+    <figure><img src="img/page0-agenda.jpg" alt="Agenda sky window">
+      <figcaption><b>Agenda — tonight at a glance.</b> A 24h sky-window timeline (darkness,
+      cloud, moon-up bands + event ticks), the clear-&amp;-dark verdict, and what's coming.</figcaption></figure>
+
+    <figure><img src="img/page5-spacewx.jpg" alt="Space weather">
+      <figcaption><b>Space Wx — is the Sun acting up?</b> Kp with history, SFI, aurora
+      chance for your latitude, and an HF band-condition table.</figcaption></figure>
+
+    <figure><img src="img/grid.jpg" alt="Quick-jump grid">
+      <figcaption><b>3×3 quick-jump.</b> Every tile shows a live token (next AOS, T-minus,
+      nearest METAR, Kp, health) — tap the status dots to open it.</figcaption></figure>
+
+  </div>
+
+  <h2>Then what?</h2>
+  <p>On first boot it opens a Wi-Fi setup portal; after that it geolocates, syncs time,
+  and starts pulling live feeds. Tap the status strip to switch AUTO/MANUAL, tap a page
+  title for its views menu, and reach the full <b>web UI</b> at the device's address
+  (<code>/</code> settings, <code>/remote</code> live screen + control, <code>/update</code> OTA).</p>
+
+  <p class="dim">Runs real HTTPS feeds on a no-PSRAM board — heap-floor-aware TLS that
+  serves stale instead of crashing, a serialized non-blocking net task, a Wi-Fi watchdog,
+  and a remote debug/automation API. See the repo for the engineering write-up.</p>
+
+  <div class="foot">
+    <p>Source, hardware guide &amp; backlog: <a href="https://github.com/JamesDavid/Overhead">github.com/JamesDavid/Overhead</a>
+    · Free for personal/non-commercial use (PolyForm Noncommercial 1.0.0). · DE KE7AQA</p>
+  </div>
+
+</div>
+<script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js"></script>
+</body>
+</html>
