@@ -31,6 +31,21 @@ move out on the next sweep.
   bright-pass flag + APRS freq). Verified: now "ISS (ZARYA)", 1/5. CONTAINS matching
   left intact for SO-50/FOX-1B-style designators. Pass + ground-track views clean.
 
+### Other pages (playtested 2026-06-20 — clean, no bugs)
+- Aircraft: empty/"feed unavailable" state renders correctly (chips, freq marquee,
+  filter chips) — the ADS-B cloud feed is genuinely down + heap-starved (documented).
+- Launches: card (countdown, visibility, upcoming list) + world map (site marker +
+  launch-corridor azimuth) both clean.
+- Agenda: 24h Sky Window timeline + tonight's constellations + scrollable upcoming
+  list (scroll verified).
+- Space Wx: Kp sparkline / SFI / aurora / HF band table clean. flare/wind/Bz show "?"
+  only because those HTTPS feeds are skipped under the heap floor with the web on
+  (expected web-on tradeoff, not a bug).
+- Solar System: all 8 views clean (sky-dome, orbits, Moon, Mars, Jupiter, Saturn,
+  Deep Space, meteors). Mars rover "(no feed)" = documented no-PSRAM limit.
+- Star Map: wide, memory-sky ("Millennium/Tempe"), and natal-chart views clean.
+- Device Health: status table + heap/blk + toggles (Web:on reflects state) clean.
+
 ### Playtest harness note
 - OTA-flashing while the device is heap-starved (web + screenshot buffer up) can wedge
   the UI render loop (stale screenshots, frozen clock) — a clean **serial** reboot/flash
