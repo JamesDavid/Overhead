@@ -761,6 +761,15 @@ void PageAviation::drawPressure(App& app) {
     Color pc  = p.hpa >= 1019 ? gTheme.accent : p.hpa <= 1009 ? gTheme.warn : gTheme.fg; // inHg band -> the dot
     Color ctc = p.cat.length() ? catColor(p.cat) : gTheme.dim;                           // flight category -> id text
     bool seld = (tgt.length() && p.icao == tgt);
+    if (!seld) {                                              // declutter: thin dots crowding an already-
+      int minPx = _pZoomCur > 1.6f ? 15 : 26;                // drawn one (the 200mi view is dense); zooming
+      bool crowd = false;                                    // spreads them so more reveal. Selected/nearest
+      for (int k = 0; k < _mapDotN; ++k) {                   // is exempt so it always shows.
+        int dx = x - _mapDotX[k], dy = y - _mapDotY[k];
+        if (dx * dx + dy * dy < minPx * minPx) { crowd = true; break; }
+      }
+      if (crowd) continue;
+    }
     g.fillCircle(x, y, seld ? 3 : 2, pc);                     // dot ALWAYS coloured by pressure (inHg)
     if (seld) g.drawCircle(x, y, 5, gTheme.fg);              // selection ring
     if (_mapDotN < kMapDots) { _mapDotIcao[_mapDotN] = p.icao; _mapDotX[_mapDotN] = (int16_t)x; _mapDotY[_mapDotN] = (int16_t)y; _mapDotN++; }
