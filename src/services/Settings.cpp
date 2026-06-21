@@ -59,7 +59,7 @@ void Settings::fillDefaults(JsonDocument& _doc) {
   _doc["refreshAvWxMin"]    = 12;     // aviation METAR/TAF refresh
   // Seed the watchlist so the Director is useful on first boot (spec §13).
   JsonArray wl = _doc["watchlist"].to<JsonArray>();
-  wl.add("ISS");             // "ISS (ZARYA)"
+  wl.add("ZARYA");           // "ISS (ZARYA)" — exact-ish; bare "ISS" CONTAINS-matches co-orbiting "ISS OBJECT.." junk
   wl.add("SO-50");           // "SAUDISAT 1C (SO-50)"
   wl.add("FOX-1B");          // AO-91 = "RADFXSAT (FOX-1B)"
   wl.add("SATGUS");          // CrunchLabs "SatGus"

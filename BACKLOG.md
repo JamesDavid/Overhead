@@ -21,6 +21,16 @@ move out on the next sweep.
   `wcalm`, guards `vis--` + missing temp. Map/METAR/Sounding/Trends verified; TAF +
   Hazards correctly auto-hidden when empty. Selection hit radius widened (12→16px).
 
+### Satellites (playtested 2026-06-20 — clean)
+- [x] **Watchlist `ISS` CONTAINS-matched extra objects ("ISS OBJECT XY") — FIXED.**
+  Pure-substring `satNameMatches` made `ISS` match every "ISS*" catalog object (a
+  co-orbiting "ISS OBJECT XY" even inherited the 145.800 APRS downlink), showing 5/8.
+  Chose to narrow the watchlist entry `ISS`→`ZARYA` (default seed + the device's
+  persisted list): matches only "ISS (ZARYA)". ISS-special behaviour is preserved
+  because it keys off the satellite NAME ("ISS (ZARYA)" still startsWith "ISS" for the
+  bright-pass flag + APRS freq). Verified: now "ISS (ZARYA)", 1/5. CONTAINS matching
+  left intact for SO-50/FOX-1B-style designators. Pass + ground-track views clean.
+
 ### Playtest harness note
 - OTA-flashing while the device is heap-starved (web + screenshot buffer up) can wedge
   the UI render loop (stale screenshots, frozen clock) — a clean **serial** reboot/flash
