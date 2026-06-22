@@ -26,6 +26,7 @@ public:
   void onData(App& app, ProviderId id) override;
   void onTouch(App& app, int x, int y) override;
   void tick(App& app, uint32_t nowMs) override;
+  void invalidate() override { _dirty = true; }
   String gridStatus() override;
   bool autoAdvance(App& app) override;
   bool autoSkip() override;              // skip in the AUTO tour when the ADS-B feed is down

@@ -24,6 +24,17 @@ public:
   virtual void onEnter(App& app) {}
   virtual void onExit(App& app) {}
   virtual void tick(App& app, uint32_t nowMs) {}   // dirty-rect redraws
+  virtual void invalidate() {}                     // force a full redraw on the next tick (SRAM tiling)
+
+  // --- SRAM tile rendering (CrowPanel: render off-PSRAM to avoid scan contention) -------------
+  // A "tiled" page does NOT draw in tick() — tick() only updates state and sets a needsDraw flag.
+  // The App then calls render() once per SRAM band (a pure, side-effect-free redraw, so it can run
+  // many times per frame). Pages that don't opt in keep drawing in tick() as before.
+  virtual bool tiled() const { return false; }
+  virtual bool needsDraw() const { return false; }
+  virtual void clearNeedsDraw() {}
+  virtual void render(App& app) {}                 // full redraw at absolute coords (clipped per band)
+
   virtual void onTouch(App& app, int x, int y) {}
   // Step this page's sub-view (+1 next, -1 prev). Pages with multiple views
   // override just this; they get up/down-swipe view navigation for free via the

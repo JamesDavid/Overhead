@@ -32,6 +32,12 @@ public:
   void onTouch(App& app, int x, int y) override;   // tap an event -> jump to its tab
   void onScroll(App& app, int dy) override;        // swipe up/down -> scroll Upcoming list
   void tick(App& app, uint32_t nowMs) override;
+  void invalidate() override { _dirty = true; }
+  // SRAM tiling: tick() only updates + flags; render() is the pure redraw the App tiles off-PSRAM.
+  bool tiled() const override { return true; }
+  bool needsDraw() const override { return _needsDraw; }
+  void clearNeedsDraw() override { _needsDraw = false; }
+  void render(App& app) override;
   String gridStatus() override;                    // next upcoming event + countdown
 
 private:
@@ -60,6 +66,7 @@ private:
   time_t _base = 0;
 
   bool  _dirty = true;
+  bool  _needsDraw = false;          // SRAM tiling: render() owes a redraw (set by tick, cleared by App)
   bool  _computed = false;
   uint32_t _lastRecompute = 0;
   uint32_t _lastDraw = 0;

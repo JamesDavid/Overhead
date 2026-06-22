@@ -30,6 +30,7 @@ public:
     return (i >= 0 && i < (int)(sizeof(nm)/sizeof(nm[0]))) ? nm[i] : nullptr;
   }
   void tick(App& app, uint32_t nowMs) override;
+  void invalidate() override { _dirty = true; }
   bool autoAdvance(App& app) override;
   String gridStatus() override;          // Moon illumination %
 

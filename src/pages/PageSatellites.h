@@ -32,6 +32,7 @@ public:
   int  viewIndex() const override { return _view == View::Ground ? 1 : 0; }
   const char* viewName(int i) const override { return i == 0 ? "Pass (polar)" : i == 1 ? "Ground track" : nullptr; }
   void tick(App& app, uint32_t nowMs) override;
+  void invalidate() override { _dirty = true; }
   String gridStatus() override;
   bool autoAdvance(App& app) override;
 

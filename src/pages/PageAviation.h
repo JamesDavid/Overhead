@@ -34,6 +34,7 @@ public:
   int  viewIndex() const override;
   const char* viewName(int i) const override; // for the tap-the-title views menu
   void tick(App& app, uint32_t nowMs) override;
+  void invalidate() override { _dirty = true; }
   bool autoAdvance(App& app) override;
   String gridStatus() override;          // nearest METAR: cat + temp/wind
 

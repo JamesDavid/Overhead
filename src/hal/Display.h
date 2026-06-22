@@ -19,10 +19,16 @@ public:
   // an INTERNAL-SRAM sprite so a region renders off-PSRAM (no scan contention), then push it.
   lgfx::LovyanGFX& gfx() { return *(_drawTarget ? _drawTarget : static_cast<lgfx::LovyanGFX*>(&_lcd)); }
   void setDrawTarget(lgfx::LovyanGFX* t) { _drawTarget = t; }   // nullptr -> the panel device
-  // CrowPanel SRAM render: redirect drawing of the status strip to an SRAM sprite, then push it to
-  // the scanned FB (no-ops on other boards, where the status draws to the panel device directly).
-  void beginStatusTile();
-  void endStatusTile();
+  // CrowPanel SRAM renderer: redirect drawing of screen rows [bandY, bandY+bandH) into an INTERNAL-SRAM
+  // tile (off the PSRAM bus, no scan contention), then push that tile to the scanned FB. The tile sprite
+  // is logically full-screen (so absolute coords aren't clipped) but backed by a small SRAM buffer via an
+  // offset pointer + clip = the coordinate translation. No-ops on other boards (draw straight to device).
+  void beginTile(int bandY, int bandH);
+  void endTile(int bandY, int bandH);
+  int  tileRows() const;                  // SRAM tile band height (0 if tiling unavailable)
+  // When the whole screen is rendered onto SRAM tiles (status + a tiled content page), the PSRAM
+  // work framebuffer is unused, so flushFramebuffer() must not push its stale pixels over the tiles.
+  void setContentTiled(bool on) { _contentTiled = on; }
   bool getTouch(int16_t* x, int16_t* y) { return _lcd.getTouch(x, y); }
   void setTouchCalibrate(uint16_t* data) { _lcd.setTouchCalibrate(data); }
   void calibrateTouch(uint16_t* data, uint32_t fg, uint32_t bg, uint8_t size) { _lcd.calibrateTouch(data, fg, bg, size); }
@@ -56,10 +62,12 @@ private:
   int encodeJpeg(int quality);            // -> JPEG size in _jpg, or 0 if it overflowed
   LGFX _lcd;
   lgfx::LovyanGFX* _drawTarget = nullptr; // current draw target (nullptr -> &_lcd)
+  bool _contentTiled = false;             // true when status+content are on SRAM tiles (skip work-FB push)
 #if defined(BOARD_CROWPANEL_S3_5HMI)
   void* _rgbPanel = nullptr;              // esp_lcd_panel_handle_t (owns scan)
   void  rgbPanelBegin();                  // create + start the esp_lcd RGB panel
-  lgfx::LGFX_Sprite _statusTile{ &_lcd };  // INTERNAL-SRAM status-strip render target (off-PSRAM)
+  lgfx::LGFX_Sprite _tile{ &_lcd };       // INTERNAL-SRAM render tile (off-PSRAM), repositioned per band
+  uint8_t* _tileBuf = nullptr;            // the tile's SRAM buffer (TFT_PANEL_WIDTH x kTileRows)
 #endif
 #if defined(BOARD_CROWPANEL_S3_5HMI)
   static constexpr int kJpgMax = 160000;  // 800x480 is 5x the CYD's pixels -> bigger JPEG (PSRAM has room)

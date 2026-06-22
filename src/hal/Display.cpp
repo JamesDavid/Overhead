@@ -16,6 +16,7 @@
 // A small rect = imperceptible tear window on the single FB; full-width row bands were too big.
 static constexpr int RGB_NSTRIP = 8;                       // 800/8 = 100 px column strips
 static uint32_t s_cellHash[TFT_PANEL_HEIGHT * RGB_NSTRIP];
+static constexpr int kTileRows = 20;                       // SRAM tile band height (= App::kStatusH; 32 KB)
 
 // esp_lcd RGB panel that OWNS the scan-out (its own framebuffer). LovyanGFX's Bus_RGB scan is
 // neutered (patch_lovyangfx.py) and allocates a SEPARATE work framebuffer. data_gpio uses the
@@ -23,8 +24,8 @@ static uint32_t s_cellHash[TFT_PANEL_HEIGHT * RGB_NSTRIP];
 void Display::rgbPanelBegin() {
   esp_lcd_rgb_panel_config_t pc = {};
   pc.clk_src = LCD_CLK_SRC_PLL160M;
-  pc.timings.pclk_hz           = 14000000;   // stable interim: ~34 Hz, "a lot better". 12M black, 21M glitches
-                                             // until the SRAM renderer lands. Factory 21M target after that.
+  pc.timings.pclk_hz           = 14000000;   // solid rate while building the full SRAM renderer
+                                             // (21 MHz still glitches on content that's rendered from PSRAM).
   pc.timings.h_res             = TFT_PANEL_WIDTH;
   pc.timings.v_res             = TFT_PANEL_HEIGHT;
   pc.timings.hsync_pulse_width = RGB_HSYNC_PULSE;
@@ -63,12 +64,13 @@ void Display::rgbPanelBegin() {
 void Display::flushFramebuffer() {
 #if defined(BOARD_CROWPANEL_S3_5HMI)
   if (!_rgbPanel) return;
+  if (_contentTiled) return;                                  // status+content already on SRAM tiles
   const uint16_t* cv = (const uint16_t*)_lcd.framebuffer();   // LovyanGFX work FB (the app drew here)
   if (!cv) return;
   const int W = TFT_PANEL_WIDTH, H = TFT_PANEL_HEIGHT;
   const int NS = RGB_NSTRIP, SW = W / NS;
   int minY = H, maxY = -1, minS = NS, maxS = -1;             // changed bounding box (rows + strips)
-  for (int y = 0; y < H; ++y) {
+  for (int y = kTileRows; y < H; ++y) {                       // skip the status rows — the status is tiled (SRAM)
     const uint16_t* row = cv + (size_t)y * W;
     for (int s = 0; s < NS; ++s) {
       uint32_t h = 2166136261u;                              // FNV-1a over every 4th px in the strip
@@ -93,25 +95,33 @@ void Display::flushFramebuffer() {
 #endif
 }
 
-static constexpr int kStatusTileH = 20;   // = App::kStatusH (keep in sync)
-
-// CrowPanel SRAM renderer (piece 1): render the status strip into an INTERNAL-SRAM sprite — off the
-// PSRAM bus, so it never contends with the scan — then push that SRAM tile to the scanned FB. The
-// status strip is at y=0, so it needs no coordinate translation (the content tiling will). No-op on
-// other boards (there the status draws straight to the panel device via gfx()).
-void Display::beginStatusTile() {
+int Display::tileRows() const {
 #if defined(BOARD_CROWPANEL_S3_5HMI)
-  if (_statusTile.getBuffer()) setDrawTarget(&_statusTile);
+  return _tileBuf ? kTileRows : 0;
+#else
+  return 0;
 #endif
 }
-void Display::endStatusTile() {
+
+// CrowPanel SRAM renderer: redirect drawing of screen rows [bandY, bandY+bandH) into the SRAM tile.
+// The sprite is set up logically full-screen (so absolute coordinates aren't clipped away), but its
+// buffer pointer is offset back by bandY rows and a clip rect restricts drawing to the band — so those
+// rows map onto the small SRAM buffer at [0,bandH). All drawing lands off-PSRAM. No-op elsewhere.
+void Display::beginTile(int bandY, int bandH) {
 #if defined(BOARD_CROWPANEL_S3_5HMI)
-  if (_drawTarget == &_statusTile) {
-    setDrawTarget(nullptr);
-    if (_rgbPanel)
-      esp_lcd_panel_draw_bitmap((esp_lcd_panel_handle_t)_rgbPanel, 0, 0, TFT_PANEL_WIDTH, kStatusTileH,
-                                _statusTile.getBuffer());
-  }
+  if (!_tileBuf) return;
+  _tile.setBuffer(_tileBuf - (size_t)bandY * TFT_PANEL_WIDTH * 2, TFT_PANEL_WIDTH, TFT_PANEL_HEIGHT, 16);
+  _tile.setClipRect(0, bandY, TFT_PANEL_WIDTH, bandH);
+  setDrawTarget(&_tile);
+#endif
+}
+// Push the rendered band (SRAM) to the scanned FB at (0, bandY); restore the panel as the draw target.
+void Display::endTile(int bandY, int bandH) {
+#if defined(BOARD_CROWPANEL_S3_5HMI)
+  if (_drawTarget != &_tile) return;
+  setDrawTarget(nullptr);
+  if (_rgbPanel)
+    esp_lcd_panel_draw_bitmap((esp_lcd_panel_handle_t)_rgbPanel, 0, bandY, TFT_PANEL_WIDTH, bandY + bandH, _tileBuf);
 #endif
 }
 
@@ -139,13 +149,12 @@ bool Display::begin(bool enableShots) {
   _lcd.setRotation(DISPLAY_DEFAULT_ROTATION);
   _lcd.fillScreen(TFT_BLACK);
 #if defined(BOARD_CROWPANEL_S3_5HMI)
-  // SRAM render target for the status strip (INTERNAL RAM, off the PSRAM bus).
-  _statusTile.setColorDepth(16);
-  _statusTile.setPsram(false);
-  if (!_statusTile.createSprite(_lcd.width(), kStatusTileH))
-    Serial.println("[disp] status tile alloc FAILED");
-  else
-    Serial.printf("[disp] status tile %dx%d in SRAM @%p\n", _lcd.width(), kStatusTileH, _statusTile.getBuffer());
+  // SRAM render tile (INTERNAL RAM, off the PSRAM bus). beginTile() re-points the sprite at this
+  // buffer with a per-band offset + clip, so any screen band renders here instead of into PSRAM.
+  _tile.setColorDepth(16);
+  _tileBuf = (uint8_t*)heap_caps_malloc((size_t)_lcd.width() * kTileRows * 2, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  if (!_tileBuf) Serial.println("[disp] SRAM render tile alloc FAILED");
+  else Serial.printf("[disp] SRAM render tile %dx%d @%p\n", _lcd.width(), kTileRows, _tileBuf);
 #endif
 #if !BACKLIGHT_VIA_EXPANDER
   // Drive the backlight PWM ourselves (LovyanGFX's Light_PWM didn't actually vary

@@ -310,17 +310,35 @@ void App::tick(uint32_t nowMs) {
     _clock->toggle(*this);
   }
 
+  _display.setContentTiled(false);                            // default: the work-FB push path (overlays/clock/un-tiled)
   if (_active >= 0 && !_grid && !_locPicker && !_viewMenu) {   // grid/picker/views overlay holds the content
+    Page* pg = _pages[_active];
     if (_clock && _clock->active()) {
-      bool live = _pages[_active]->clockKeepLive();            // live pages keep running underneath
+      bool live = pg->clockKeepLive();                         // live pages keep running underneath
       if (_active != _clockShownPage) { _clock->invalidate(); _clockShownPage = _active; }
       _clock->prepare(*this, nowMs, live);                     // pick corner; repaint page on a hop
-      _pages[_active]->tick(*this, nowMs);                     // page draws live underneath
+      pg->tick(*this, nowMs);                                  // page updates (+ draws to work FB unless tiled)
+      if (pg->tiled() && pg->needsDraw()) { pg->render(*this); pg->clearNeedsDraw(); }  // tiled: draw under the clock
       _clock->stamp(*this);                                    // clock on top in its corner
     } else {
       _clockShownPage = -1;                                   // next clock-on starts with a clean redraw
-      _pages[_active]->tick(*this, nowMs);
-      drawViewDots(_pages[_active]->viewCount(), _pages[_active]->viewIndex());  // right-edge view position
+      pg->tick(*this, nowMs);                                  // update; tiled pages set needsDraw (no draw here)
+      int th = _display.tileRows();
+      if (th > 0 && pg->tiled()) {                             // CrowPanel: render this page off-PSRAM, band by band
+        _display.setContentTiled(true);
+        if (pg->needsDraw()) {
+          for (int by = kStatusH; by < _display.height(); by += th) {
+            int bh = (_display.height() - by < th) ? (_display.height() - by) : th;
+            _display.beginTile(by, bh);
+            pg->render(*this);                                 // full redraw, clipped to this band -> SRAM
+            drawViewDots(pg->viewCount(), pg->viewIndex());
+            _display.endTile(by, bh);
+          }
+          pg->clearNeedsDraw();
+        }
+      } else {
+        drawViewDots(pg->viewCount(), pg->viewIndex());        // un-tiled page: dots over the work-FB content
+      }
     }
   }
 
@@ -331,9 +349,9 @@ void App::tick(uint32_t nowMs) {
   if (_statusDirty || nowMs - _lastStatusMs >= 1000) {
     _lastStatusMs = nowMs;
     _statusDirty = false;
-    _display.beginStatusTile();   // CrowPanel: render the status strip off-PSRAM into SRAM...
+    _display.beginTile(0, kStatusH);   // CrowPanel: render the status strip off-PSRAM into SRAM...
     drawStatus();
-    _display.endStatusTile();     // ...then push the SRAM tile to the panel (no-op on other boards)
+    _display.endTile(0, kStatusH);     // ...then push the SRAM tile to the panel (no-op on other boards)
   }
 }
 

@@ -22,6 +22,7 @@ public:
   void onData(App& app, ProviderId id) override { _dirty = true; }
   void onTouch(App& app, int x, int y) override;
   void tick(App& app, uint32_t nowMs) override;
+  void invalidate() override { _dirty = true; }
   bool autoAdvance(App& app) override;
   String gridStatus() override;          // count of catalog stars above the horizon
   // Live "now / here" sky (view 0) plus one sub-view per saved Memory Sky.

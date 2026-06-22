@@ -140,6 +140,12 @@ void PageAgenda::tick(App& app, uint32_t nowMs) {
   }
   if (!_dirty && nowMs - _lastDraw < 15000) return;   // cheap redraw, <=15s
   _dirty = false; _lastDraw = nowMs;
+  _needsDraw = true;   // defer the actual draw to render() so the App can tile it into SRAM (off-PSRAM)
+}
+
+// Pure redraw (no state change) — the App calls this once per SRAM band, clipped, so it must be
+// safe to run many times per frame. On non-tiled boards it's never used (tick draws directly).
+void PageAgenda::render(App& app) {
   draw(app);
 }
 
