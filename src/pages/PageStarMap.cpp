@@ -18,6 +18,10 @@
 // with the Agenda's "what's up tonight" line).
 
 static inline float smooth(float x) { x = x < 0 ? 0 : x > 1 ? 1 : x; return x * x * (3 - 2 * x); }
+static constexpr uint32_t kZoomDur = 750;   // tap-zoom animation length (ms)
+// Inverse of smooth(): finds the progress p where smooth(p)==y, so a reversed zoom can continue
+// smoothly from the CURRENT level instead of snapping to the new direction's endpoint (the jerk).
+static inline float invSmooth(float y) { y = y < 0 ? 0 : y > 1 ? 1 : y; return 0.5f - sinf(asinf(1.0f - 2.0f * y) / 3.0f); }
 
 // Project a star to screen (azimuthal: zenith centre, horizon edge). Returns
 // false if below the horizon.
@@ -101,8 +105,15 @@ void PageStarMap::onTouch(App& app, int x, int y) {
     }
   }
   if (_tour) { _tour = false; _t = 0; _dirty = true; return; }   // exit the auto-tour
-  if (_zoom && _zoomDir > 0) {                                    // already zoomed -> zoom out
-    _zoomDir = -1; _zoomMs = millis(); _dirty = true; return;
+  if (_zoom && _zoomDir > 0) {                                    // zooming in -> reverse to zoom out,
+    _zoomDir = -1;                                                // continuing from the current level
+    _zoomMs = millis() - (uint32_t)(invSmooth(1.0f - _zoomT) * kZoomDur);
+    _dirty = true; return;
+  }
+  if (_zoom && _zoomDir < 0) {                                    // zooming out -> reverse back to zoom in
+    _zoomDir = 1;
+    _zoomMs = millis() - (uint32_t)(invSmooth(_zoomT) * kZoomDur);
+    _dirty = true; return;
   }
   // Tap an area -> zoom into it (precision-free; labels reveal once zoomed). The
   // focus is the tap point in base screen coords; the transform pulls it to centre.
@@ -180,8 +191,7 @@ void PageStarMap::tick(App& app, uint32_t nowMs) {
     _dirty = true;                                 // tour just ended -> redraw full sky
   }
   if (_zoom) {                                     // tap-to-zoom animation
-    const uint32_t DUR = 750;
-    float p = (nowMs - _zoomMs) >= DUR ? 1.0f : (float)(nowMs - _zoomMs) / DUR;
+    float p = (nowMs - _zoomMs) >= kZoomDur ? 1.0f : (float)(nowMs - _zoomMs) / kZoomDur;
     _zoomT = (_zoomDir > 0) ? smooth(p) : 1.0f - smooth(p);
     if (_zoomDir < 0 && p >= 1.0f) { _zoom = false; _zoomT = 0; }
     if (_zoom) {                                   // zooming in / holding zoomed
