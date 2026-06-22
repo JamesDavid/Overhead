@@ -115,6 +115,7 @@ void AircraftProvider::parseStream(Stream& body) {
     JsonObject e = filter[key].add<JsonObject>();
     e["hex"] = e["flight"] = e["lat"] = e["lon"] = e["alt_baro"] = true;
     e["gs"] = e["track"] = e["squawk"] = e["category"] = e["seen"] = e["t"] = true;
+    e["baro_rate"] = e["geom_rate"] = true;   // vertical rate (ft/min) for climb/descent trend
   }
   JsonDocument doc;
   if (deserializeJson(doc, body, DeserializationOption::Filter(filter))) return;
@@ -145,6 +146,7 @@ void AircraftProvider::parseStream(Stream& body) {
     else                       { a.altFt = alt | 0.0f; }
     a.gsKt    = o["gs"] | 0.0f;
     a.trackDeg= o["track"] | 0.0f;
+    a.vsFpm   = o["baro_rate"].is<float>() ? (o["baro_rate"] | 0.0f) : (o["geom_rate"] | 0.0f);
     a.squawk  = (const char*)(o["squawk"] | "");
     a.category= (const char*)(o["category"] | "");
     a.type    = (const char*)(o["t"] | "");

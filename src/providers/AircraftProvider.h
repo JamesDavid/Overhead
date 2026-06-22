@@ -18,6 +18,7 @@ struct Aircraft {
   String hex, flight, squawk, category, type;   // type = ICAO type code (e.g. B738)
   double lat = 0, lon = 0;
   float  altFt = 0, gsKt = 0, trackDeg = 0, seenS = 0;
+  float  vsFpm = 0;                 // vertical rate (ft/min): >0 climbing, <0 descending, ~0 level
   float  distNm = 0, bearingDeg = 0;
   bool   onGround = false;
 };

@@ -358,6 +358,29 @@ void PageAircraft::draw(App& app) {
   g.drawString("N", cx, cy - R - 6);
   g.drawString(String((int)maxR) + "nm", cx + R - 8, cy - 6);
 
+  // Nearby airports at their true radar position, marked + labelled in the ring colour, so you can
+  // read traffic relative to the fields. Centre = the recentred airport (if any), else the observer.
+  {
+    double clat = _loc.active().lat, clon = _loc.active().lon;
+    if (_centerIcao.length())
+      for (const auto& s : _wx.stations()) if (s.icao == _centerIcao) { clat = s.lat; clon = s.lon; break; }
+    float coslat = cosf((float)clat * D2R);
+    g.setTextDatum(textdatum_t::top_center);
+    g.setTextColor(gTheme.grid, gTheme.bg);
+    for (const auto& s : _wx.stations()) {
+      float dN = (float)(s.lat - clat) * 60.0f;             // nm north (1 deg lat = 60 nm)
+      float dE = (float)(s.lon - clon) * 60.0f * coslat;    // nm east
+      float d  = sqrtf(dN * dN + dE * dE);
+      if (d < 0.6f || d > maxR) continue;                   // skip the centre field itself + out-of-range
+      float brg = atan2f(dE, dN) * 57.2957795f;
+      float rr  = d / maxR * R;
+      int sx = cx + (int)round(rr * sinf(brg * D2R));
+      int sy = cy - (int)round(rr * cosf(brg * D2R));
+      g.drawCircle(sx, sy, 2, gTheme.grid);
+      g.drawString(s.icao, sx, sy + 3);
+    }
+  }
+
   for (int k = 0; k < (int)_filt.size(); ++k) {
     const Aircraft& a = list[_filt[k]];
     bool sel = (k == _sel);
@@ -373,7 +396,20 @@ void PageAircraft::draw(App& app) {
     g.drawLine(ax, ay, tx, ty, c);
     g.fillCircle(ax, ay, sel ? 3 : 2, c);
     if (emerg) g.drawCircle(ax, ay, 6, gTheme.warn);  // ring an emergency contact
-    if (sel) {                                        // label the selected blip
+    // ForeFlight-style data tag: altitude in hundreds of ft + a vertical-trend arrow
+    // (filled triangle up=climb / down=descent, dash=level). Lets you read traffic at a glance.
+    if (!a.onGround && a.altFt > 0) {
+      Color tc = sel ? gTheme.ok : gTheme.dim;
+      String fl = String((int)(a.altFt / 100.0f + 0.5f));    // e.g. 15000 ft -> "150"
+      g.setTextDatum(textdatum_t::middle_left);
+      g.setTextColor(tc, gTheme.bg);
+      g.drawString(fl, ax + 5, ay + 7);
+      int hx = ax + 7 + g.textWidth(fl), hy = ay + 7;        // trend arrow after the number
+      if (a.vsFpm > 256)       g.fillTriangle(hx, hy - 3, hx - 3, hy + 2, hx + 3, hy + 2, tc);
+      else if (a.vsFpm < -256) g.fillTriangle(hx, hy + 3, hx - 3, hy - 2, hx + 3, hy - 2, tc);
+      else                     g.drawFastHLine(hx - 3, hy, 6, tc);
+    }
+    if (sel) {                                        // label the selected blip with its callsign
       String cs = a.flight.length() ? a.flight : a.hex;
       g.setTextDatum(textdatum_t::bottom_left);
       g.setTextColor(gTheme.ok, gTheme.bg);
@@ -409,6 +445,12 @@ void PageAircraft::draw(App& app) {
     if (a.type.length() || a.category.length())
       line(String("type ") + (a.type.length() ? a.type : a.category), gTheme.fg);
     line(a.onGround ? String("on ground") : String("alt ") + (int)a.altFt + " ft", gTheme.fg);
+    if (!a.onGround) {
+      bool lvl = fabsf(a.vsFpm) <= 256;
+      line(lvl ? String("level flight")
+               : String(a.vsFpm > 0 ? "climbing " : "descending ") + (int)fabsf(a.vsFpm) + " fpm",
+           lvl ? gTheme.dim : (a.vsFpm > 0 ? gTheme.ok : gTheme.accent));
+    }
     line(String("gs ") + (int)a.gsKt + " kt  trk " + (int)a.trackDeg, gTheme.fg);
     line(String("dist ") + (int)round(a.distNm) + " nm  brg " + (int)round(a.bearingDeg), gTheme.fg);
     // Look angle from the observer: az = bearing, el from altitude over ground range.
