@@ -12,23 +12,18 @@ public:
   // also brings up the I2C I/O expander that gates the backlight.
   bool begin(bool enableShots = true);
 
-#if defined(BOARD_CROWPANEL_S3_5HMI)
-  // RGB panel: draw into an off-screen full-screen sprite, then push it to the panel
-  // in one shot each frame (flushFramebuffer). Drawing straight into the scanned
-  // framebuffer tears badly ("scrambled"); this collapses it to a single block update.
-  lgfx::LovyanGFX& gfx() { return _canvas; }
-#else
-  LGFX& gfx() { return _lcd; }            // raw device (bring-up / Renderer)
-#endif
-  // Touch lives on the real device even when gfx() is the off-screen canvas.
+  // LovyanGFX draws into _lcd's framebuffer (its Bus_RGB scan is neutered — see the
+  // patch script). On the CrowPanel, esp_lcd owns the actual scan-out and we push
+  // _lcd's framebuffer to it each frame in flushFramebuffer().
+  LGFX& gfx() { return _lcd; }            // raw device (bring-up / Renderer / drawing)
   bool getTouch(int16_t* x, int16_t* y) { return _lcd.getTouch(x, y); }
   void setTouchCalibrate(uint16_t* data) { _lcd.setTouchCalibrate(data); }
 
   void setBacklight(uint8_t level);       // 0..255 (spec §7.9 night dimming)
   int  width()  { return _lcd.width(); }
   int  height() { return _lcd.height(); }
-  // RGB panels only: flush the framebuffer cache to PSRAM so the DMA scan-out sees
-  // the latest pixels (no-op where the panel isn't a cached PSRAM framebuffer).
+  // CrowPanel RGB: hand the freshly-drawn framebuffer to esp_lcd, which double-buffers
+  // it (num_fbs=2) and scans via a bounce buffer -> no tearing. No-op on other boards.
   void flushFramebuffer();
 
   // --- Memory budget helpers (the milestone-0 deliverable, spec §2) ----------
@@ -53,12 +48,14 @@ private:
   int encodeJpeg(int quality);            // -> JPEG size in _jpg, or 0 if it overflowed
   LGFX _lcd;
 #if defined(BOARD_CROWPANEL_S3_5HMI)
-  lgfx::LGFX_Sprite _canvas{ &_lcd };     // off-screen draw target (drawn by the app)
-  uint8_t* _fbA = nullptr;                // the two scan framebuffers (double-buffer)
-  uint8_t* _fbB = nullptr;
-  uint8_t* _scanFront = nullptr;          // which one the panel is currently scanning
+  void* _rgbPanel = nullptr;              // esp_lcd_panel_handle_t (num_fbs=2 + bounce; owns scan)
+  void  rgbPanelBegin();                  // create + start the esp_lcd RGB panel
 #endif
+#if defined(BOARD_CROWPANEL_S3_5HMI)
+  static constexpr int kJpgMax = 160000;  // 800x480 is 5x the CYD's pixels -> bigger JPEG (PSRAM has room)
+#else
   static constexpr int kJpgMax = 16000;   // output cap (keeps largest free block > TLS floor)
+#endif
   uint8_t* _jpg = nullptr;
   size_t   _jpgLen = 0;
   bool     _shotsEnabled = true;          // gate the 16KB buffer (production frees it)

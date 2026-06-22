@@ -456,26 +456,25 @@ REMAINING (stretch):
 
 <!-- new milestones append below as they land -->
 
-## CrowPanel V1.2 — display tearing (double-buffer IMPLEMENTED, pending eyes-on confirm)
+## CrowPanel V1.2 — display tearing (RESOLVED, cyd-radio model)
 
-Root cause (verified vs the Elecrow V1.2 factory repo): LovyanGFX's `Panel_RGB` is a
-single framebuffer scanned continuously from PSRAM; Overhead drawing (or a full-frame
-copy) into it lets the scan catch a half-updated frame → tearing. The factory dodges it
-with LVGL's tiny dirty-rect `pushImageDMA`; Overhead repaints large areas so it can't.
-The registry IDF 4.4 `esp_lcd` has no `num_fbs`/bounce-buffer (no HW double-buffer).
+Root cause: an 800×480 RGB framebuffer scanned continuously from PSRAM tears whenever the
+scan catches a write, and any whole-frame move (draw-into-scanned-FB, or a full-frame copy)
+saturates the PSRAM bus → tearing/roll/scramble. The fix is what cyd-radio/LVGL do: push
+ONLY the changed pixels, and stage them through SRAM so the copy doesn't contend with the
+scan's PSRAM reads.
 
-**Implemented** (this commit): true double-buffering with two PSRAM scan framebuffers.
-`hal/Display` keeps an off-screen canvas the app draws into, copies the finished frame
-into whichever framebuffer ISN'T being scanned, then asks the panel to switch to it at
-the next vblank. The swap is a small patch to LovyanGFX `Bus_RGB` (`setScanBuffer()` +
-a VSYNC-ISR descriptor repoint), applied on a fresh build by `scripts/patch_lovyangfx.py`
-(LovyanGFX pinned to 1.2.21 for the anchors). The vblank swap was verified firing on
-device (scan pointer alternates A↔B). `gfx()` now returns the base type; touch reads via
-`Display::getTouch()` since the canvas/sprite has no `getTouch`.
+**Final approach** (after trying single-FB direct-draw, num_fbs=2 full copy, num_fbs=2
+partial — all worse): pioarduino/IDF5 `esp_lcd` RGB panel (`num_fbs=1`, V1.2 timings,
+data_gpio i^8 to match LovyanGFX's FB byte order) owns the scan-out. LovyanGFX's Bus_RGB
+scan is neutered (`scripts/patch_lovyangfx.py`, LovyanGFX pinned 1.2.21) and allocates a
+separate work framebuffer the app draws into normally. `Display::flushFramebuffer()` hashes
+each row (sampled), finds the changed rows, and pushes only those — copied through a 10-line
+INTERNAL-SRAM staging buffer, then `esp_lcd_panel_draw_bitmap`. So `draw_bitmap` reads SRAM
+(not PSRAM) while writing the FB, never contending with the scan → no tear. Idle frames push
+nothing. ~45 fps loop. Touch moved to a direct Wire GT911 read (the LovyanGFX Touch_GT911
+wanted I2C port 1 on the same pins as the expander on port 0 — they fought, touch died).
+Screenshot JPEG buffer bumped to 160 KB (PSRAM) for the 800×480 frame (was 503-ing at 16 KB).
 
-Remaining / watch:
-- Final eyes-on confirmation that tearing is gone (can't be checked from firmware — a
-  screenshot reads a settled buffer).
-- Possible PSRAM-bandwidth pressure: the per-frame 768 KB canvas→back copy competes with
-  the 21 MHz scan. If it flickers, copy only dirty rows, or skip the copy on unchanged
-  frames (needs an app "frame dirty" signal).
+Watch: if a future page animates large regions every frame, the per-frame changed-row push
+grows; a full page change is a transient larger push (still SRAM-staged).

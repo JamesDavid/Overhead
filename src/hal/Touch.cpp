@@ -7,6 +7,35 @@
   #include <LittleFS.h>
 #endif
 
+#if defined(BOARD_CROWPANEL_S3_5HMI)
+  #include <Wire.h>
+// Read the GT911 over Wire (I2C port 0) — the SAME controller/pins as the backlight expander.
+// LovyanGFX's Touch_GT911 wanted its own port (1) on the same pins, which the two controllers
+// fight over (touch ends up dead). cyd-radio reads it over Wire directly; we do the same.
+static bool gt911ReadWire(int16_t& x, int16_t& y) {
+  auto rd = [](uint16_t reg, uint8_t* buf, uint8_t n) -> bool {
+    Wire.beginTransmission((uint8_t)I2C_ADDR_GT911);
+    Wire.write((uint8_t)(reg >> 8)); Wire.write((uint8_t)(reg & 0xFF));
+    if (Wire.endTransmission(false) != 0) return false;
+    uint8_t got = Wire.requestFrom((int)I2C_ADDR_GT911, (int)n);
+    for (uint8_t i = 0; i < n && Wire.available(); ++i) buf[i] = Wire.read();
+    return got == n;
+  };
+  uint8_t status = 0;
+  if (!rd(0x814E, &status, 1)) return false;     // 0x814E: bit7 = ready, bits0-3 = #points
+  if ((status & 0x80) == 0) return false;
+  bool got = false;
+  if ((status & 0x0F) > 0) {
+    uint8_t p[4] = {0};
+    if (rd(0x8150, p, 4)) { x = (int16_t)(p[0] | (p[1] << 8)); y = (int16_t)(p[2] | (p[3] << 8)); got = true; }
+  }
+  Wire.beginTransmission((uint8_t)I2C_ADDR_GT911);   // ACK status so the IC preps the next sample
+  Wire.write(0x81); Wire.write(0x4E); Wire.write((uint8_t)0x00);
+  Wire.endTransmission();
+  return got;
+}
+#endif
+
 bool Touch::begin(Display& display) {
 #if CAP_TOUCH_NEEDS_CAL
   uint16_t cal[8];
@@ -48,7 +77,12 @@ bool Touch::calibrate(Display& display) {
 }
 
 bool Touch::read(Display& display, int16_t& x, int16_t& y) {
+#if defined(BOARD_CROWPANEL_S3_5HMI)
+  if (!gt911ReadWire(x, y)) return false;        // GT911 over Wire (shares the expander's I2C bus)
+  (void)display;
+#else
   if (!display.getTouch(&x, &y)) return false;   // via Display (gfx() may be an off-screen canvas)
+#endif
   // Board-specific correction for panels whose rotation flip throws off the
   // calibrated touch axes (see Board.h).
 #if defined(TOUCH_INVERT_X) && TOUCH_INVERT_X
