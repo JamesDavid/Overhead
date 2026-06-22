@@ -20,7 +20,9 @@ static void drPos(const Aircraft& a, uint32_t lastDataMs, float& distNm, float& 
   distNm = a.distNm; brgDeg = a.bearingDeg;
   if (a.onGround || a.gsKt < 5) return;                 // parked / slow: leave it put
   float dt = a.seenS + (millis() - lastDataMs) / 1000.0f;   // seconds since the reported fix
-  if (dt < 0) dt = 0; else if (dt > 30) dt = 30;        // cap runaway extrapolation if feed stalls
+  if (dt < 0) dt = 0; else if (dt > 60) dt = 60;        // keep dead-reckoning a stale contact for its full
+                                                        // tracked life (provider drops it at seen>60s), so it
+                                                        // glides on instead of freezing at 30s then snapping
   float north = a.distNm * cosf(a.bearingDeg * D2R);    // offset from observer (nm)
   float east  = a.distNm * sinf(a.bearingDeg * D2R);
   float step  = a.gsKt * dt / 3600.0f;                  // nm travelled along the track

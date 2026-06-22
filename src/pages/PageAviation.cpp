@@ -703,8 +703,9 @@ void PageAviation::drawPressure(App& app) {
   int scope = _pmap.scope();
   const char* ml = _presMode == 0 ? "cat" : _presMode == 1 ? "cloud" : _presMode == 2 ? "wind" : "inHg";
   const char* sc = scope == 0 ? "200mi" : scope == 1 ? "US" : "world";
-  bool zoom2 = _pZoomCur > 1.6f;                               // 2.6x+: multi-line readout
-  bool zoom3 = _pZoomCur > 3.5f;                               // 4.5x+: + wind kt line
+  bool big   = app.contentW() >= 640;                          // large screens (CrowPanel): room for the
+  bool zoom2 = big || _pZoomCur > 1.6f;                        // full per-dot readout at 1x, like 7x does on
+  bool zoom3 = big || _pZoomCur > 3.5f;                        // the small screen (multi-line + wind kt)
   g.setTextDatum(textdatum_t::top_left); g.setTextSize(1);
   g.fillRect(2, cy0 + 2, 40, 12, gTheme.grid);                 // layer badge (tap: cat/cloud/wind/inHg)
   g.setTextColor(gTheme.fg, gTheme.grid); g.drawString(ml, 6, cy0 + 3);
@@ -776,7 +777,8 @@ void PageAviation::drawPressure(App& app) {
     Color ctc = p.cat.length() ? catColor(p.cat) : gTheme.dim;                           // flight category -> id text
     bool seld = (tgt.length() && p.icao == tgt);
     if (!seld && scope == 0) {                                // declutter ONLY at the dense 200mi/drilled
-      int minPx = _pZoomCur > 1.6f ? 15 : 26;                // scope (US/world are sparse — show every dot)
+      int minPx = big ? 42 : _pZoomCur > 1.6f ? 15 : 26;     // big screens show the FULL readout at 1x ->
+                                                             // space dots wider so the labels don't collide
       bool crowd = false;                                    // spreads them so more reveal. Selected/nearest
       for (int k = 0; k < _mapDotN; ++k) {                   // is exempt so it always shows.
         int dx = x - _mapDotX[k], dy = y - _mapDotY[k];
@@ -810,12 +812,14 @@ void PageAviation::drawPressure(App& app) {
       else { if (inhg[0]) { g.setTextColor(pc, gTheme.bg); g.drawString(inhg, lx, y - 4); } }       // inHg
     }
   }
-  // Observer location: green circle + black centre dot (matches the Satellites/Launches maps).
+  // Observer location: a crosshair (+ inside a circle) so you can read your position on the map.
   if (_loc.active().valid) {
     double ox = _loc.active().lon, oy = _loc.active().lat;
     if (ox >= w0 && ox <= w1 && oy >= a0 && oy <= a1) {
       int x = SX(ox), y = SY(oy);
-      g.fillCircle(x, y, 4, gTheme.ok); g.fillCircle(x, y, 1, 0x0000);
+      g.drawCircle(x, y, 5, gTheme.ok);
+      g.drawFastHLine(x - 7, y, 15, gTheme.ok);
+      g.drawFastVLine(x, y - 7, 15, gTheme.ok);
     }
   }
   // Bottom strip: decoded METAR for the selected/closest field, sourced from the unified
