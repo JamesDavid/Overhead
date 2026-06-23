@@ -219,13 +219,20 @@ int Display::encodeJpeg(int quality) {
     _lcd.readRect(jpe.x, jpe.y, bw, bh, blk);
     for (int yy = 0; yy < bh; ++yy)
       for (int xx = 0; xx < bw; ++xx) {
-        // Read-back format: byte-swap, then hi5=B, mid6=R, lo5=G (verified).
         uint16_t c = blk[yy * bw + xx];
-        c = (uint16_t)((c >> 8) | (c << 8));
+        c = (uint16_t)((c >> 8) | (c << 8));     // read-back is byte-swapped on both boards
         uint8_t* p = &mcu[(yy * 16 + xx) * 3];   // JPEGENC RGB888 wants B,G,R order
+#if defined(BOARD_CROWPANEL_S3_5HMI)
+        // RGB-parallel FB is standard RGB565 (R hi5 / G mid6 / B lo5) after the swap.
+        p[0] = (c & 0x1f) << 3;          // B (lo5)
+        p[1] = ((c >> 5) & 0x3f) << 2;   // G (mid6)
+        p[2] = ((c >> 11) & 0x1f) << 3;  // R (hi5)
+#else
+        // CYD ILI9341 read-back order: hi5=B, mid6=R, lo5=G (verified on hardware).
         p[0] = ((c >> 11) & 0x1f) << 3;  // B
         p[1] = (c & 0x1f) << 3;          // G
         p[2] = ((c >> 5) & 0x3f) << 2;   // R
+#endif
       }
     if (enc.addMCU(&jpe, mcu, 16 * 3) != JPEGE_SUCCESS) { ok = false; break; }  // buffer full
   }
