@@ -74,6 +74,27 @@ used plain; HTTPS-only sources — NOAA/aviationweather/thespacedevs/NASA — un
   a tagged release. Caveat: needs the full flash image set (bootloader @0x1000,
   partitions, boot_app0, app) — wire it from the PlatformIO build output.
 
+## Aircraft / ADS-B feature ideas (from iamneilroberts/adsb-cyd)
+Borrow proven CYD ADS-B features (ref: https://github.com/iamneilroberts/adsb-cyd). What we
+already have: live radar + dead-reckoning, per-blip alt + climb/descent trend + callsign,
+breadcrumb trails, HOME/centre markers, airport rings, range 5–50 nm, alt/category filters,
+emergency-squawk (7500/7600/7700) detection, and an info column (type/alt/vs/gs/trk/dist/brg/
+look az-el/squawk). Candidates to add:
+- **Arrivals board** — a table view (not just the radar): callsign · type · alt · dist · brg ·
+  trend, sortable, paged; good for "what's around" at a glance on the big CrowPanel screen.
+- **Sort + richer filters** — sort the contact list by distance / altitude / closest-approach;
+  filters beyond alt/cat (e.g. airline/operator, mil-only, has-emergency, inbound-only).
+- **Stats dashboard** — aggregates: contacts now / peak today, by category, busiest bearing,
+  max alt seen, fastest, count by operator; a small at-a-glance panel.
+- **Flight log** — rolling log of contacts seen (first/last seen, closest dist, max/min alt),
+  bounded ring in RAM (and/or LittleFS); feeds the stats + a history view.
+- **Closest-approach record** — track + persist the all-time / per-session closest pass
+  (which aircraft, dist, alt, time) — a "personal best" line on the page.
+- **Mil + emergency alerts** — we flag emergency squawks; add **military** detection (ICAO hex
+  block / category / known mil callsign prefixes) as a cross-tab alert + a distinct blip colour.
+- **Detail view extras** — surface feed fields we don't show yet (registration, route/origin-
+  dest if available, operator, RSSI/seen, true vs baro alt) on a tap-through detail card.
+
 ## UX shell — desk-clock (SHIPPED via overlay, Jun 2026)
 Built as a device-wide **clock-mode overlay** (tap the time in the status strip)
 rather than a separate home page: a big clock stamped on top of the live page —
