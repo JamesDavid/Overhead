@@ -66,7 +66,7 @@ static int briIndex(Settings& s) {
 
 void PageHealth::onTouch(App& app, int x, int y) {
   if (y >= app.contentH() - 44 && y < app.contentH() - 26) {   // display / brightness / shots / web row
-    int col = x / (app.contentW() / 4);
+    int col = x / (app.contentW() / 6);
     if (col == 0) {                                            // cycle palette
       setThemeMode(_settings, (themeModeIndex(_settings) + 1) % 4);
       _theme.forceReapply();
@@ -77,7 +77,7 @@ void PageHealth::onTouch(App& app, int x, int y) {
       bool on = !app.display().shotsEnabled();
       app.display().setShotsEnabled(on);
       _settings.set("debugShots", on); _settings.save();
-    } else if (_web) {                                         // toggle the web server (frees heap)
+    } else if (col == 3 && _web) {                             // toggle the web server (frees heap)
       if (_web->running()) {                                   // ON -> OFF: live stop frees heap now
         _web->stop();
         _settings.set("webOnBoot", false); _settings.save();
@@ -88,6 +88,14 @@ void PageHealth::onTouch(App& app, int x, int y) {
         _web->start();
         _settings.set("webOnBoot", true); _settings.save();
       }
+    } else if (col == 4) {                                     // toggle screen mirror (reflected HUD)
+      bool m = !_settings.getBool("dispMirror");
+      _settings.set("dispMirror", m); _settings.save();
+      app.display().applyDisplayPrefs(m, _settings.getBool("dispInvert"));
+    } else if (col == 5) {                                     // toggle colour invert
+      bool iv = !_settings.getBool("dispInvert");
+      _settings.set("dispInvert", iv); _settings.save();
+      app.display().applyDisplayPrefs(_settings.getBool("dispMirror"), iv);
     }
     _dirty = _needClear = true;
     return;
@@ -177,8 +185,8 @@ void PageHealth::draw(App& app) {
     g.drawString("refreshing providers...", cw / 2, cy0 + ch - 52);
   }
 
-  // Display-mode / brightness / screenshots / web-server buttons (tap to cycle/toggle).
-  int ty = cy0 + ch - 44, tw = cw / 4;
+  // Display / brightness / screenshots / web / mirror / invert buttons (tap to cycle/toggle).
+  int ty = cy0 + ch - 44, tw = cw / 6;
   g.setTextDatum(textdatum_t::middle_center);
   g.setTextColor(gTheme.accent, gTheme.bg);
   g.drawRect(2, ty, tw - 3, 18, gTheme.grid);
@@ -187,10 +195,16 @@ void PageHealth::draw(App& app) {
   g.drawString(String("Bri:") + kBriName[briIndex(_settings)], tw + tw / 2, ty + 9);
   g.drawRect(2 * tw + 2, ty, tw - 3, 18, gTheme.grid);
   g.drawString(String("Shot:") + (app.display().shotsEnabled() ? "on" : "off"), 2 * tw + tw / 2, ty + 9);
-  g.drawRect(3 * tw + 2, ty, tw - 4, 18, gTheme.grid);     // web server on/off (frees heap for feeds)
+  g.drawRect(3 * tw + 2, ty, tw - 3, 18, gTheme.grid);     // web server on/off (frees heap for feeds)
   bool webOn = !_web || _web->running();
   g.setTextColor(webOn ? gTheme.accent : gTheme.warn, gTheme.bg);
   g.drawString(String("Web:") + (webOn ? "on" : "off"), 3 * tw + tw / 2, ty + 9);
+  g.drawRect(4 * tw + 2, ty, tw - 3, 18, gTheme.grid);     // mirror / invert (state shown by colour)
+  g.setTextColor(_settings.getBool("dispMirror") ? gTheme.accent : gTheme.dim, gTheme.bg);
+  g.drawString("Mirror", 4 * tw + tw / 2, ty + 9);
+  g.drawRect(5 * tw + 2, ty, tw - 4, 18, gTheme.grid);
+  g.setTextColor(_settings.getBool("dispInvert") ? gTheme.accent : gTheme.dim, gTheme.bg);
+  g.drawString("Invert", 5 * tw + tw / 2, ty + 9);
   g.setTextColor(gTheme.accent, gTheme.bg);
 
   // Button row.

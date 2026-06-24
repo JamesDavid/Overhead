@@ -252,6 +252,7 @@ void setup() {
   cache.begin();
 
   if (!display.begin(settings.getBool("debugShots", true))) Serial.println("[display] init FAILED");
+  display.applyDisplayPrefs(settings.getBool("dispMirror", false), settings.getBool("dispInvert", false));
   touch.begin(display);
 
 #if ASTRO_SELFTEST
@@ -274,7 +275,11 @@ void setup() {
 #else
   bool wifiOk = prov.begin(apName, 180,
       []() -> bool { int16_t tx, ty; return touch.read(display, tx, ty); },   // tap = go offline
-      [apName]() { splashPortal(apName); });                                  // portal opened -> prompt
+      [apName]() { splashPortal(apName); },                                   // portal opened -> prompt
+      [](bool m, bool iv) {                                                   // mirror/invert from the portal
+        settings.set("dispMirror", m); settings.set("dispInvert", iv); settings.save();
+        display.applyDisplayPrefs(m, iv);
+      });
 #endif
   gOffline = !wifiOk;
   WiFi.setAutoReconnect(true);            // let the stack retry drops on its own too

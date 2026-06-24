@@ -213,7 +213,7 @@ strong wind) is surfaced cross-tab as a notice instead (see the Director).
 | |
 |---|
 | ![Health](docs/img/page8-health.jpg) |
-| The system table (WiFi, heap + **largest-block low-water** + **httpsSkip**, filesystem, uptime, location) and per-provider **status + age in d/h/m/s**, plus on-device controls: cycle the display palette (Auto/Day/Night/Red) and brightness, toggle remote screenshots, toggle the **Web** server (off frees ~35 KB of contiguous heap for the feeds — it boots off by default and re-enables here or via the serial console), **Refresh** all providers, **Recalibrate** touch, and a two-tap **Reboot**. *(WiFi SSID and LAN IP boxed out here.)* |
+| The system table (WiFi, heap + **largest-block low-water** + **httpsSkip**, filesystem, uptime, location) and per-provider **status + age in d/h/m/s**, plus on-device controls: cycle the display palette (Auto/Day/Night/Red) and brightness, toggle remote screenshots, **mirror the screen** (for a reflected-HUD mounting) and **invert colours**, toggle the **Web** server (off frees ~35 KB of contiguous heap for the feeds — it boots off by default and re-enables here or via the serial console), **Refresh** all providers, **Recalibrate** touch, and a two-tap **Reboot**. *(WiFi SSID and LAN IP boxed out here.)* |
 
 ---
 
@@ -250,7 +250,11 @@ These have no single tab — they're part of the whole experience.
 - **Offline field mode** — boot with no WiFi and **tap past the captive portal** to run
   on cached data (satellite passes, star map, orrery, agenda all work offline); the
   WiFi-down reboot watchdog is suppressed and the last-known location is reused.
-- **Provisioning** — WiFiManager captive portal on first boot; IP geolocation; NTP/RTC.
+- **Provisioning** — WiFiManager captive portal on first boot; IP geolocation; NTP/RTC. The portal
+  also carries **mirror screen** + **invert colours** toggles, so a reflected-HUD mounting that's
+  unreadable on the glass can be corrected from your phone before the device leaves setup. (The same
+  two toggles live on the Health page and in the web **Appearance** settings; SPI panels apply them
+  in hardware, the RGB CrowPanel in software at the framebuffer push.)
 
 ### Web / remote interface
 

@@ -79,7 +79,6 @@ bool Touch::calibrate(Display& display) {
 bool Touch::read(Display& display, int16_t& x, int16_t& y) {
 #if defined(BOARD_CROWPANEL_S3_5HMI)
   if (!gt911ReadWire(x, y)) return false;        // GT911 over Wire (shares the expander's I2C bus)
-  (void)display;
 #else
   if (!display.getTouch(&x, &y)) return false;   // via Display (gfx() may be an off-screen canvas)
 #endif
@@ -90,6 +89,9 @@ bool Touch::read(Display& display, int16_t& x, int16_t& y) {
 #endif
 #if defined(TOUCH_INVERT_Y) && TOUCH_INVERT_Y
   y = display.height() - 1 - y;
+#endif
+#if defined(BOARD_CROWPANEL_S3_5HMI)
+  if (display.mirrored()) x = display.width() - 1 - x;   // GT911 reads raw; match the software display mirror
 #endif
   return true;
 }

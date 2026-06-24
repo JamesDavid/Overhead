@@ -87,10 +87,29 @@ void Display::flushFramebuffer() {
   if (!stage) return;
   for (int y = minY; y <= maxY; y += CHUNK) {
     int bh = (maxY - y + 1 < CHUNK) ? (maxY - y + 1) : CHUNK;
-    for (int r = 0; r < bh; ++r)                             // gather the rect's rows (stride W -> bw) into SRAM
-      memcpy(stage + (size_t)r * bw, cv + (size_t)(y + r) * W + x0, (size_t)bw * 2);
-    esp_lcd_panel_draw_bitmap((esp_lcd_panel_handle_t)_rgbPanel, x0, y, x1, y + bh, stage);
+    for (int r = 0; r < bh; ++r) {                           // gather the rect's rows (stride W -> bw) into SRAM,
+      const uint16_t* srow = cv + (size_t)(y + r) * W + x0;  // applying runtime mirror (reverse row) + invert (XOR)
+      uint16_t* drow = stage + (size_t)r * bw;
+      if (_mirror)      for (int i = 0; i < bw; ++i) drow[i] = srow[bw - 1 - i] ^ (_invert ? 0xFFFF : 0);
+      else if (_invert) for (int i = 0; i < bw; ++i) drow[i] = srow[i] ^ 0xFFFF;
+      else              memcpy(drow, srow, (size_t)bw * 2);
+    }
+    int px0 = _mirror ? (W - x1) : x0, px1 = _mirror ? (W - x0) : x1;   // mirror flips the target x-span
+    esp_lcd_panel_draw_bitmap((esp_lcd_panel_handle_t)_rgbPanel, px0, y, px1, y + bh, stage);
   }
+#endif
+}
+
+// Apply runtime display prefs. SPI panels mirror via the rotation's mirror bit + invert via INVON
+// (touch follows through getTouch); the RGB CrowPanel has no such commands, so mirror/invert are done
+// in software at the flush push (above) and we force a full re-push so the change shows immediately.
+void Display::applyDisplayPrefs(bool mirror, bool invert) {
+  _mirror = mirror; _invert = invert;
+#if defined(BOARD_CROWPANEL_S3_5HMI)
+  memset(s_cellHash, 0, sizeof(s_cellHash));     // invalidate dirty-cache -> next flush re-pushes everything
+#else
+  _lcd.setRotation(mirror ? (DISPLAY_DEFAULT_ROTATION ^ 4) : (DISPLAY_DEFAULT_ROTATION & 7));
+  _lcd.invertDisplay(invert);
 #endif
 }
 

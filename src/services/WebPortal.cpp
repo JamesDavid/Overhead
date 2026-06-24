@@ -47,9 +47,9 @@ const FIELD={
  nightAmbientAlt:['night ambient sun-alt','n'],inactivitySec:['inactivity->auto (s)','n'],
  adsbMode:['mode','sel',['cloud','local']],adsbHost:['local host','t'],adsbRadiusNm:['radius (nm)','n'],
  refreshLaunchMin:['launches (min)','n'],refreshTleHour:['TLE (h)','n'],refreshSpaceWxMin:['space wx (min)','n'],refreshWeatherMin:['weather (min)','n'],
- hostname:['mDNS name','t'],debugShots:['remote screenshots','c'],otaUser:['user','t'],otaPass:['password','t']};
+ hostname:['mDNS name','t'],debugShots:['remote screenshots','c'],dispMirror:['mirror screen','c'],dispInvert:['invert colours','c'],otaUser:['user','t'],otaPass:['password','t']};
 const SECTIONS=[['Location','loc'],['Focus','focus'],['Satellites','sats'],['Bodies','bodies'],['Memory Skies','skies'],
- ['Appearance',['themeMode','nightPalette','nightBacklight','themeNightAlt','dimAfterSec','dimLevel']],
+ ['Appearance',['themeMode','nightPalette','nightBacklight','themeNightAlt','dimAfterSec','dimLevel','dispMirror','dispInvert']],
  ['Aircraft',['adsbMode','adsbHost','adsbRadiusNm']],
  ['System',['hostname','debugShots','refreshLaunchMin','refreshTleHour','refreshSpaceWxMin','refreshWeatherMin','inactivitySec','otaUser','otaPass']]];
 const PAGES=['Agenda','Launches','Aircraft','Aviation Wx','Satellites','Space Wx','Solar System','Star Map'];
@@ -282,6 +282,9 @@ bool WebPortal::begin(Settings* s, const String& hostname) {
         // Apply the remote-screenshot toggle LIVE so the web UI can free the 16 KB
         // buffer on demand (off -> freeShot()), not just at the next reboot.
         if (_display && json["debugShots"].is<bool>()) _display->setShotsEnabled(json["debugShots"].as<bool>());
+        // Apply mirror/invert live (so a reflected-HUD mounting can be fixed from a phone, no reboot).
+        if (_display && (json["dispMirror"].is<bool>() || json["dispInvert"].is<bool>()))
+          _display->applyDisplayPrefs(_s->getBool("dispMirror"), _s->getBool("dispInvert"));
         req->send(200, "application/json", "{\"ok\":true}");
       });
   setHandler->setAuthentication(_apiUser.c_str(), _apiPass.c_str());
