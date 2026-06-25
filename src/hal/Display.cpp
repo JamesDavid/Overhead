@@ -103,12 +103,14 @@ void Display::flushFramebuffer() {
 // Apply runtime display prefs. SPI panels mirror via the rotation's mirror bit + invert via INVON
 // (touch follows through getTouch); the RGB CrowPanel has no such commands, so mirror/invert are done
 // in software at the flush push (above) and we force a full re-push so the change shows immediately.
-void Display::applyDisplayPrefs(bool mirror, bool invert) {
-  _mirror = mirror; _invert = invert;
+void Display::applyDisplayPrefs(int rotation, bool invert) {
+  _rotation = rotation & 7;
+  _mirror = (_rotation & 4) != 0;                // RGB CrowPanel software path keys off the mirror bit
+  _invert = invert;
 #if defined(BOARD_CROWPANEL_S3_5HMI)
   memset(s_cellHash, 0, sizeof(s_cellHash));     // invalidate dirty-cache -> next flush re-pushes everything
 #else
-  _lcd.setRotation(mirror ? (DISPLAY_DEFAULT_ROTATION ^ 4) : (DISPLAY_DEFAULT_ROTATION & 7));
+  _lcd.setRotation(_rotation);                   // SPI panels: full hardware rotation (variant orientations)
   _lcd.invertDisplay(invert);
 #endif
 }

@@ -36,11 +36,13 @@ public:
   void setBacklight(uint8_t level);       // 0..255 (spec §7.9 night dimming)
   int  width()  { return _lcd.width(); }
   int  height() { return _lcd.height(); }
-  // Runtime screen mirror (horizontal flip, e.g. for a reflected HUD) + colour invert. SPI panels
-  // do both in hardware (rotation + INVON); the RGB CrowPanel does them in software at the flush
-  // push. mirrored() lets the touch layer flip raw-read coords (GT911) to match.
-  void applyDisplayPrefs(bool mirror, bool invert);
+  // Runtime display orientation (LovyanGFX rotation 0..7 = the 4 orientations x mirror) + colour
+  // invert, for dialing in different CYD variants (some ship 90 deg off / mirrored) and reflected
+  // HUDs. SPI panels apply rotation+invert in hardware; the RGB CrowPanel applies the mirror bit +
+  // invert in software at the flush push. mirrored()/rotation() let the touch layer + cal follow.
+  void applyDisplayPrefs(int rotation, bool invert);
   bool mirrored() const { return _mirror; }
+  int  rotation() const { return _rotation; }
   // CrowPanel RGB: hand the freshly-drawn framebuffer to esp_lcd, which double-buffers
   // it (num_fbs=2) and scans via a bounce buffer -> no tearing. No-op on other boards.
   void flushFramebuffer();
@@ -69,6 +71,7 @@ private:
   lgfx::LovyanGFX* _drawTarget = nullptr; // current draw target (nullptr -> &_lcd)
   bool _contentTiled = false;             // true when status+content are on SRAM tiles (skip work-FB push)
   bool _mirror = false, _invert = false;  // runtime display prefs (RGB board applies these at flush)
+  int  _rotation = DISPLAY_DEFAULT_ROTATION;   // effective LovyanGFX rotation (0..7)
 #if defined(BOARD_CROWPANEL_S3_5HMI)
   void* _rgbPanel = nullptr;              // esp_lcd_panel_handle_t (owns scan)
   void  rgbPanelBegin();                  // create + start the esp_lcd RGB panel

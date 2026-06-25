@@ -252,7 +252,7 @@ void setup() {
   cache.begin();
 
   if (!display.begin(settings.getBool("debugShots", true))) Serial.println("[display] init FAILED");
-  display.applyDisplayPrefs(settings.getBool("dispMirror", false), settings.getBool("dispInvert", false));
+  display.applyDisplayPrefs((int)settings.getInt("dispRotation", DISPLAY_DEFAULT_ROTATION), settings.getBool("dispInvert", false));
   touch.begin(display);
 
 #if ASTRO_SELFTEST
@@ -277,8 +277,9 @@ void setup() {
       []() -> bool { int16_t tx, ty; return touch.read(display, tx, ty); },   // tap = go offline
       [apName]() { splashPortal(apName); },                                   // portal opened -> prompt
       [](bool m, bool iv) {                                                   // mirror/invert from the portal
-        settings.set("dispMirror", m); settings.set("dispInvert", iv); settings.save();
-        display.applyDisplayPrefs(m, iv);
+        int rot = m ? (DISPLAY_DEFAULT_ROTATION ^ 4) : (DISPLAY_DEFAULT_ROTATION & 7);   // mirror = rot's 0x4 bit
+        settings.set("dispRotation", (long)rot); settings.set("dispInvert", iv); settings.save();
+        display.applyDisplayPrefs(rot, iv);
       });
 #endif
   gOffline = !wifiOk;

@@ -88,10 +88,14 @@ void PageHealth::onTouch(App& app, int x, int y) {
         _web->start();
         _settings.set("webOnBoot", true); _settings.save();
       }
-    } else if (col == 4) {                                     // toggle screen mirror (reflected HUD)
-      bool m = !_settings.getBool("dispMirror");
-      _settings.set("dispMirror", m); _settings.save();
-      app.display().applyDisplayPrefs(m, _settings.getBool("dispInvert"));
+    } else if (col == 4) {                                     // cycle landscape rotation (for CYD variants)
+      static const int kRot[] = {0, 2, 4, 6};                  // even = same 320x240 landscape aspect
+      int cur = app.display().rotation(), idx = 0;
+      for (int i = 0; i < 4; i++) if (kRot[i] == cur) idx = i;
+      int next = kRot[(idx + 1) % 4];
+      _settings.set("dispRotation", (long)next); _settings.save();
+      app.display().applyDisplayPrefs(next, _settings.getBool("dispInvert"));
+      _touch.calibrate(app.display());                         // touch cal is rotation-specific -> recal now
     } else if (col == 5) {                                     // toggle colour invert
       bool iv = !_settings.getBool("dispInvert");
       _settings.set("dispInvert", iv); _settings.save();
@@ -199,9 +203,9 @@ void PageHealth::draw(App& app) {
   bool webOn = !_web || _web->running();
   g.setTextColor(webOn ? gTheme.accent : gTheme.warn, gTheme.bg);
   g.drawString(String("Web:") + (webOn ? "on" : "off"), 3 * tw + tw / 2, ty + 9);
-  g.drawRect(4 * tw + 2, ty, tw - 3, 18, gTheme.grid);     // mirror / invert (state shown by colour)
-  g.setTextColor(_settings.getBool("dispMirror") ? gTheme.accent : gTheme.dim, gTheme.bg);
-  g.drawString("Mirror", 4 * tw + tw / 2, ty + 9);
+  g.drawRect(4 * tw + 2, ty, tw - 3, 18, gTheme.grid);     // rotation (cycle landscape) / invert
+  g.setTextColor(gTheme.accent, gTheme.bg);
+  g.drawString(String("Rot:") + app.display().rotation(), 4 * tw + tw / 2, ty + 9);
   g.drawRect(5 * tw + 2, ty, tw - 4, 18, gTheme.grid);
   g.setTextColor(_settings.getBool("dispInvert") ? gTheme.accent : gTheme.dim, gTheme.bg);
   g.drawString("Invert", 5 * tw + tw / 2, ty + 9);
