@@ -47,11 +47,12 @@ const FIELD={
  nightAmbientAlt:['night ambient sun-alt','n'],inactivitySec:['inactivity->auto (s)','n'],
  adsbMode:['mode','sel',['cloud','local']],adsbHost:['local host','t'],adsbRadiusNm:['radius (nm)','n'],
  refreshLaunchMin:['launches (min)','n'],refreshTleHour:['TLE (h)','n'],refreshSpaceWxMin:['space wx (min)','n'],refreshWeatherMin:['weather (min)','n'],
- hostname:['mDNS name','t'],debugShots:['remote screenshots','c'],dispRotation:['rotation 0-7 (even=landscape; CYD variants)','n'],dispInvert:['invert colours','c'],otaUser:['user','t'],otaPass:['password','t']};
+ hostname:['mDNS name','t'],debugShots:['remote screenshots','c'],dispRotation:['rotation 0-7 (even=landscape, +4=mirror; CYD variants)','n'],dispInvert:['invert colours','c'],dispBgr:['swap R/B — BGR (dual-USB CYD; reboot)','c'],otaUser:['user','t'],otaPass:['password','t']};
 const SECTIONS=[['Location','loc'],['Focus','focus'],['Satellites','sats'],['Bodies','bodies'],['Memory Skies','skies'],
- ['Appearance',['themeMode','nightPalette','nightBacklight','themeNightAlt','dimAfterSec','dimLevel','dispRotation','dispInvert']],
+ ['Appearance',['themeMode','nightPalette','nightBacklight','themeNightAlt','dimAfterSec','dimLevel']],
  ['Aircraft',['adsbMode','adsbHost','adsbRadiusNm']],
- ['System',['hostname','debugShots','refreshLaunchMin','refreshTleHour','refreshSpaceWxMin','refreshWeatherMin','inactivitySec','otaUser','otaPass']]];
+ ['System',['hostname','debugShots','refreshLaunchMin','refreshTleHour','refreshSpaceWxMin','refreshWeatherMin','inactivitySec','otaUser','otaPass']],
+ ['Screen',['dispRotation','dispInvert','dispBgr']]];
 const PAGES=['Agenda','Launches','Aircraft','Aviation Wx','Satellites','Space Wx','Solar System','Star Map'];
 const ORRERY=['Roadster','Psyche','Ceres','Vesta'];
 const SATS=[['ISS','ISS'],['Tiangong (CSS)','CSS'],['Hubble','HST'],['SO-50','SO-50'],['AO-91','FOX-1B'],['SatGus','SATGUS'],

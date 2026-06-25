@@ -43,6 +43,10 @@ public:
   void applyDisplayPrefs(int rotation, bool invert);
   bool mirrored() const { return _mirror; }
   int  rotation() const { return _rotation; }
+  // Panel colour order (RGB vs BGR) for CYD variants whose red/blue are swapped (the "dual-USB"
+  // boards). -1 = leave the board's compile default; 0 = force RGB; 1 = force BGR. Applied at init
+  // (set before begin()); a runtime change needs a reboot. SPI panels only.
+  void setRgbOrderOverride(int o) { _rgbOrderOverride = o; }
   // CrowPanel RGB: hand the freshly-drawn framebuffer to esp_lcd, which double-buffers
   // it (num_fbs=2) and scans via a bounce buffer -> no tearing. No-op on other boards.
   void flushFramebuffer();
@@ -72,6 +76,7 @@ private:
   bool _contentTiled = false;             // true when status+content are on SRAM tiles (skip work-FB push)
   bool _mirror = false, _invert = false;  // runtime display prefs (RGB board applies these at flush)
   int  _rotation = DISPLAY_DEFAULT_ROTATION;   // effective LovyanGFX rotation (0..7)
+  int  _rgbOrderOverride = -1;                 // -1 keep compile default; 0 RGB; 1 BGR (applied at init)
 #if defined(BOARD_CROWPANEL_S3_5HMI)
   void* _rgbPanel = nullptr;              // esp_lcd_panel_handle_t (owns scan)
   void  rgbPanelBegin();                  // create + start the esp_lcd RGB panel

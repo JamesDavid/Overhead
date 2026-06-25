@@ -251,6 +251,7 @@ void setup() {
   settings.begin();
   cache.begin();
 
+  display.setRgbOrderOverride(settings.doc()["dispBgr"].is<bool>() ? (settings.getBool("dispBgr") ? 1 : 0) : -1);  // CYD variant R/B swap (applied at init)
   if (!display.begin(settings.getBool("debugShots", true))) Serial.println("[display] init FAILED");
   display.applyDisplayPrefs((int)settings.getInt("dispRotation", DISPLAY_DEFAULT_ROTATION), settings.getBool("dispInvert", false));
   touch.begin(display);

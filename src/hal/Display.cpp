@@ -156,6 +156,16 @@ bool Display::begin(bool enableShots) {
   rgbPanelBegin();
 #endif
 
+#if !defined(BOARD_CROWPANEL_S3_5HMI)
+  // CYD-variant colour order: the "dual-USB" boards swap R/B. Override the panel's compile default
+  // (rgb_order true=RGB) before init when the user has explicitly set it; -1 leaves it untouched.
+  if (_rgbOrderOverride >= 0) {
+    auto cfg = _lcd.getPanel()->config();
+    cfg.rgb_order = (_rgbOrderOverride == 0);   // 0 -> RGB (true), 1 -> BGR (false)
+    _lcd.getPanel()->config(cfg);
+  }
+#endif
+
   // LovyanGFX init: on the CrowPanel this adopts esp_lcd's framebuffer + sets up
   // drawing/touch (its RGB scan is neutered — see Bus_RGB.cpp override). On the CYDs this
   // is the full SPI panel init.
