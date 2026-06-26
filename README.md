@@ -87,8 +87,12 @@ the page it's about**); long-press to **pin**.
 | |
 |---|
 | ![Aircraft radar](docs/img/page2-aircraft.jpg) |
-| A north-up **ADS-B radar** with range rings (your range + 5/10 nm reference), per-blip **heading chevrons**, and **dead-reckoned** motion between updates. Tap a blip → callsign, type, altitude, ground speed + track, distance/bearing, and the **look az/el** (where to point binoculars). An **emergency squawk** (7700/7600/7500) rings the contact and raises a banner, and a plane passing **nearly overhead** (within 5 nm and >20° up) fires a cross-tab "Overhead" alert + tab badge. HOME + airport chips recenter the radar; chips filter range / on-ground / altitude / category. |
+| A north-up **ADS-B radar** with range rings (your range + 5/10 nm reference), per-blip **heading chevrons**, and **dead-reckoned** motion between updates — **including altitude**, so a descending contact's flight-level readout ticks down live between feed updates. Tap a blip → callsign, type, altitude, ground speed + track, distance/bearing, and the **look az/el** (where to point binoculars). An **emergency squawk** (7700/7600/7500) rings the contact and raises a banner, and a plane passing **nearly overhead** (within 5 nm and >20° up) fires a cross-tab "Overhead" alert + tab badge. HOME + airport chips recenter the radar; chips filter range / on-ground / altitude / category. |
 | **The frequency marquee** along the bottom is a sleeper feature: it scrolls the **nearest airport's identifier, name, distance/bearing, and its actual radio frequencies** — ATIS/AWOS, CTAF/UNICOM, clearance, ground, tower, and approach/departure — pulled from a **bundled 3,877-field US airport database** baked into the LittleFS image (so it works without a network). Glance at it to know exactly what to dial up on a scanner to hear the traffic you can see on the radar. *(The cloud ADS-B feed runs over plain HTTP so it populates even under the no-PSRAM heap floor; the radar above is live traffic at a busy metro, with the home location redacted.)* |
+
+| ![Aircraft activity board](docs/img/page2-aircraft-activity.jpg) |
+|---|
+| **Swipe up/down** for two more views. **Activity** is a live arrivals/departures board: every contact is classified — **departing** / **arriving** / **local** / **transit** (green climbing out, amber descending in) — relative to the nearest field, inferred from altitude + vertical rate, with flight, type, altitude (hundreds of ft), climb/descend arrow, and range. **Stats** totals the activity + category mix and calls out the **closest, highest, and fastest** contact. *(Live metro traffic above: departures and arrivals at KPHX, plus locals at KFFZ/KCHD and one en-route transit.)* |
 
 ### 3 · Aviation weather — *the sky's flight briefing*
 
