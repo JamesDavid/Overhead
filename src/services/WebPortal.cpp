@@ -41,7 +41,7 @@ a{color:#50aaff}</style></head>
 const FIELD={
  locName:['name','t'],locLat:['latitude','n'],locLon:['longitude','n'],locMode:['source','sel',['auto','preset']],
  themeMode:['theme','sel',['auto','day','night']],nightPalette:['night palette','sel',['dark','red']],
- nightBacklight:['night backlight','n'],themeNightAlt:['night sun-alt','n'],dimAfterSec:['dim after (s)','n'],dimLevel:['dim level','n'],
+ nightBacklight:['night backlight','n'],themeNightAlt:['night sun-alt (day→night)','n'],themeRedAlt:['red sun-alt (night→red)','n'],dimAfterSec:['dim after (s)','n'],dimLevel:['dim level','n'],
  focusEnabled:['focus enabled','c'],passLeadMin:['pass lead (min)','n'],launchLeadMin:['launch lead (min)','n'],satMinEl:['min pass el','n'],
  alertSat:['alert: satellite pass','c'],alertLaunch:['alert: launch','c'],alertAircraft:['alert: aircraft overhead','c'],alertWx:['alert: weather','c'],
  nightAmbientAlt:['night ambient sun-alt','n'],inactivitySec:['inactivity->auto (s)','n'],
@@ -49,7 +49,7 @@ const FIELD={
  refreshLaunchMin:['launches (min)','n'],refreshTleHour:['TLE (h)','n'],refreshSpaceWxMin:['space wx (min)','n'],refreshWeatherMin:['weather (min)','n'],
  hostname:['mDNS name','t'],debugShots:['remote screenshots','c'],dispRotation:['rotation 0-7 (even=landscape, +4=mirror; CYD variants)','n'],dispInvert:['invert colours','c'],dispBgr:['swap R/B — BGR (dual-USB CYD; reboot)','c'],otaUser:['user','t'],otaPass:['password','t']};
 const SECTIONS=[['Location','loc'],['Focus','focus'],['Satellites','sats'],['Bodies','bodies'],['Memory Skies','skies'],
- ['Appearance',['themeMode','nightPalette','nightBacklight','themeNightAlt','dimAfterSec','dimLevel']],
+ ['Appearance',['themeMode','nightPalette','nightBacklight','themeNightAlt','themeRedAlt','dimAfterSec','dimLevel']],
  ['Aircraft',['adsbMode','adsbHost','adsbRadiusNm']],
  ['System',['hostname','debugShots','refreshLaunchMin','refreshTleHour','refreshSpaceWxMin','refreshWeatherMin','inactivitySec','otaUser','otaPass']],
  ['Screen',['dispRotation','dispInvert','dispBgr']]];

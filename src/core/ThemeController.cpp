@@ -9,7 +9,7 @@
 
 void ThemeController::begin(TimeService* time, LocationService* loc, Display* display, Settings* settings, App* app) {
   _time = time; _loc = loc; _display = display; _settings = settings; _app = app;
-  apply(false);                 // start in day until the first evaluation
+  apply(TierDay);               // start in day until the first evaluation
 }
 
 void ThemeController::tick(uint32_t nowMs) {
@@ -26,31 +26,35 @@ void ThemeController::tick(uint32_t nowMs) {
   _lastMs = nowMs;
 
   String mode = _settings->getString("themeMode", "auto");
-  bool night;
-  if (mode == "day")        night = false;
-  else if (mode == "night") night = true;
-  else {                                          // auto, with hysteresis
-    if (!_time->synced() || !_loc->active().valid) { apply(false); return; }
+  bool red = _settings->getString("nightPalette", "dark") == "red";
+  Tier t;
+  if (mode == "day")        t = TierDay;
+  else if (mode == "night") t = red ? TierRed : TierNight;   // forced Night / Red
+  else {                                                     // auto: 3 tiers by sun altitude
+    if (!_time->synced() || !_loc->active().valid) { apply(TierDay); return; }
     double alt = astro::sunAltitudeDeg(_time->julianDate(),
                                        _loc->active().lat, _loc->active().lon);
-    double thr = (double)_settings->getInt("themeNightAlt", -6);
-    night = _night ? (alt < thr + 2.0)            // -> day only once well above
-                   : (alt < thr);                 // -> night once below
+    double nightThr = (double)_settings->getInt("themeNightAlt", -6);   // day -> twilight
+    double redThr   = (double)_settings->getInt("themeRedAlt",  -12);   // twilight -> dark
+    const double hb = 2.0;                          // brighten hysteresis: leaving a darker tier needs +2 deg
+    if      (alt >= nightThr + (_tier > TierDay   ? hb : 0)) t = TierDay;
+    else if (alt >= redThr   + (_tier > TierNight ? hb : 0)) t = TierNight;
+    else                                                     t = TierRed;
+    if (!red && t == TierRed) t = TierNight;        // nightPalette=dark -> auto never reddens
   }
-  apply(night);
+  apply(t);
 }
 
-void ThemeController::apply(bool night) {
-  if (_applied && night == _night) return;
-  _night = night;
+void ThemeController::apply(Tier tier) {
+  if (_applied && tier == _tier) return;
+  _tier = tier;
   _applied = true;
 
-  if (!night) {
+  if (tier == TierDay) {
     gTheme = themes::dark;
     _baseBl = 255;
   } else {
-    bool red = _settings && _settings->getString("nightPalette", "dark") == "red";
-    gTheme = red ? themes::redNight : themes::dark;
+    gTheme = (tier == TierRed) ? themes::redNight : themes::dark;
     int bl = _settings ? (int)_settings->getInt("nightBacklight", 90) : 90;
     _baseBl = (uint8_t)constrain(bl, 10, 255);
   }

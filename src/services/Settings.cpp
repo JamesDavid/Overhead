@@ -74,7 +74,8 @@ void Settings::fillDefaults(JsonDocument& _doc) {
   // Appearance / ThemeController (spec §7.9)
   _doc["themeMode"]     = "auto";     // auto | day | night
   _doc["nightPalette"]  = "dark";     // dark | red (dark-adapt)
-  _doc["themeNightAlt"] = -6;         // Sun alt (deg) to flip the theme to night
+  _doc["themeNightAlt"] = -6;         // Sun alt (deg): day -> night/twilight (auto)
+  _doc["themeRedAlt"]   = -12;        // Sun alt (deg): night -> red dark-adapt (auto, needs nightPalette=red)
   _doc["nightBacklight"]= 90;         // 0..255 at night
   _doc["backlight"]     = 0;          // manual brightness override (0 = auto day/night)
   // Director / Intelligent Focus (spec §7.10)
