@@ -51,6 +51,62 @@ static int catClass(const String& c) {
 static const char* kAltLabel[] = {"alt:all", "alt:<10k", "alt:10-25k", "alt:>25k"};
 static const char* kCatLabel[] = {"cat:all", "cat:airline", "cat:GA", "cat:heli", "cat:mil"};
 
+// Local-tangent-plane distance (nm) between two lat/lon points — fine at radar/airport ranges.
+static float distNmLL(double lat1, double lon1, double lat2, double lon2) {
+  double mlat = (lat1 + lat2) * 0.5 * D2R;
+  double dN = (lat2 - lat1) * 60.0;                  // 1 deg latitude  = 60 nm
+  double dE = (lon2 - lon1) * 60.0 * cos(mlat);      // 1 deg longitude = 60 nm * cos(lat)
+  return (float)sqrt(dN * dN + dE * dE);
+}
+static String actLabel(PageAircraft::Activity act, const String& apt) {
+  switch (act) {
+    case PageAircraft::ActGround:    return "on ground";
+    case PageAircraft::ActDeparting: return "DEP " + apt;
+    case PageAircraft::ActArriving:  return "ARR " + apt;
+    case PageAircraft::ActLocal:     return "local " + apt;
+    case PageAircraft::ActTransit:   return "transit";
+    default:                         return "?";
+  }
+}
+static Color actColor(PageAircraft::Activity act) {
+  switch (act) {
+    case PageAircraft::ActDeparting: return gTheme.ok;       // climbing out
+    case PageAircraft::ActArriving:  return gTheme.warn;     // descending in
+    case PageAircraft::ActLocal:     return gTheme.accent;   // in the pattern
+    case PageAircraft::ActGround:    return gTheme.dim;
+    default:                         return gTheme.fg;       // transit / en-route
+  }
+}
+
+// Infer what a contact is doing from altitude + vertical rate + the nearest known field.
+// METAR stations are already loaded in RAM (sorted by range), so this is cheap — no file scan.
+PageAircraft::Activity PageAircraft::classify(const Aircraft& a, String& aptOut) const {
+  aptOut = "";
+  if (a.onGround) return ActGround;
+  float best = 1e9f; String bestId;
+  for (const auto& s : _wx.stations()) {
+    float d = distNmLL(a.lat, a.lon, s.lat, s.lon);
+    if (d < best) { best = d; bestId = s.icao; }
+  }
+  if (bestId.length() && best < 12.0f && a.altFt < 11000.0f) {  // inside a field's terminal area, low
+    aptOut = bestId;
+    if (a.vsFpm < -300) return ActArriving;
+    if (a.vsFpm >  300) return ActDeparting;
+    return ActLocal;                                            // low + level near a field (pattern/approach)
+  }
+  return ActTransit;                                            // en-route / high / far from any field
+}
+
+const char* PageAircraft::viewName(int i) const {
+  static const char* nm[] = {"Radar", "Activity", "Stats"};
+  return (i >= 0 && i < 3) ? nm[i] : nullptr;
+}
+void PageAircraft::cycleView(int dir) {
+  _view = (_view + dir + 3) % 3;
+  _userSel = false; _sel = -1;                                  // each view restarts its own selection
+  _needClear = _dirty = true;
+}
+
 // Build _filt: indices into _ap.aircraft() passing the altitude + category filters.
 void PageAircraft::rebuildFilt() {
   _filt.clear();
@@ -146,6 +202,7 @@ void PageAircraft::pushTrails() {
 }
 
 void PageAircraft::onTouch(App& app, int x, int y) {
+  if (_view != 0) return;                          // Activity/Stats views: taps inert (swipe to navigate)
   if (handleChipTap(app, x, y)) return;            // top centre-selector chips
   if (handleRadiusTap(app, x, y)) return;          // bottom-left range badge
   if (handleGroundTap(app, x, y)) return;          // ground-filter badge
@@ -246,7 +303,7 @@ void PageAircraft::tick(App& app, uint32_t nowMs) {
   // Auto-select the first contact and slowly cycle while the user is just
   // watching (MANUAL, nothing hand-picked). In AUTO the Director's autoAdvance
   // tours contacts instead, so don't double-step there.
-  if (!_userSel && app.mode() == App::Mode::Manual) {
+  if (_view == 0 && !_userSel && app.mode() == App::Mode::Manual) {
     rebuildFilt();
     int n = (int)_filt.size();
     if (n > 0) {
@@ -259,7 +316,7 @@ void PageAircraft::tick(App& app, uint32_t nowMs) {
     draw(app);
     return;
   }
-  if (nowMs - _marqMs >= 50) { _marqMs = nowMs; drawAirportMarquee(app); }  // ~20fps ticker scroll
+  if (_view == 0 && nowMs - _marqMs >= 50) { _marqMs = nowMs; drawAirportMarquee(app); }  // ~20fps ticker scroll (radar only)
 }
 
 void PageAircraft::drawMessage(App& app, const char* msg, int topY) {
@@ -270,6 +327,90 @@ void PageAircraft::drawMessage(App& app, const char* msg, int topY) {
   g.setTextColor(gTheme.dim, gTheme.bg);
   g.setTextSize(1);
   g.drawString(msg, cw / 2, (topY + bottom) / 2);
+}
+
+// View 1: a classified contact list (the "arrivals board") — flight, type, altitude (hundreds of
+// ft), climb/descend arrow, range, and what it's doing (DEP/ARR/local <field>, transit, on ground).
+void PageAircraft::drawActivity(App& app) {
+  auto& g = app.display().gfx();
+  const int cw = app.contentW(), cy0 = app.contentY(), ch = app.contentH();
+  const auto& list = _ap.aircraft();
+  rebuildFilt();
+  if (_filt.empty()) {
+    drawMessage(app, list.empty() ? (_ap.status() == ProviderStatus::Error ? "feed unavailable" : "no aircraft in range")
+                                  : "no aircraft match filters", cy0);
+    return;
+  }
+  int x0 = 4, y = cy0 + 2;
+  g.setTextDatum(textdatum_t::top_left); g.setTextSize(1);
+  char hdr[80];
+  snprintf(hdr, sizeof(hdr), "%-8.8s %-4.4s %3s%c %4s %s (%d)", "flight", "type", "alt", 'v', "rng", "activity", (int)_filt.size());
+  g.setTextColor(gTheme.accent, gTheme.bg);
+  g.drawString(padRight(String(hdr), 56), x0, y); y += 13;
+
+  const int rowH = 12, bottom = cy0 + ch - 2;
+  for (int idx : _filt) {
+    if (y + rowH > bottom) break;                              // fill the screen; Stats view totals the rest
+    const Aircraft& a = list[idx];
+    String apt; Activity act = classify(a, apt);
+    char alt[6];
+    if (a.onGround) strcpy(alt, "grd");
+    else snprintf(alt, sizeof(alt), "%3d", (int)(a.altFt / 100.0f + 0.5f));   // hundreds of ft (FL-style)
+    char vs = a.vsFpm > 300 ? '^' : (a.vsFpm < -300 ? 'v' : '-');
+    String id = a.flight.length() ? a.flight : a.hex;
+    char buf[80];
+    snprintf(buf, sizeof(buf), "%-8.8s %-4.4s %s%c %3dnm %s",
+             id.c_str(), a.type.c_str(), alt, vs, (int)(a.distNm + 0.5f), actLabel(act, apt).c_str());
+    g.setTextColor(actColor(act), gTheme.bg);
+    g.drawString(padRight(String(buf), 56), x0, y);
+    y += rowH;
+  }
+  if (y < cy0 + ch) g.fillRect(0, y, cw, cy0 + ch - y, gTheme.bg);   // clear trailing (already bg -> no flash)
+}
+
+// View 2: aggregate stats over the (filtered) contacts — activity + category breakdown and the
+// closest / highest / fastest contact.
+void PageAircraft::drawStats(App& app) {
+  auto& g = app.display().gfx();
+  const int cw = app.contentW(), cy0 = app.contentY(), ch = app.contentH();
+  const auto& list = _ap.aircraft();
+  rebuildFilt();
+  int dep = 0, arr = 0, trn = 0, gnd = 0, lcl = 0, air = 0, ga = 0, heli = 0, mil = 0, emerg = 0;
+  float maxAlt = 0; int hi = -1; float minD = 1e9f; int nr = -1; float maxGs = 0; int fast = -1;
+  for (int idx : _filt) {
+    const Aircraft& a = list[idx];
+    String apt;
+    switch (classify(a, apt)) {
+      case ActDeparting: dep++; break;  case ActArriving: arr++; break;
+      case ActLocal:     lcl++; break;  case ActGround:   gnd++; break;
+      case ActTransit:   trn++; break;  default: break;
+    }
+    switch (catClass(a.category)) { case 1: air++; break; case 2: ga++; break; case 3: heli++; break; case 4: mil++; break; }
+    if (squawkAlert(a.squawk)) emerg++;
+    if (!a.onGround && a.altFt > maxAlt) { maxAlt = a.altFt; hi = idx; }
+    if (a.distNm < minD) { minD = a.distNm; nr = idx; }
+    if (a.gsKt > maxGs) { maxGs = a.gsKt; fast = idx; }
+  }
+  int x0 = 6, y = cy0 + 4;
+  g.setTextDatum(textdatum_t::top_left);
+  g.setTextSize(2); g.setTextColor(gTheme.accent, gTheme.bg);
+  g.drawString(padRight(String(_filt.size()) + " contacts", 24), x0, y); y += 22;
+  g.setTextSize(1);
+  auto line = [&](const String& s, Color c) { g.setTextColor(c, gTheme.bg); g.drawString(padRight(s, 56), x0, y); y += 13; };
+  line(String("departing ") + dep + "   arriving " + arr + "   transit " + trn, gTheme.fg);
+  line(String("local ") + lcl + "   on ground " + gnd, gTheme.dim);
+  line(String("airliner ") + air + "  GA " + ga + "  heli " + heli + "  mil " + mil, gTheme.dim);
+  if (emerg) line(String("EMERGENCY squawks: ") + emerg, gTheme.warn);
+  y += 4;
+  auto pick = [&](const char* lbl, int idx, const String& extra) {
+    if (idx < 0) { line(String(lbl) + " -", gTheme.dim); return; }
+    String id = list[idx].flight.length() ? list[idx].flight : list[idx].hex;
+    line(String(lbl) + " " + id + "  " + extra, gTheme.fg);
+  };
+  pick("closest", nr,   nr   >= 0 ? String((int)(list[nr].distNm + 0.5f)) + " nm" : "");
+  pick("highest", hi,   hi   >= 0 ? String((int)(list[hi].altFt / 100.0f + 0.5f) * 100) + " ft" : "");
+  pick("fastest", fast, fast >= 0 ? String((int)(list[fast].gsKt + 0.5f)) + " kt" : "");
+  if (y < cy0 + ch) g.fillRect(0, y, cw, cy0 + ch - y, gTheme.bg);
 }
 
 // Centre-selector chip row (top): HOME + nearby airports. Tap to recentre the
@@ -314,6 +455,9 @@ void PageAircraft::draw(App& app) {
   const int cw = app.contentW(), ch = app.contentH(), cy0 = app.contentY();
   if (!_loc.active().valid) { drawMessage(app, "no location", cy0); return; }
   if (_needClear) { g.fillRect(0, cy0, cw, ch, gTheme.bg); _needClear = false; }
+
+  if (_view == 1) { drawActivity(app); return; }   // vertical-swipe sub-views
+  if (_view == 2) { drawStats(app); return; }
 
   int chipH = drawChips(app);                      // centre selector (top)
   int top = cy0 + chipH;

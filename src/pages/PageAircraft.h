@@ -8,6 +8,7 @@ class AviationWxProvider;
 class LocationService;
 class Settings;
 class AirportDB;
+struct Aircraft;
 
 // pages/PageAircraft — the Aircraft tab (spec §6). Observer-centred radar (N-up,
 // range rings), heading chevrons, and a selected-contact detail panel. Tap
@@ -31,8 +32,21 @@ public:
   bool autoAdvance(App& app) override;
   bool autoSkip() override;              // skip in the AUTO tour when the ADS-B feed is down
 
+  // Vertical-swipe sub-views: Radar (the map), Activity (a classified contact list), Stats.
+  int  viewCount() const override { return 3; }
+  int  viewIndex() const override { return _view; }
+  const char* viewName(int i) const override;
+  void cycleView(int dir) override;
+
+  // What a contact appears to be doing, inferred from altitude + vertical rate + nearest field.
+  enum Activity { ActUnknown, ActGround, ActDeparting, ActArriving, ActLocal, ActTransit };
+
 private:
   void draw(App& app);
+  Activity classify(const Aircraft& a, String& aptOut) const;
+  void drawActivity(App& app);          // view 1: classified contact list
+  void drawStats(App& app);             // view 2: aggregate stats
+  int  _view = 0;                       // 0 radar, 1 activity, 2 stats
   void drawMessage(App& app, const char* msg, int topY);
   void drawRadiusBadge(App& app);
   void drawGroundBadge(App& app);
