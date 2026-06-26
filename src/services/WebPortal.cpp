@@ -47,11 +47,11 @@ const FIELD={
  nightAmbientAlt:['night ambient sun-alt','n'],inactivitySec:['inactivity->auto (s)','n'],
  adsbMode:['mode','sel',['cloud','local']],adsbHost:['local host','t'],adsbRadiusNm:['radius (nm)','n'],
  refreshLaunchMin:['launches (min)','n'],refreshTleHour:['TLE (h)','n'],refreshSpaceWxMin:['space wx (min)','n'],refreshWeatherMin:['weather (min)','n'],
- hostname:['mDNS name','t'],debugShots:['remote screenshots','c'],dispRotation:['rotation 0-7 (even=landscape, +4=mirror; CYD variants)','n'],dispInvert:['invert colours','c'],dispBgr:['swap R/B — BGR (dual-USB CYD; reboot)','c'],otaUser:['user','t'],otaPass:['password','t']};
+ hostname:['mDNS name','t'],debugShots:['remote screenshots','c'],dispRotation:['rotation 0-7 (even=landscape, +4=mirror; CYD variants)','n'],dispInvert:['invert colours','c'],dispBgr:['swap R/B — BGR (dual-USB CYD; reboot)','c'],webAuth:['require login — basic auth (reboot)','c'],otaUser:['user','t'],otaPass:['password','t']};
 const SECTIONS=[['Location','loc'],['Focus','focus'],['Satellites','sats'],['Bodies','bodies'],['Memory Skies','skies'],
  ['Appearance',['themeMode','nightPalette','nightBacklight','themeNightAlt','themeRedAlt','dimAfterSec','dimLevel']],
  ['Aircraft',['adsbMode','adsbHost','adsbRadiusNm']],
- ['System',['hostname','debugShots','refreshLaunchMin','refreshTleHour','refreshSpaceWxMin','refreshWeatherMin','inactivitySec','otaUser','otaPass']],
+ ['System',['hostname','debugShots','refreshLaunchMin','refreshTleHour','refreshSpaceWxMin','refreshWeatherMin','inactivitySec','webAuth','otaUser','otaPass']],
  ['Screen',['dispRotation','dispInvert','dispBgr']]];
 const PAGES=['Agenda','Launches','Aircraft','Aviation Wx','Satellites','Space Wx','Solar System','Star Map'];
 const ORRERY=['Roadster','Psyche','Ceres','Vesta'];
@@ -245,8 +245,11 @@ ref();
 
 bool WebPortal::begin(Settings* s, const String& hostname) {
   _s = s;
-  _apiUser = _s->getString("otaUser", "admin");      // gate the API with the OTA creds
-  _apiPass = _s->getString("otaPass", "overhead");
+  // Auth is OFF by default (home-LAN convenience); flip "require login" in System settings to enforce
+  // it. Empty creds make AsyncWebServer/ElegantOTA skip auth entirely (_hasCreds = user && pass).
+  bool authOn = _s->getBool("webAuth", false);
+  _apiUser = authOn ? _s->getString("otaUser", "admin")    : String("");
+  _apiPass = authOn ? _s->getString("otaPass", "overhead") : String("");
 
   String host = _s->getString("hostname", hostname.c_str());   // editable mDNS name (settings)
   host.trim(); if (!host.length()) host = hostname;
@@ -347,9 +350,8 @@ bool WebPortal::begin(Settings* s, const String& hostname) {
       if (_up && index + len == total) _up.close();
     }).setAuthentication(_apiUser.c_str(), _apiPass.c_str());
 
-  // OTA + settings basic-auth (spec §13).
-  ElegantOTA.setAuth(_s->getString("otaUser", "admin").c_str(),
-                     _s->getString("otaPass", "overhead").c_str());
+  // OTA auth follows the same toggle (_apiUser/_apiPass are empty when webAuth is off -> no OTA login).
+  ElegantOTA.setAuth(_apiUser.c_str(), _apiPass.c_str());
   ElegantOTA.begin(&_server);            // attach OTA handlers (no listener yet)
   return true;                           // start() opens the listener
 }

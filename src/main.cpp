@@ -304,8 +304,9 @@ void setup() {
   // Field default: boot with the web server OFF so the AsyncTCP/server footprint
   // doesn't crowd the no-PSRAM heap floor — the live feeds get max contiguous heap.
   // Re-enable any time from the Health "Web" toggle or the serial console ("web on").
-  if (settings.getBool("webOnBoot", false)) web.start();
-  else Serial.println("[web] booted OFF (webOnBoot=false) — type 'web on' on serial, or tap Health->Web");
+  // Boot with the web server OFF so the initial feed fetch keeps the full no-PSRAM heap floor; loop()
+  // auto-starts it ~45 s in (once feeds settle), gated by webOnBoot (default ON). 'web on'/Health override.
+  Serial.println("[web] booted OFF — auto-starts ~45s after boot unless webOnBoot=false");
 
   runBootUpdater();   // two-phase boot: refresh stale caches in a lean phase, then reboot to viewer
 
@@ -461,6 +462,17 @@ void loop() {
   net.poll();        // dispatch completed HTTP jobs on the UI thread
   timeSvc.tick();    // detect NTP sync edge -> publish Time
   web.loop();        // ElegantOTA pump
+
+  // Delayed web auto-start: bring the server up ~45 s after boot, once the initial feeds have settled
+  // and freed the heap floor — unless the user turned it off (webOnBoot=false) or stopped it this boot.
+  static bool webAutoStarted = false;
+  if (!webAutoStarted && !gOffline && now > 45000 && !web.running() && !web.everStopped()
+      && settings.getBool("webOnBoot", true)) {
+    webAutoStarted = true;
+    web.start();
+    Serial.println("[web] auto-started after boot");
+  }
+
   sched.tick(now);
   themeCtl.tick(now);   // day/night palette + backlight
   director.tick(now);   // Intelligent Focus
