@@ -161,10 +161,11 @@ void PageAgenda::jumpToEvent(App& app, int i) {
 }
 
 void PageAgenda::onTouch(App& app, int x, int y) {
+  const int u = app.ui();
   // Sky Window: tap a vertical event stripe -> jump to that event (lines at sx+sw*h/24).
-  const int sxx = 2, sw = app.contentW() - 4, syRel = 16, sh = 64;
+  const int sxx = 2 * u, sw = app.contentW() - 4 * u, syRel = 16 * u, sh = 64 * u;
   if (y >= syRel && y <= syRel + sh) {
-    int best = -1, bestd = 11;
+    int best = -1, bestd = 11 * u;
     for (int i = 0; i < (int)_events.size(); ++i) {
       int hoff = (int)((_events[i].t - _base) / 3600);
       if (hoff < 0 || hoff >= kHours) continue;
@@ -175,7 +176,7 @@ void PageAgenda::onTouch(App& app, int x, int y) {
   }
   // Upcoming list: tap a row -> jump to that event (offset by the scroll position).
   if (!_events.empty() && _listN > 0) {
-    int row = (y + app.contentY() - _listY0) / 13;
+    int row = (y + app.contentY() - _listY0) / (13 * u);
     if (row >= 0 && row < _listN) jumpToEvent(app, _listScroll + row);
   }
 }
@@ -189,6 +190,7 @@ void PageAgenda::onScroll(App&, int dy) {
 void PageAgenda::draw(App& app) {
   auto& g = app.display().gfx();
   const int cw = app.contentW(), cy0 = app.contentY(), ch = app.contentH();
+  const int u = app.ui();                 // 1 = CYD, 2 = CrowPanel
   g.fillRect(0, cy0, cw, ch, gTheme.bg);
 
   if (!_time.synced() || !_loc.active().valid) {
@@ -199,14 +201,15 @@ void PageAgenda::draw(App& app) {
   }
 
   // --- Sky Window timeline ---
-  const int sx = 2, sw = cw - 4;
-  const int sy = cy0 + 16, sh = 64;
+  const int sx = 2 * u, sw = cw - 4 * u;
+  const int sy = cy0 + 16 * u, sh = 64 * u;
   g.setTextDatum(textdatum_t::top_left);
+  g.setTextSize(u);
   g.setTextColor(gTheme.fg, gTheme.bg);
   { struct tm tmh; time_t nb = _base; localtime_r(&nb, &tmh);   // context by time of day
     const char* ctx = (tmh.tm_hour >= 18 || tmh.tm_hour < 5) ? "Tonight"
                     : (tmh.tm_hour < 12) ? "Today" : "This evening";
-    g.drawString(String(ctx) + "  -  Sky Window (24h)", sx, cy0 + 2); }
+    g.drawString(String(ctx) + "  -  Sky Window (24h)", sx, cy0 + 2 * u); }
 
   for (int h = 0; h < kHours; ++h) {
     int x0 = sx + sw * h / kHours, x1 = sx + sw * (h + 1) / kHours;
@@ -214,9 +217,9 @@ void PageAgenda::draw(App& app) {
     g.fillRect(x0, sy, w, sh, darknessShade(_sunAlt[h]));      // darkness band
     if (_cloud[h] >= 0) {                                       // cloud heat (top)
       int gch = 20 + _cloud[h] * 180 / 100;
-      g.fillRect(x0, sy, w, 14, gTheme.mono ? rgb565(gch, gch / 4, 0) : rgb565(gch, gch, gch + 10));
+      g.fillRect(x0, sy, w, 14 * u, gTheme.mono ? rgb565(gch, gch / 4, 0) : rgb565(gch, gch, gch + 10));
     }
-    if (_moonUp[h]) g.fillRect(x0, sy + sh - 4, w, 4, gTheme.mono ? rgb565(90, 22, 0) : rgb565(70, 60, 30)); // moon-up
+    if (_moonUp[h]) g.fillRect(x0, sy + sh - 4 * u, w, 4 * u, gTheme.mono ? rgb565(90, 22, 0) : rgb565(70, 60, 30)); // moon-up
   }
   g.drawRect(sx, sy, sw, sh, gTheme.grid);
   // Hour ticks: local time only, with a small tick marking the exact moment.
@@ -226,11 +229,11 @@ void PageAgenda::draw(App& app) {
     int x = sx + sw * hh / kHours;
     g.drawFastVLine(x, sy, sh, gTheme.grid);
     if (hh < 24) {                                   // skip the right-edge tick (would clip)
-      g.drawFastVLine(x, sy + sh + 1, 2, gTheme.fg); // exact-time tick below the strip
+      g.drawFastVLine(x, sy + sh + 1 * u, 2 * u, gTheme.fg); // exact-time tick below the strip
       time_t t = _base + (time_t)hh * 3600; struct tm tm; localtime_r(&t, &tm);
       char lt[8]; strftime(lt, sizeof(lt), "%H:%M", &tm);
       g.setTextColor(gTheme.dim, gTheme.bg);
-      g.drawString(lt, x + 3, sy + sh + 1);
+      g.drawString(lt, x + 3 * u, sy + sh + 1 * u);
     }
   }
   // Event markers (accent=pass, warn=launch, ok=sun/moon): a vertical line at the true
@@ -249,40 +252,40 @@ void PageAgenda::draw(App& app) {
     while (j > 0 && _events[order[j - 1]].t > _events[i].t) { order[j] = order[j - 1]; j--; }
     order[j] = i;
   }
-  int lastRight = sx - 100;
+  int lastRight = sx - 100 * u;
   for (int oi : order) {
     const Event& e = _events[oi];
     int x = sx + sw * (int)((e.t - _base) / 3600) / kHours;
     String tag = e.label; int spc = tag.indexOf(' '); if (spc > 0) tag = tag.substring(0, spc);
-    int lx = x + 2; if (lx < lastRight + 1) lx = lastRight + 1; // nudge right to clear neighbour
-    if (lx > sx + sw - 6) lx = sx + sw - 6;                     // keep on the strip
+    int lx = x + 2 * u; if (lx < lastRight + 1 * u) lx = lastRight + 1 * u; // nudge right to clear neighbour
+    if (lx > sx + sw - 6 * u) lx = sx + sw - 6 * u;            // keep on the strip
     g.setTextDatum(textdatum_t::top_left);
     g.setTextColor(evColor(e));                                // transparent bg: keep shading
     for (int ci = 0; ci < (int)tag.length(); ++ci) {
-      int yy = sy + 2 + ci * 8;
-      if (yy > sy + sh - 7) break;
+      int yy = sy + 2 * u + ci * 8 * u;
+      if (yy > sy + sh - 7 * u) break;
       g.drawString(String(tag[ci]), lx, yy);
     }
-    lastRight = lx + 5;
+    lastRight = lx + 5 * u;
   }
 
   // --- Legend ---
-  int ly = sy + sh + 11;
+  int ly = sy + sh + 11 * u;
   g.setTextDatum(textdatum_t::top_left);
   int lx = sx;
   auto swatch = [&](Color c, const char* s) {
-    g.drawFastVLine(lx, ly + 1, 7, c); lx += 3;
+    g.drawFastVLine(lx, ly + 1 * u, 7 * u, c); lx += 3 * u;
     g.setTextColor(gTheme.dim, gTheme.bg); g.drawString(s, lx, ly);
-    lx += (int)strlen(s) * 6 + 7;
+    lx += (int)strlen(s) * 6 * u + 7 * u;
   };
   swatch(gTheme.accent, "pass"); swatch(gTheme.warn, "launch"); swatch(gTheme.ok, "sun/moon");
   g.setTextColor(gTheme.dim, gTheme.bg);
-  g.drawString("shade=darkness  grey top=cloud  amber base=moon up", sx, ly + 11);
+  g.drawString("shade=darkness  grey top=cloud  amber base=moon up", sx, ly + 11 * u);
 
   // --- Verdict ---
-  int y = sy + sh + 36;
+  int y = sy + sh + 36 * u;
   g.setTextColor(gTheme.ok, gTheme.bg);
-  g.drawString(_verdict, sx, y); y += 13;
+  g.drawString(_verdict, sx, y); y += 13 * u;
 
   // --- Tonight's sky: the planets + constellations up during the dark window
   // (more useful than a far-off meteor countdown). An ACTIVE shower is still
@@ -295,7 +298,7 @@ void PageAgenda::draw(App& app) {
       else if (ms.daysToPeak > 0) snprintf(b, sizeof(b), "Meteors: %s active, peak in %dd (ZHR %d)", ms.name, ms.daysToPeak, ms.zhr);
       else                        snprintf(b, sizeof(b), "Meteors: %s active (ZHR %d)", ms.name, ms.zhr);
       g.setTextColor(gTheme.accent, gTheme.bg);
-      g.drawString(b, sx, y); y += 13;
+      g.drawString(b, sx, y); y += 13 * u;
     }
 
     if (_loc.active().valid && _time.synced()) {
@@ -319,7 +322,7 @@ void PageAgenda::draw(App& app) {
           if (astro::equatorialToHorizontal(eq, latRad, lst).altRad > 0) items[ni++] = kCons[c].name;
         }
 
-        const int maxChars = (cw - sx - 4) / 6;         // chars per line at size 1
+        const int maxChars = (cw - sx - 4 * u) / (6 * u);  // chars per line at the scaled text size
         String l0 = "Tonight: ", l1; int i = 0;
         while (i < ni) { String t = (l0.length() > 9 ? l0 + ", " : l0) + items[i];
                          if ((int)t.length() <= maxChars) { l0 = t; i++; } else break; }
@@ -328,8 +331,8 @@ void PageAgenda::draw(App& app) {
         if (i < ni) l1 += " +" + String(ni - i);
         if (ni == 0) l0 += "quiet sky";
         g.setTextColor(gTheme.fg, gTheme.bg);
-        g.drawString(l0, sx, y); y += 13;
-        if (l1.length()) { g.drawString(l1, sx, y); y += 13; }
+        g.drawString(l0, sx, y); y += 13 * u;
+        if (l1.length()) { g.drawString(l1, sx, y); y += 13 * u; }
       }
     }
   }
@@ -338,12 +341,12 @@ void PageAgenda::draw(App& app) {
   g.setTextDatum(textdatum_t::top_left);
   g.setTextColor(gTheme.dim, gTheme.bg);
   g.drawString("Upcoming", sx, y);
-  int headerY = y; y += 13;
+  int headerY = y; y += 13 * u;
   _listY0 = y;
   int total = (int)_events.size();
   if (_listScroll > total - 1) _listScroll = total > 0 ? total - 1 : 0;
   if (_listScroll < 0) _listScroll = 0;
-  int avail = (cy0 + ch - 12 - y) / 13; if (avail < 0) avail = 0;
+  int avail = (cy0 + ch - 12 * u - y) / (13 * u); if (avail < 0) avail = 0;
   _listN = total - _listScroll; if (_listN > avail) _listN = avail; if (_listN < 0) _listN = 0;
   if (total > avail && total > 0) {                 // scroll-position indicator on the header
     g.setTextDatum(textdatum_t::top_right);
@@ -357,8 +360,8 @@ void PageAgenda::draw(App& app) {
     g.setTextColor(e.kind == 1 ? gTheme.warn : e.kind == 2 ? gTheme.ok : gTheme.accent, gTheme.bg);
     g.drawString(hm, sx, y);
     int cl = _wx.cloudCoverAt(e.t);
-    int labelX = sx + 40, cloudX = cw - 4, cloudW = cl >= 0 ? 34 : 0;  // "NN% cld"
-    int labelMax = (cloudX - cloudW - labelX) / 6;
+    int labelX = sx + 40 * u, cloudX = cw - 4 * u, cloudW = cl >= 0 ? 34 * u : 0;  // "NN% cld"
+    int labelMax = (cloudX - cloudW - labelX) / (6 * u);
     g.setTextColor(gTheme.fg, gTheme.bg);
     g.drawString(e.label.substring(0, labelMax), labelX, y);
     if (cl >= 0) {                                   // cloud cover at the event's time
@@ -366,7 +369,7 @@ void PageAgenda::draw(App& app) {
       g.setTextColor(cl < 35 ? gTheme.ok : cl < 70 ? gTheme.accent : gTheme.dim, gTheme.bg);
       g.drawString(String(cl) + "% cld", cloudX, y);
     }
-    y += 13;
+    y += 13 * u;
   }
   if (_events.empty()) { g.setTextColor(gTheme.dim, gTheme.bg); g.drawString("no passes or launches in 24h", sx, y); }
 }
