@@ -48,7 +48,7 @@
     Flashing takes ~1 minute and erases the device.</p>
     <p><label>Board variant:&nbsp;
       <select id="variant" onchange="pickVariant()">
-        <option value="std">Standard CYD — ESP32-2432S028R (micro-USB / dual-USB)</option>
+        <option value="std">CYD2USB — ESP32-2432S028R (dual-USB / micro-USB)</option>
         <option value="elegoo">Elegoo CYD — USB-C only</option>
       </select></label></p>
     <esp-web-install-button id="btn-std" manifest="flash/manifest.json">
@@ -71,7 +71,7 @@
       document.getElementById('btn-elegoo').style.display=(v=='elegoo')?'':'none';}
     </script>
     <p class="dim" style="margin-bottom:0">Target: ESP32 2.8" CYD (ILI9341). <b>Not sure which?</b> Flash
-    <i>Standard</i> first; if the screen is sideways/portrait, upside-down, or the colours look wrong, either
+    <i>CYD2USB</i> first; if the screen is sideways/portrait, upside-down, or the colours look wrong, either
     reflash <i>Elegoo</i> or fix it live in <b>Settings → Screen</b> (rotation / invert / R&ndash;B order).
     After flashing, join the <code>Overhead-setup</code> Wi-Fi to enter your network.</p>
   </div>
