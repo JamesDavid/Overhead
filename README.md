@@ -52,6 +52,10 @@ multi-domain, on dedicated cheap hardware.**
 > observatory ephemeris (low-precision Schlyter orbits, ~arcminute). It's a window to
 > wonder, not a telescope mount controller (though it could drive one — see the backlog).
 
+## ⚡ [**Flash it to your CYD right now, from your browser →**](https://jamesdavid.github.io/Overhead/)
+
+No toolchain, no IDE, no clone — desktop **Chrome** or **Edge**, plug in the board over USB, **pick your CYD variant**, and click **Install** (~1 minute). Then join the `Overhead-setup` Wi-Fi to enter your network.
+
 ---
 
 ## Feature tour
