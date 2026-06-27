@@ -433,6 +433,28 @@ void PageSatellites::drawGroundView(App& app, const astro::SatObservation& o) {
                px(_track[i].lon),     py(_track[i].lat), gTheme.accent);
   }
 
+  // Visibility footprint: the ground locus where this satellite is currently at >= the minEl
+  // threshold — a circle on the sphere (Earth-central angle lambda from the sub-sat point), so it
+  // projects to a distorted oval here. If the observer is inside it, the sat is above your threshold.
+  {
+    const double Re = 6371.0;
+    double eps = minEl() * D2R;
+    double snae = (Re / (Re + o.altKm)) * cos(eps);            // sin of the satellite's nadir angle
+    double lambda = 90.0 * D2R - eps - asin(snae);             // Earth-central angle (rad)
+    double lat1 = o.subLatDeg * D2R, lon1 = o.subLonDeg * D2R;
+    double sinL1 = sin(lat1), cosL1 = cos(lat1), cosLam = cos(lambda), sinLam = sin(lambda);
+    int prevX = 0, prevY = 0; double prevLon = 0; bool first = true;
+    for (int a = 0; a <= 360; a += 5) {                        // walk the azimuth around the sub-sat point
+      double az = a * D2R;
+      double lat2 = asin(sinL1 * cosLam + cosL1 * sinLam * cos(az));
+      double lon2 = lon1 + atan2(sin(az) * sinLam * cosL1, cosLam - sinL1 * sin(lat2));
+      double lon2d = lon2 / D2R; while (lon2d > 180) lon2d -= 360; while (lon2d < -180) lon2d += 360;
+      int X = px(lon2d), Y = py(lat2 / D2R);
+      if (!first && fabs(lon2d - prevLon) <= 180) g.drawLine(prevX, prevY, X, Y, gTheme.ok);  // skip seam
+      prevX = X; prevY = Y; prevLon = lon2d; first = false;
+    }
+  }
+
   // Observer + current sub-satellite point.
   const auto& loc = _loc.active();
   int oxv = px(loc.lon), oyv = py(loc.lat);
