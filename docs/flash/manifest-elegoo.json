@@ -1,0 +1,16 @@
+{
+  "name": "Overhead — Elegoo USB-C CYD",
+  "version": "0.0.1",
+  "new_install_prompt_erase": true,
+  "builds": [
+    {
+      "chipFamily": "ESP32",
+      "parts": [
+        { "path": "elegoo/bootloader.bin", "offset": 4096 },
+        { "path": "elegoo/partitions.bin", "offset": 32768 },
+        { "path": "boot_app0.bin", "offset": 57344 },
+        { "path": "elegoo/firmware.bin", "offset": 65536 }
+      ]
+    }
+  ]
+}

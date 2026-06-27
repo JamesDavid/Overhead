@@ -66,7 +66,13 @@
 // XPT2046 resistive touch on a SEPARATE VSPI bus. No PSRAM.
 // Pinout + quirks: ../BladeAir/cyd.md
 
+  // Variant: the Elegoo "USB-C only" CYD reuses this whole block (same pins/driver) but overrides
+  // the panel orientation + touch-invert below via -D flags (see env cyd28_elegoo in platformio.ini).
+#ifdef BOARD_CYD28_ELEGOO
+  #define BOARD_NAME            "CYD 2.8\" ILI9341 USB-C (Elegoo)"
+#else
   #define BOARD_NAME            "CYD 2.8\" ILI9341 (ESP32-2432S028R)"
+#endif
 
   // Display (ILI9341 over HSPI: GPIO 12/13/14)
   #define PIN_TFT_MOSI          13
@@ -85,13 +91,21 @@
   //   mode, and on this CYD the column range extends so a full 320-wide layout
   //   still fits. So we drive the panel as LANDSCAPE-NATIVE 320x240 at MV=0
   //   (rotation 0; rotation 2 = 180 flip), NOT via a swapping odd rotation.
+  // -028R is driven landscape-native (320x240, even rotations). The Elegoo USB-C variant has the
+  // standard portrait-native ILI9341, so it overrides these to 240x320 + rotation 1 (odd = landscape).
+#ifndef TFT_PANEL_WIDTH
   #define TFT_PANEL_WIDTH      320
+#endif
+#ifndef TFT_PANEL_HEIGHT
   #define TFT_PANEL_HEIGHT     240
+#endif
   // MV=0 family (even rotations, all report 320x240): rot 0 was upright but
   // horizontally mirrored on this unit, so use rot 6 = rot 0 + horizontal flip
   // (upright, un-mirrored). Reference for the other MV=0 values if needed:
   // 0 = upright+mirrored, 2 = upside-down+un-mirrored, 4 = upside-down+mirrored.
+#ifndef DISPLAY_DEFAULT_ROTATION
   #define DISPLAY_DEFAULT_ROTATION 6
+#endif
   // COLOUR — this CYD has reversed R/B wiring; without RGB order the warm theme
   // colours (yellow/orange) render as cyan/blue (yoRadio DSP_PANEL_RGB). Set 0
   // if your unit's colours are already correct.
@@ -107,8 +121,14 @@
   // The MV=0 landscape flip (rotation 6) makes LovyanGFX's calibrateTouch draw
   // its corner targets at physically-flipped positions, so the learned map comes
   // out 180 deg point-reflected. Invert both calibrated axes to correct it.
+  // -028R MV=0 landscape flips calibrateTouch's targets -> invert both axes. The Elegoo USB-C's
+  // standard MV=1 landscape needs no inversion, so it overrides both to 0.
+#ifndef TOUCH_INVERT_X
   #define TOUCH_INVERT_X        1
+#endif
+#ifndef TOUCH_INVERT_Y
   #define TOUCH_INVERT_Y        1
+#endif
 
   // microSD (HSPI, shared with display: 18/23/19) — not used in bring-up
   #define PIN_SD_CS              5

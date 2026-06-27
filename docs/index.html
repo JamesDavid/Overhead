@@ -44,17 +44,36 @@
 
   <h2>Flash it from your browser</h2>
   <div class="flash">
-    <p>Plug the board in over USB, then click <b>Install</b> and pick its serial port.
+    <p>Plug the board in over USB, pick your board variant, then click <b>Install</b> and choose its serial port.
     Flashing takes ~1 minute and erases the device.</p>
-    <esp-web-install-button manifest="flash/manifest.json">
+    <p><label>Board variant:&nbsp;
+      <select id="variant" onchange="pickVariant()">
+        <option value="std">Standard CYD — ESP32-2432S028R (micro-USB / dual-USB)</option>
+        <option value="elegoo">Elegoo CYD — USB-C only</option>
+      </select></label></p>
+    <esp-web-install-button id="btn-std" manifest="flash/manifest.json">
       <button slot="activate">⚡ Install Overhead</button>
       <span slot="unsupported" class="btnfallback" style="display:block">
         Your browser can't do Web Serial — use desktop <b>Chrome</b> or <b>Edge</b>.</span>
       <span slot="not-allowed" class="btnfallback" style="display:block">
         Serial access was blocked — allow it and retry.</span>
     </esp-web-install-button>
-    <p class="dim" style="margin-bottom:0">Target: ESP32 (2.8" CYD, ILI9341). After flashing,
-    join the <code>Overhead-setup</code> Wi-Fi to enter your network.</p>
+    <esp-web-install-button id="btn-elegoo" manifest="flash/manifest-elegoo.json" style="display:none">
+      <button slot="activate">⚡ Install Overhead (Elegoo USB-C)</button>
+      <span slot="unsupported" class="btnfallback" style="display:block">
+        Your browser can't do Web Serial — use desktop <b>Chrome</b> or <b>Edge</b>.</span>
+      <span slot="not-allowed" class="btnfallback" style="display:block">
+        Serial access was blocked — allow it and retry.</span>
+    </esp-web-install-button>
+    <script>
+    function pickVariant(){var v=document.getElementById('variant').value;
+      document.getElementById('btn-std').style.display=(v=='std')?'':'none';
+      document.getElementById('btn-elegoo').style.display=(v=='elegoo')?'':'none';}
+    </script>
+    <p class="dim" style="margin-bottom:0">Target: ESP32 2.8" CYD (ILI9341). <b>Not sure which?</b> Flash
+    <i>Standard</i> first; if the screen is sideways/portrait, upside-down, or the colours look wrong, either
+    reflash <i>Elegoo</i> or fix it live in <b>Settings → Screen</b> (rotation / invert / R&ndash;B order).
+    After flashing, join the <code>Overhead-setup</code> Wi-Fi to enter your network.</p>
   </div>
 
   <div class="need">
