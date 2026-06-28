@@ -130,7 +130,8 @@ int PageAviation::mapBottomH() const {
 // local airports around it (drill into the region with regional density).
 void PageAviation::drillPressure(App& app, int absX, int absY) {
   double w0, w1, a0, a1; _pmap.bbox(w0, w1, a0, a1);
-  const int mx = 2, my = app.contentY() + 16, mw = app.contentW() - 4, mh = app.contentH() - 16 - mapBottomH();
+  const int u = app.ui();
+  const int mx = 2, my = app.contentY() + 16 * u, mw = app.contentW() - 4, mh = app.contentH() - 16 * u - mapBottomH() * u;
   double zs = _pZoomCur;                                    // undo any active zoom
   double ux = (absX - _pFx) / zs + _pFx, uy = (absY - _pFy) / zs + _pFy;
   double lon = w0 + (ux - mx) / (double)mw * (w1 - w0);
@@ -200,12 +201,12 @@ void PageAviation::onTouch(App& app, int x, int y) {
   if (x >= third && x <= 2 * third && _view != View::Pressure) {  // centre tap cycles the view
     stepView(+1); return;                           // (Pressure: tap the MAP to drill/zoom at that point)
   }
-  if (_view == View::Pressure && x < 60 && y < 16) { // top-left badge: hPa->inHg->cloud->category
+  if (_view == View::Pressure && x < 60 * app.ui() && y < 16 * app.ui()) { // top-left badge: hPa->inHg->cloud->category
     _presMode = (_presMode + 1) % 4;
     _settings.set("presMode", (long)_presMode); _settings.save();   // persist preference
     _needClear = _dirty = true; return;
   }
-  if (_view == View::Pressure && x > app.contentW() - 82 && x <= app.contentW() - 50 && y < 16) {  // recenter home @1x
+  if (_view == View::Pressure && x > app.contentW() - 82 * app.ui() && x <= app.contentW() - 50 * app.ui() && y < 16 * app.ui()) {  // recenter home @1x
     if (_loc.active().valid) {
       _pmap.fetchAround(_loc.active().lat, _loc.active().lon);   // regional box centred on the observer
       resetPresZoom();                                           // back to 1x
@@ -214,7 +215,7 @@ void PageAviation::onTouch(App& app, int x, int y) {
     }
     return;
   }
-  if (_view == View::Pressure && x > app.contentW() - 50 && y < 16) {  // top-right: 50mi/200mi/US/world
+  if (_view == View::Pressure && x > app.contentW() - 50 * app.ui() && y < 16 * app.ui()) {  // top-right: 50mi/200mi/US/world
     int sc = _pmap.scope();
     if      (sc == 0 && _pmap.regionalMi() > 100) _pmap.setRegionalMi(50);    // 200mi -> 50mi (zoom in)
     else if (sc == 0)                             _pmap.setScope(1);          // 50mi  -> US
@@ -225,7 +226,7 @@ void PageAviation::onTouch(App& app, int x, int y) {
     _mapSelIcao = "";                                  // selection no longer in this bbox
     _needClear = _dirty = true; return;
   }
-  if (_view == View::Pressure && y >= 16) {            // tap the map
+  if (_view == View::Pressure && y >= 16 * app.ui()) { // tap the map
     int absX = x, absY = y + app.contentY();
     // US/world: a tap drills into that point, fetching the regional airports there to
     // populate data (the wide views are sparse on their own).
@@ -714,6 +715,7 @@ static void windBarb(lgfx::LovyanGFX& g, int x, int y, int wdir, int wspd, Color
 void PageAviation::drawPressure(App& app) {
   auto& g = app.display().gfx();
   const int cw = app.contentW(), cy0 = app.contentY(), ch = app.contentH();
+  const int u = app.ui();                 // scale the badges + bottom band; the station map stays dense
   const auto& pts = _pmap.points();
   bool world = _pmap.worldwide();
 
@@ -727,18 +729,19 @@ void PageAviation::drawPressure(App& app) {
   bool big   = app.contentW() >= 640;                          // large screens (CrowPanel): room for the
   bool zoom2 = big || _pZoomCur > 1.6f;                        // full per-dot readout at 1x, like 7x does on
   bool zoom3 = big || _pZoomCur > 3.5f;                        // the small screen (multi-line + wind kt)
-  g.setTextDatum(textdatum_t::top_left); g.setTextSize(1);
-  g.fillRect(2, cy0 + 2, 40, 12, gTheme.grid);                 // layer badge (tap: cat/cloud/wind/inHg)
-  g.setTextColor(gTheme.fg, gTheme.grid); g.drawString(ml, 6, cy0 + 3);
+  g.setTextDatum(textdatum_t::top_left); g.setTextSize(u);
+  g.fillRect(2 * u, cy0 + 2 * u, 40 * u, 12 * u, gTheme.grid);            // layer badge (tap: cat/cloud/wind/inHg)
+  g.setTextColor(gTheme.fg, gTheme.grid); g.drawString(ml, 6 * u, cy0 + 3 * u);
   g.setTextColor(gTheme.fg, gTheme.bg);
   char zlbl[20]; snprintf(zlbl, sizeof(zlbl), "[tap: zoom %.1fx]", _pZoomCur);
-  g.drawString(zlbl, 46, cy0 + 3);
-  g.fillRect(cw - 82, cy0 + 2, 30, 12, gTheme.grid);           // recenter badge (tap: home @1x)
+  g.drawString(zlbl, 46 * u, cy0 + 3 * u);
+  g.fillRect(cw - 82 * u, cy0 + 2 * u, 30 * u, 12 * u, gTheme.grid);      // recenter badge (tap: home @1x)
   g.setTextDatum(textdatum_t::top_left);
-  g.setTextColor(gTheme.ok, gTheme.grid); g.drawString("home", cw - 80, cy0 + 3);
-  g.fillRect(cw - 48, cy0 + 2, 46, 12, gTheme.grid);           // scope badge (tap: zoom 200mi/US/world)
+  g.setTextColor(gTheme.ok, gTheme.grid); g.drawString("home", cw - 80 * u, cy0 + 3 * u);
+  g.fillRect(cw - 48 * u, cy0 + 2 * u, 46 * u, 12 * u, gTheme.grid);      // scope badge (tap: zoom 200mi/US/world)
   g.setTextDatum(textdatum_t::top_right);
-  g.setTextColor(gTheme.fg, gTheme.grid); g.drawString(sc, cw - 4, cy0 + 3);
+  g.setTextColor(gTheme.fg, gTheme.grid); g.drawString(sc, cw - 4 * u, cy0 + 3 * u);
+  g.setTextSize(1);    // back to native size: the station network stays information-dense
 
   double w0, w1, a0, a1; _pmap.bbox(w0, w1, a0, a1);            // bbox from the active scope
   // Render the UNION of this scope's points and the shared per-airport pool in the
@@ -753,7 +756,7 @@ void PageAviation::drawPressure(App& app) {
         q.hpa = r->hpa; q.cloud = r->cloud; q.wdir = r->wdir; q.wspd = r->wspd; q.cat = r->cat;
         merged.push_back(q); }
     } }
-  int mx = 2, my = cy0 + 16, mw = cw - 4, mh = ch - 16 - mapBottomH();
+  int mx = 2, my = cy0 + 16 * u, mw = cw - 4, mh = ch - 16 * u - mapBottomH() * u;   // map area shifts for the scaled bands; stations stay dense
   float zs = _pZoomCur;                                         // discrete tap-to-zoom factor about the focus
   auto SX = [&](double lon) { int x = mx + (int)((lon - w0) / (w1 - w0) * mw); return _pFx + (int)(zs * (x - _pFx)); };
   auto SY = [&](double lat) { int y = my + (int)((a1 - lat) / (a1 - a0) * mh); return _pFy + (int)(zs * (y - _pFy)); };
@@ -846,7 +849,8 @@ void PageAviation::drawPressure(App& app) {
   // Bottom strip: decoded METAR for the selected/closest field, sourced from the unified
   // MetarStore so ANY plotted station shows data; the nearby-feed record adds raw text +
   // dewpoint where it has them. With no fields loaded at all, a one-line mode legend.
-  int by = my + mh + 2;
+  int by = my + mh + 2 * u;
+  g.setTextSize(u);
   const MetarRec* mr = nullptr;
   if (tgt.length()) for (auto& e : MetarStore::instance().all()) if (e.icao == tgt) { mr = &e; break; }
   const Metar* s = tgt.length() ? findStation(tgt) : nullptr;       // nearby feed: carries raw + dewpoint
@@ -863,20 +867,20 @@ void PageAviation::drawPressure(App& app) {
     g.setTextDatum(textdatum_t::top_left);
     g.setTextColor(cat.length() ? catColor(cat) : gTheme.fg, gTheme.bg);
     g.drawString(tgt + " " + (cat.length() ? cat : String("--"))
-                 + (_mapSelIcao.length() ? "" : "  (nearest)"), 4, by);
+                 + (_mapSelIcao.length() ? "" : "  (nearest)"), 4 * u, by);
     String det = String("vis") + (vis >= 0 ? String(vis, 0) : String("--"))
                + (cig >= 0 ? "  cig" + String(cig) : String("  cig none"));
     if (tC > -999) det += String("  ") + tC + "/" + dC + "C";
     det += String("  w") + (ws == 0 ? String("calm")
                             : (wd < 0 ? String("VRB") : String(wd)) + "@" + ws);
     g.setTextDatum(textdatum_t::top_right); g.setTextColor(gTheme.fg, gTheme.bg);
-    g.drawString(det, cw - 4, by);
+    g.drawString(det, cw - 4 * u, by);
     g.setTextDatum(textdatum_t::top_left);
-    if (s && s->raw.length()) drawWrapped(g, s->raw, 4, by + 11, (cw - 8) / 6, 2, gTheme.dim);
+    if (s && s->raw.length()) drawWrapped(g, s->raw, 4 * u, by + 11 * u, (cw - 8 * u) / (6 * u), 2, gTheme.dim, 11 * u);
     else { g.setTextColor(gTheme.dim, gTheme.bg);
-           g.drawString("(decoded from area feed - no raw METAR here)", 4, by + 11); }
+           g.drawString("(decoded from area feed - no raw METAR here)", 4 * u, by + 11 * u); }
   } else {
     g.setTextDatum(textdatum_t::bottom_left); g.setTextColor(gTheme.dim, gTheme.bg);
-    g.drawString("dot=inHg (blue hi/red lo)  id=flight cat  layer " + String(ml), 4, cy0 + ch - 1);
+    g.drawString("dot=inHg (blue hi/red lo)  id=flight cat  layer " + String(ml), 4 * u, cy0 + ch - 1 * u);
   }
 }
