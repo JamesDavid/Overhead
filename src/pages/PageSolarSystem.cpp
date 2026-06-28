@@ -536,6 +536,7 @@ void PageSolarSystem::drawOrbit(App& app) {
 void PageSolarSystem::drawJupiter(App& app) {
   auto& g = app.display().gfx();
   const int cw = app.contentW(), ch = app.contentH(), cy0 = app.contentY();
+  const int u = app.ui();
   const double D2R = 3.14159265358979323846 / 180.0;
   double jd = _time.julianDate();
   double lstR = astro::lstRad(jd, _loc.active().lon);
@@ -543,41 +544,44 @@ void PageSolarSystem::drawJupiter(App& app) {
   double cq = cos(q), sq = sin(q);
 
   bigTitle(g, cw, cy0, "Jupiter", "[mid: Saturn]", app.ui());
+  g.setTextSize(u);
   g.setTextColor(gTheme.dim, gTheme.bg);
   g.drawString(String(_st[5].above ? "up" : "below horizon") + "   el " + (int)round(_st[5].elDeg)
-               + "\xF7  az " + (int)round(_st[5].azDeg) + "\xF7", 4, cy0 + 20);
+               + "\xF7  az " + (int)round(_st[5].azDeg) + "\xF7", 4 * u, cy0 + 20 * u);
+  g.setTextSize(1);             // the telescopic disk + its plotted moon labels stay native/dense
 
   int cx = cw / 2, cyc = cy0 + ch / 2;
   double mx[4]; astro::galileanMoons(jd, mx);
-  const double jscale = 5.2;                        // px per Jupiter radius (Callisto ~26 Rj)
+  const double jscale = 5.2 * u;                    // px per Jupiter radius (Callisto ~26 Rj)
   // Equatorial line, rotated to the sky. (Screen y is down, so subtract the y-part.)
-  double L = 145;
+  double L = 145 * u;
   g.drawLine(cx - (int)round(L * cq), cyc + (int)round(L * sq),
              cx + (int)round(L * cq), cyc - (int)round(L * sq), gTheme.grid);
-  g.fillCircle(cx, cyc, 6, gTheme.warn);            // Jupiter
+  g.fillCircle(cx, cyc, 6 * u, gTheme.warn);        // Jupiter
   for (int i = 0; i < 4; ++i) {
     double r = mx[i] * jscale;                      // signed offset along the equator
     int x = cx + (int)round(r * cq), y = cyc - (int)round(r * sq);
     if (x < 2 || x > cw - 2) continue;
-    g.fillCircle(x, y, 2, gTheme.accent);
+    g.fillCircle(x, y, 2 * u, gTheme.accent);
     g.setTextColor(gTheme.dim, gTheme.bg);
     // Stagger labels perpendicular to the line so they don't collide with it.
-    int lx = x + (int)round(8 * sq), ly = y + (int)round(8 * cq) - 4;
+    int lx = x + (int)round(8 * u * sq), ly = y + (int)round(8 * u * cq) - 4;
     g.drawString(astro::galileanSym(i), lx - 5, ly);
   }
   // Legend (top-left): full names keyed to the graph syms, with each moon's live
   // elongation in Jupiter radii (E/W side of the disk). Drawn last to stay on top.
+  g.setTextSize(u);
   g.setTextDatum(textdatum_t::top_left);
-  int ly = cy0 + 32;
+  int ly = cy0 + 32 * u;
   for (int i = 0; i < 4; ++i) {
     g.setTextColor(gTheme.accent, gTheme.bg);
     char b[28];
     snprintf(b, sizeof(b), "%-9s %4.1f Rj %c", astro::galileanName(i), fabs(mx[i]), mx[i] >= 0 ? 'W' : 'E');
-    g.drawString(b, 6, ly); ly += 12;
+    g.drawString(b, 6 * u, ly); ly += 12 * u;
   }
   g.setTextDatum(textdatum_t::bottom_left);
   g.setTextColor(gTheme.dim, gTheme.bg);
-  g.drawString(String("zenith up \xB7 field tilt ") + (int)round(q / D2R) + "\xF7 for your sky", 4, cy0 + ch - 2);
+  g.drawString(String("zenith up \xB7 field tilt ") + (int)round(q / D2R) + "\xF7 for your sky", 4 * u, cy0 + ch - 2 * u);
 }
 
 // Telescopic Saturn: disk + ring ellipse. The ring opening B sets the ellipse's
@@ -585,6 +589,7 @@ void PageSolarSystem::drawJupiter(App& app) {
 void PageSolarSystem::drawSaturn(App& app) {
   auto& g = app.display().gfx();
   const int cw = app.contentW(), ch = app.contentH(), cy0 = app.contentY();
+  const int u = app.ui();
   const double D2R = 3.14159265358979323846 / 180.0;
   double jd = _time.julianDate();
   double lstR = astro::lstRad(jd, _loc.active().lon);
@@ -592,14 +597,16 @@ void PageSolarSystem::drawSaturn(App& app) {
   double B = astro::saturnRingTiltDeg(jd);
 
   bigTitle(g, cw, cy0, "Saturn", "[mid: Deep Space]", app.ui());
+  g.setTextSize(u);
   g.setTextColor(gTheme.dim, gTheme.bg);
   g.drawString(String(_st[6].above ? "up" : "below horizon") + "   el " + (int)round(_st[6].elDeg)
-               + "\xF7  az " + (int)round(_st[6].azDeg) + "\xF7", 4, cy0 + 20);
-  g.drawString(String("rings ") + (int)round(fabs(B)) + "\xF7 open  (" + (B >= 0 ? "north" : "south") + " face)", 4, cy0 + 31);
+               + "\xF7  az " + (int)round(_st[6].azDeg) + "\xF7", 4 * u, cy0 + 20 * u);
+  g.drawString(String("rings ") + (int)round(fabs(B)) + "\xF7 open  (" + (B >= 0 ? "north" : "south") + " face)", 4 * u, cy0 + 31 * u);
+  g.setTextSize(1);             // the telescopic disk + ring diagram stays native/dense
 
   int cx = cw / 2, cyc = cy0 + ch / 2;
-  double rMaj = 70, rMin = rMaj * fabs(sin(B * D2R));
-  if (rMin < 2) rMin = 2;
+  double rMaj = 70 * u, rMin = rMaj * fabs(sin(B * D2R));
+  if (rMin < 2 * u) rMin = 2 * u;
   double cq = cos(q), sq = sin(q);
   // Parametric ring ellipse rotated by the parallactic angle (LGFX drawEllipse has
   // no rotation): major axis = ring plane (E-W), minor = opening. Draw outer + inner
@@ -615,12 +622,13 @@ void PageSolarSystem::drawSaturn(App& app) {
     }
   };
   ringEllipse(rMaj, rMin, gTheme.fg);                            // outer ring edge
-  g.fillCircle(cx, cyc, 9, gTheme.warn);                         // planet disk
+  g.fillCircle(cx, cyc, 9 * u, gTheme.warn);                     // planet disk
   ringEllipse(rMaj, rMin, gTheme.fg);                            // redraw front arc over disk
-  if (rMin >= 5) ringEllipse(rMaj * 0.62, rMin * 0.62, gTheme.dim);  // Cassini division hint
+  if (rMin >= 5 * u) ringEllipse(rMaj * 0.62, rMin * 0.62, gTheme.dim);  // Cassini division hint
+  g.setTextSize(u);
   g.setTextDatum(textdatum_t::bottom_left);
   g.setTextColor(gTheme.dim, gTheme.bg);
-  g.drawString(String("zenith up \xB7 field tilt ") + (int)round(q / D2R) + "\xF7 for your sky", 4, cy0 + ch - 2);
+  g.drawString(String("zenith up \xB7 field tilt ") + (int)round(q / D2R) + "\xF7 for your sky", 4 * u, cy0 + ch - 2 * u);
 }
 
 // Upcoming meteor showers in date order (even far out), with ZHR, days-to-peak, and
@@ -629,24 +637,25 @@ void PageSolarSystem::drawSaturn(App& app) {
 void PageSolarSystem::drawShowers(App& app) {
   auto& g = app.display().gfx();
   const int cw = app.contentW(), cy0 = app.contentY(), ch = app.contentH();
+  const int u = app.ui();
   g.setTextDatum(textdatum_t::top_left);
   g.setTextColor(gTheme.accent, gTheme.bg);
-  g.setTextSize(2); g.drawString("Meteor Showers", 4, cy0 + 1); g.setTextSize(1);
+  g.setTextSize(2 * u); g.drawString("Meteor Showers", 4 * u, cy0 + 1 * u); g.setTextSize(u);
   g.setTextColor(gTheme.dim, gTheme.bg);
-  g.setTextDatum(textdatum_t::top_right); g.drawString("tap mid: sky", cw - 4, cy0 + 4);
+  g.setTextDatum(textdatum_t::top_right); g.drawString("tap mid: sky", cw - 4 * u, cy0 + 4 * u);
 
   // Colour legend: the "when" column is coloured by how well the radiant is placed.
-  int ly = cy0 + 21;
+  int ly = cy0 + 21 * u;
   g.setTextDatum(textdatum_t::top_left);
-  g.setTextColor(gTheme.ok, gTheme.bg);     g.drawString("great", 4, ly);
-  g.setTextColor(gTheme.accent, gTheme.bg); g.drawString("good", 48, ly);
-  g.setTextColor(gTheme.warn, gTheme.bg);   g.drawString("low", 86, ly);
-  g.setTextColor(gTheme.dim, gTheme.bg);    g.drawString("poor", 116, ly);
-  g.drawString("= radiant from here", 152, ly);
+  g.setTextColor(gTheme.ok, gTheme.bg);     g.drawString("great", 4 * u, ly);
+  g.setTextColor(gTheme.accent, gTheme.bg); g.drawString("good", 48 * u, ly);
+  g.setTextColor(gTheme.warn, gTheme.bg);   g.drawString("low", 86 * u, ly);
+  g.setTextColor(gTheme.dim, gTheme.bg);    g.drawString("poor", 116 * u, ly);
+  g.drawString("= radiant from here", 152 * u, ly);
 
   // Fixed-X columns (the device font is proportional, so space-padding won't align).
-  const int cN = 4, cP = 132, cZ = 186, cW = 238;
-  int hy = cy0 + 34;
+  const int cN = 4 * u, cP = 132 * u, cZ = 186 * u, cW = 238 * u;
+  int hy = cy0 + 34 * u;
   g.setTextColor(gTheme.dim, gTheme.bg);
   g.drawString("shower", cN, hy); g.drawString("peak", cP, hy); g.drawString("ZHR", cZ, hy); g.drawString("when", cW, hy);
 
@@ -666,9 +675,9 @@ void PageSolarSystem::drawShowers(App& app) {
     order[j + 1] = k;
   }
 
-  int y = cy0 + 47;
+  int y = cy0 + 47 * u;
   char b[16];
-  for (int oi = 0; oi < kShowerCount && y < cy0 + ch - 2; ++oi) {
+  for (int oi = 0; oi < kShowerCount && y < cy0 + ch - 2 * u; ++oi) {
     const MeteorShower& s = kShowers[order[oi]];
     int d = dtp[order[oi]];
     int st = meteorDOY(s.stM, s.stD), en = meteorDOY(s.enM, s.enD);
@@ -685,7 +694,7 @@ void PageSolarSystem::drawShowers(App& app) {
     if (active)      g.drawString("NOW", cW, y);
     else if (d == 0) g.drawString("peak", cW, y);
     else { snprintf(b, sizeof(b), "+%dd", d); g.drawString(b, cW, y); }
-    y += 13;
+    y += 13 * u;
   }
 }
 
@@ -733,9 +742,10 @@ void PageSolarSystem::drawBodyOverlay(App& app, int mx, int my, int mw, int mh,
 void PageSolarSystem::drawMoon(App& app) {
   auto& g = app.display().gfx();
   const int cw = app.contentW(), cy0 = app.contentY();
-  g.setTextDatum(textdatum_t::top_left); g.setTextSize(1);
+  const int u = app.ui();
+  g.setTextDatum(textdatum_t::top_left); g.setTextSize(u);
   double jd = _time.julianDate();
-  int x = 6, y = cy0 + 4;
+  int x = 6 * u, y = cy0 + 4 * u;
   bool far = _moonFar;
 
   double illum = astro::moonIlluminationPct(jd);
@@ -747,23 +757,24 @@ void PageSolarSystem::drawMoon(App& app) {
       ph < 292.5 ? "Last quarter"  : ph < 337.5 ? "Waning crescent" : "New";
 
   g.setTextColor(gTheme.mono ? gTheme.fg : rgb565(205, 208, 215), gTheme.bg);
-  g.setTextSize(2); g.drawString("Moon", x, y); g.setTextSize(1);
+  g.setTextSize(2 * u); g.drawString("Moon", x, y); g.setTextSize(u);
   g.setTextColor(gTheme.dim, gTheme.bg); g.setTextDatum(textdatum_t::top_right);
-  g.drawString("[tap mid: Mars]", cw - 4, cy0 + 2); g.setTextDatum(textdatum_t::top_left);
+  g.drawString("[tap mid: Mars]", cw - 4 * u, cy0 + 2 * u); g.setTextDatum(textdatum_t::top_left);
   char b[64];
   snprintf(b, sizeof(b), "%s  %d%% lit", phName, (int)round(illum));
-  g.setTextColor(gTheme.fg, gTheme.bg); g.drawString(b, x + 56, y + 3); y += 18;
+  g.setTextColor(gTheme.fg, gTheme.bg); g.drawString(b, x + 56 * u, y + 3 * u); y += 18 * u;
 
   if (_loc.active().valid) {
     astro::PlanetState mo = astro::planetState(astro::Planet::Moon, jd, _loc.active().lat, _loc.active().lon);
     int km = (int)round(mo.distanceAu * 149597870.7);
     if (mo.above) snprintf(b, sizeof(b), "%d km  in your sky: el %d\xF7 az %d\xF7", km, (int)round(mo.elDeg), (int)round(mo.azDeg));
     else          snprintf(b, sizeof(b), "%d km  below your horizon now", km);
-    g.setTextColor(mo.above ? gTheme.ok : gTheme.dim, gTheme.bg); g.drawString(b, x, y); y += 13;
+    g.setTextColor(mo.above ? gTheme.ok : gTheme.dim, gTheme.bg); g.drawString(b, x, y); y += 13 * u;
   }
 
   // Map: near side spans lon -90..90 (E+, Crisium right); far side spans 90..270.
-  int mx = 6, mw = cw - 12, my = y + 1, mh = 96;
+  int mx = 6 * u, mw = cw - 12 * u, my = y + 1 * u, mh = 96 * u;
+  g.setTextSize(1);             // the lunar map + its plotted labels stay native/dense
   double lonMin = far ? 90.0 : -90.0, lonMax = lonMin + 180.0;
   // Surface tones honour the red dark-adapt palette (mono) instead of a fixed grey.
   Color litCol   = gTheme.mono ? rgb565(120, 22, 8) : rgb565(95, 95, 108);
@@ -835,19 +846,19 @@ void PageSolarSystem::drawMoon(App& app) {
   g.setTextColor(gTheme.warn, gTheme.bg);   g.drawString("crewed", mx + 3, my + mh - 2);
   g.setTextColor(gTheme.ok, gTheme.bg);     g.drawString("robotic", mx + 46, my + mh - 2);
   g.setTextColor(gTheme.dim, gTheme.bg);    g.drawString("shaded=night", mx + 92, my + mh - 2);
-  y = my + mh + 3;
+  y = my + mh + 3 * u;
 
   // summary: past missions are real/dated; Artemis reflects the 2026 reset.
-  g.setTextDatum(textdatum_t::top_left);
+  g.setTextDatum(textdatum_t::top_left); g.setTextSize(u);
   g.setTextColor(gTheme.fg, gTheme.bg);
-  g.drawString("Apollo 11-17: 12 humans walked here, 1969-72", x, y); y += 12;
+  g.drawString("Apollo 11-17: 12 humans walked here, 1969-72", x, y); y += 12 * u;
   g.setTextColor(gTheme.dim, gTheme.bg);
-  g.drawString("Recent: Blue Ghost & IM-2 '25, SLIM '24, C-3 '23", x, y); y += 12;
-  g.drawString("Far side: Chang'e 4 '19, Chang'e 6 sample '24", x, y); y += 12;
+  g.drawString("Recent: Blue Ghost & IM-2 '25, SLIM '24, C-3 '23", x, y); y += 12 * u;
+  g.drawString("Far side: Chang'e 4 '19, Chang'e 6 sample '24", x, y); y += 12 * u;
   g.setTextColor(gTheme.ok, gTheme.bg);
-  g.drawString("Artemis II: 4 crew round the Moon, Apr 2026", x, y); y += 12;
+  g.drawString("Artemis II: 4 crew round the Moon, Apr 2026", x, y); y += 12 * u;
   g.setTextColor(gTheme.warn, gTheme.bg);
-  g.drawString("Soon '26: Chang'e 7 S.pole . IM-3 . BlueGhost 2", x, y); y += 12;
+  g.drawString("Soon '26: Chang'e 7 S.pole . IM-3 . BlueGhost 2", x, y); y += 12 * u;
   g.setTextColor(gTheme.accent, gTheme.bg);
   g.drawString("Planned: Artemis III LEO '27 . IV landing '28", x, y);
 }
@@ -855,11 +866,12 @@ void PageSolarSystem::drawMoon(App& app) {
 void PageSolarSystem::drawMars(App& app) {
   auto& g = app.display().gfx();
   const int cw = app.contentW(), cy0 = app.contentY();
+  const int u = app.ui();
   g.setTextDatum(textdatum_t::top_left);
-  g.setTextSize(1);
+  g.setTextSize(u);
   double jd = _time.julianDate();
   time_t now = time(nullptr);
-  int x = 6, y = cy0 + 4;
+  int x = 6 * u, y = cy0 + 4 * u;
 
   astro::HelioPos e = astro::heliocentricBody(2, jd);   // Earth
   astro::HelioPos m = astro::heliocentricBody(3, jd);   // Mars
@@ -868,18 +880,18 @@ void PageSolarSystem::drawMars(App& app) {
   double ltMin = distAu * 149597870.7 / 299792.458 / 60.0;
 
   g.setTextColor(gTheme.warn, gTheme.bg);
-  g.setTextSize(2); g.drawString("Mars", x, y);
-  g.setTextSize(1);
+  g.setTextSize(2 * u); g.drawString("Mars", x, y);
+  g.setTextSize(u);
   g.setTextColor(gTheme.dim, gTheme.bg); g.setTextDatum(textdatum_t::top_right);
-  g.drawString("[tap mid: Jupiter]", cw - 4, cy0 + 2); g.setTextDatum(textdatum_t::top_left);
+  g.drawString("[tap mid: Jupiter]", cw - 4 * u, cy0 + 2 * u); g.setTextDatum(textdatum_t::top_left);
   char b[56];
   snprintf(b, sizeof(b), "%.2f AU  %.1f lt-min", distAu, ltMin);
-  g.setTextColor(gTheme.fg, gTheme.bg); g.drawString(b, x + 56, y + 3); y += 18;
+  g.setTextColor(gTheme.fg, gTheme.bg); g.drawString(b, x + 56 * u, y + 3 * u); y += 18 * u;
   if (_loc.active().valid) {
     astro::PlanetState ms = astro::planetState(astro::Planet::Mars, jd, _loc.active().lat, _loc.active().lon);
     if (ms.above) snprintf(b, sizeof(b), "in your sky now: el %d\xF7 az %d\xF7", (int)round(ms.elDeg), (int)round(ms.azDeg));
     else          snprintf(b, sizeof(b), "below your horizon now");
-    g.setTextColor(ms.above ? gTheme.ok : gTheme.dim, gTheme.bg); g.drawString(b, x, y); y += 13;
+    g.setTextColor(ms.above ? gTheme.ok : gTheme.dim, gTheme.bg); g.drawString(b, x, y); y += 13 * u;
   }
 
   struct Rover { const char* name; const char* lbl; const char* site; const char* landed; time_t landing; float lat, lonE; const RoverInfo& info; };
@@ -887,7 +899,8 @@ void PageSolarSystem::drawMars(App& app) {
     { "Perseverance", "Pe", "Jezero",     "2021-02-18", PERSEV_LANDING, 18.44f,  77.45f, _mars.perseverance() },
     { "Curiosity",    "Cu", "Gale",       "2012-08-06", CURIO_LANDING,  -4.59f, 137.44f, _mars.curiosity() },
   };
-  int mx = 6, mw = cw - 12, my = y + 1, mh = 96;
+  int mx = 6 * u, mw = cw - 12 * u, my = y + 1 * u, mh = 96 * u;
+  g.setTextSize(1);             // the Mars map + its plotted labels stay native/dense
   Color ochre = gTheme.mono ? rgb565(85, 16, 4)  : rgb565(70, 34, 22);   // red-adapt aware
   Color ice   = gTheme.mono ? rgb565(255, 90, 60) : rgb565(225, 230, 235);
   g.fillRect(mx, my, mw, mh, ochre);                 // dim Mars surface
@@ -929,11 +942,11 @@ void PageSolarSystem::drawMars(App& app) {
   }
   SubPt se = subEarthMars(jd);
   drawBodyOverlay(app, mx, my, mw, mh, 0, 360, se.lat, se.lonE, true, gTheme.accent, "Earth");
-  y = my + mh + 3;
-  g.setTextDatum(textdatum_t::top_left); g.setTextColor(gTheme.accent, gTheme.bg);
+  y = my + mh + 3 * u;
+  g.setTextDatum(textdatum_t::top_left); g.setTextSize(u); g.setTextColor(gTheme.accent, gTheme.bg);
   snprintf(b, sizeof(b), "Earth over %d\xF7E %d\xF7%c now - circled side faces us", (int)round(se.lonE),
            (int)round(fabs(se.lat)), se.lat >= 0 ? 'N' : 'S');
-  g.drawString(b, x, y); y += 13;
+  g.drawString(b, x, y); y += 13 * u;
 
   auto solNow = [&](time_t landing) { return now > landing ? (long)((now - landing) / SOL) : -1L; };
   g.setTextDatum(textdatum_t::top_left);
@@ -948,7 +961,7 @@ void PageSolarSystem::drawMars(App& app) {
       g.setTextColor(gTheme.dim, gTheme.bg);
       snprintf(b, sizeof(b), "sol %ld  %s  %s", sol, r.site, _mars.status() == ProviderStatus::Error ? "(no feed)" : "");
     }
-    g.drawString(b, x + 78, y); y += 13;
+    g.drawString(b, x + 78 * u, y); y += 13 * u;
   }
 }
 
@@ -957,14 +970,15 @@ void PageSolarSystem::drawMars(App& app) {
 void PageSolarSystem::drawDeepSpace(App& app) {
   auto& g = app.display().gfx();
   const int cw = app.contentW(), cy0 = app.contentY();
+  const int u = app.ui();
   float yr = 2000.0f + (float)((_time.julianDate() - 2451545.0) / 365.25);
 
   g.setTextDatum(textdatum_t::top_left);
   g.setTextColor(gTheme.accent, gTheme.bg);
-  g.setTextSize(2); g.drawString("Deep Space", 6, cy0 + 2); g.setTextSize(1);
+  g.setTextSize(2 * u); g.drawString("Deep Space", 6 * u, cy0 + 2 * u); g.setTextSize(u);
   g.setTextColor(gTheme.dim, gTheme.bg); g.setTextDatum(textdatum_t::top_right);
-  g.drawString("[tap mid: meteors]", cw - 4, cy0 + 9); g.setTextDatum(textdatum_t::top_left);
-  int y = cy0 + 22;
+  g.drawString("[tap mid: meteors]", cw - 4 * u, cy0 + 9 * u); g.setTextDatum(textdatum_t::top_left);
+  int y = cy0 + 22 * u;
   char b[64];
 
   struct DS { const char* name; const char* note; float au, rate, baseYr; };
@@ -975,12 +989,12 @@ void PageSolarSystem::drawDeepSpace(App& app) {
   };
   for (auto& m : d) {
     float dist = m.au + m.rate * (yr - m.baseYr);
-    g.setTextColor(gTheme.fg, gTheme.bg);  g.drawString(m.name, 6, y);
+    g.setTextColor(gTheme.fg, gTheme.bg);  g.drawString(m.name, 6 * u, y);
     snprintf(b, sizeof(b), "%d AU  %.0f lt-hr  %s", (int)dist, dist * 8.317f / 60.0f, m.note);
-    g.setTextColor(gTheme.dim, gTheme.bg); g.drawString(b, 92, y);
-    y += 13;
+    g.setTextColor(gTheme.dim, gTheme.bg); g.drawString(b, 92 * u, y);
+    y += 13 * u;
   }
-  y += 4;
+  y += 4 * u;
 
   struct Cruise { const char* name; const char* target; float launchYr, mileYr; const char* mlabel, *arrival; };
   static const Cruise cr[] = {
@@ -988,18 +1002,18 @@ void PageSolarSystem::drawDeepSpace(App& app) {
     {"Eur.Clipper", "to Jupiter ocean moon Europa", 2024.79f, 2026.92f, "Earth flyby", "Jupiter Apr'30"},
   };
   for (auto& c : cr) {
-    g.setTextColor(gTheme.fg, gTheme.bg);  g.drawString(c.name, 6, y);
-    g.setTextColor(gTheme.dim, gTheme.bg); g.drawString(c.target, 92, y); y += 11;
+    g.setTextColor(gTheme.fg, gTheme.bg);  g.drawString(c.name, 6 * u, y);
+    g.setTextColor(gTheme.dim, gTheme.bg); g.drawString(c.target, 92 * u, y); y += 11 * u;
     char mile[40]; float dt = c.mileYr - yr;
     if (dt <= 0)       snprintf(mile, sizeof(mile), "%s done", c.mlabel);
     else if (dt < 1)   snprintf(mile, sizeof(mile), "%s in %dmo", c.mlabel, (int)roundf(dt * 12));
     else               snprintf(mile, sizeof(mile), "%s in %.1fy", c.mlabel, dt);
     snprintf(b, sizeof(b), "%.1fy flying . %s . %s", yr - c.launchYr, mile, c.arrival);
-    g.setTextColor(gTheme.accent, gTheme.bg); g.drawString(b, 14, y); y += 15;
+    g.setTextColor(gTheme.accent, gTheme.bg); g.drawString(b, 14 * u, y); y += 15 * u;
   }
 
-  g.setTextColor(gTheme.fg, gTheme.bg);  g.drawString("JWST", 6, y);
-  g.setTextColor(gTheme.dim, gTheme.bg); g.drawString("1.5M km out at L2 . sees 1st galaxies", 92, y); y += 13;
-  g.setTextColor(gTheme.fg, gTheme.bg);  g.drawString("Parker SP", 6, y);
-  g.setTextColor(gTheme.dim, gTheme.bg); g.drawString("~690,000 km/h - fastest ever made", 92, y);
+  g.setTextColor(gTheme.fg, gTheme.bg);  g.drawString("JWST", 6 * u, y);
+  g.setTextColor(gTheme.dim, gTheme.bg); g.drawString("1.5M km out at L2 . sees 1st galaxies", 92 * u, y); y += 13 * u;
+  g.setTextColor(gTheme.fg, gTheme.bg);  g.drawString("Parker SP", 6 * u, y);
+  g.setTextColor(gTheme.dim, gTheme.bg); g.drawString("~690,000 km/h - fastest ever made", 92 * u, y);
 }
