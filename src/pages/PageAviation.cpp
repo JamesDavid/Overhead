@@ -39,7 +39,7 @@ static Color catColor(const String& c) {
 }
 
 
-static int drawWrapped(lgfx::LovyanGFX& g, const String& text, int x, int y, int maxChars, int maxLines, Color c) {
+static int drawWrapped(lgfx::LovyanGFX& g, const String& text, int x, int y, int maxChars, int maxLines, Color c, int lineH = 11) {
   g.setTextColor(c, gTheme.bg);
   g.setTextDatum(textdatum_t::top_left);
   int line = 0, i = 0, n = text.length();
@@ -47,7 +47,7 @@ static int drawWrapped(lgfx::LovyanGFX& g, const String& text, int x, int y, int
     int end = i + maxChars;
     if (end >= n) end = n; else { int sp = text.lastIndexOf(' ', end); if (sp > i) end = sp; }
     g.drawString(text.substring(i, end), x, y);
-    y += 11; line++;
+    y += lineH; line++;
     i = end + (end < n && text[end] == ' ' ? 1 : 0);
   }
   return y;
@@ -192,7 +192,7 @@ void PageAviation::onData(App& app, ProviderId id) {
 }
 
 void PageAviation::onTouch(App& app, int x, int y) {
-  if (_view == View::Metar && y < 16) {              // tap a field chip -> select that station
+  if (_view == View::Metar && y < 16 * app.ui()) {   // tap a field chip -> select that station
     for (int i = 0; i < _mChipN; ++i)
       if (x >= _mChipX[i] && x < _mChipX[i] + _mChipW[i]) { _sel = _mChipScroll + i; _needClear = _dirty = true; return; }
   }
@@ -356,17 +356,17 @@ void PageAviation::drawMetar(App& app) {
   _mChipN = app.drawChipRow(2 * u, cy0 + 2 * u, 13 * u, labels + first, nl - first, _sel - first, _mChipX, _mChipW, kMChips);
 
   const Metar& m = list[_sel];
-  const int maxc = (cw - 10) / 6;
-  int x0 = 6, y = cy0 + 19 * u;                                // below the chip row (METAR text scaled later)
+  const int maxc = (cw - 10 * u) / (6 * u);
+  int x0 = 6 * u, y = cy0 + 19 * u;                            // below the chip row
 
   g.setTextDatum(textdatum_t::top_left);
   g.setTextColor(gTheme.accent, gTheme.bg);
-  g.setTextSize(2); g.drawString(m.icao, x0, y);
+  g.setTextSize(2 * u); g.drawString(m.icao, x0, y);
   g.setTextDatum(textdatum_t::top_right);
-  g.setTextColor(catColor(m.cat), gTheme.bg); g.drawString(m.cat, cw - 6, y + 2);
-  g.setTextDatum(textdatum_t::top_left); g.setTextSize(1);
-  y += 20;
-  auto line = [&](const String& s, Color c) { g.setTextColor(c, gTheme.bg); g.drawString(padRight(s, maxc), x0, y); y += 12; };
+  g.setTextColor(catColor(m.cat), gTheme.bg); g.drawString(m.cat, cw - 6 * u, y + 2 * u);
+  g.setTextDatum(textdatum_t::top_left); g.setTextSize(u);
+  y += 20 * u;
+  auto line = [&](const String& s, Color c) { g.setTextColor(c, gTheme.bg); g.drawString(padRight(s, maxc), x0, y); y += 12 * u; };
 
   // Observation time: Zulu + local, e.g. 160354Z / 8:54PM.
   if (m.obsTime) {
@@ -385,11 +385,11 @@ void PageAviation::drawMetar(App& app) {
   if (m.altimHpa > 0) line(String("QNH ") + m.altimHpa + " hPa (" + String(m.altimHpa / 33.8639f, 2) + " inHg)", gTheme.fg);
   if (m.wx.length())  line(String("wx ") + m.wx, gTheme.warn);
   line(String(_sel + 1) + "/" + list.size(), gTheme.dim);
-  y += 3; g.setTextColor(gTheme.dim, gTheme.bg); g.drawString("METAR", x0, y); y += 11;
-  y = drawWrapped(g, m.raw, x0, y, maxc, 3, gTheme.fg);
-  if (m.taf.length() && y < cy0 + ch - 24) {
-    y += 2; g.setTextColor(gTheme.dim, gTheme.bg); g.drawString("TAF", x0, y); y += 11;
-    drawWrapped(g, m.taf, x0, y, maxc, (cy0 + ch - y) / 11, gTheme.dim);
+  y += 3 * u; g.setTextColor(gTheme.dim, gTheme.bg); g.drawString("METAR", x0, y); y += 11 * u;
+  y = drawWrapped(g, m.raw, x0, y, maxc, 3, gTheme.fg, 11 * u);
+  if (m.taf.length() && y < cy0 + ch - 24 * u) {
+    y += 2 * u; g.setTextColor(gTheme.dim, gTheme.bg); g.drawString("TAF", x0, y); y += 11 * u;
+    drawWrapped(g, m.taf, x0, y, maxc, (cy0 + ch - y) / (11 * u), gTheme.dim, 11 * u);
   }
 }
 
@@ -422,27 +422,29 @@ static String tafTok(const String& t) {                 // wind/vis decoded; res
 void PageAviation::drawTaf(App& app) {
   auto& g = app.display().gfx();
   const int cw = app.contentW(), cy0 = app.contentY(), ch = app.contentH();
+  const int u = app.ui();
   const auto& list = _wx.stations();
   g.setTextDatum(textdatum_t::top_left);
+  g.setTextSize(u);
   g.setTextColor(gTheme.accent, gTheme.bg);
   if (list.empty() || _sel >= (int)list.size()) {
-    g.drawString("TAF  [tap mid: sounding]", 6, cy0 + 2);
-    g.setTextColor(gTheme.dim, gTheme.bg); g.drawString("no station", 6, cy0 + ch / 2); return;
+    g.drawString("TAF  [tap mid: sounding]", 6 * u, cy0 + 2 * u);
+    g.setTextColor(gTheme.dim, gTheme.bg); g.drawString("no station", 6 * u, cy0 + ch / 2); return;
   }
   const Metar& m = list[_sel];
-  g.drawString(m.icao + " TAF  [tap mid: sounding]", 6, cy0 + 2);
-  if (!m.taf.length()) { g.setTextColor(gTheme.dim, gTheme.bg); g.drawString("no TAF for this field", 6, cy0 + ch / 2); return; }
+  g.drawString(m.icao + " TAF  [tap mid: sounding]", 6 * u, cy0 + 2 * u);
+  if (!m.taf.length()) { g.setTextColor(gTheme.dim, gTheme.bg); g.drawString("no TAF for this field", 6 * u, cy0 + ch / 2); return; }
 
   const String& t = m.taf; int i = 0, n = t.length();
-  int y = cy0 + 16; const int maxc = (cw - 10) / 6;
+  int y = cy0 + 16 * u; const int maxc = (cw - 10 * u) / (6 * u);
   String label = "now", parts, tok; bool gotIcao = false;
   auto nextTok = [&](String& o) -> bool { while (i < n && t[i] == ' ') i++; if (i >= n) return false; int s = i; while (i < n && t[i] != ' ') i++; o = t.substring(s, i); return true; };
   auto rng = [&](const String& r) -> String { return (r.length() == 9 && r[4] == '/') ? r.substring(2, 4) + "-" + r.substring(7, 9) : r; };
   auto emit = [&]() {
-    if (!parts.length() || y > cy0 + ch - 12) { parts = ""; return; }
-    g.setTextColor(gTheme.warn, gTheme.bg); g.drawString(padRight(label, 9).substring(0, 9), 6, y);
-    g.setTextColor(gTheme.fg, gTheme.bg);   g.drawString(parts.substring(0, maxc - 9), 6 + 9 * 6, y);
-    y += 12; parts = "";
+    if (!parts.length() || y > cy0 + ch - 12 * u) { parts = ""; return; }
+    g.setTextColor(gTheme.warn, gTheme.bg); g.drawString(padRight(label, 9).substring(0, 9), 6 * u, y);
+    g.setTextColor(gTheme.fg, gTheme.bg);   g.drawString(parts.substring(0, maxc - 9), (6 + 9 * 6) * u, y);
+    y += 12 * u; parts = "";
   };
   bool haveValid = false;
   while (nextTok(tok)) {
@@ -457,25 +459,27 @@ void PageAviation::drawTaf(App& app) {
     parts += tafTok(tok) + " ";
   }
   emit();
-  if (y == cy0 + 16) { g.setTextColor(gTheme.dim, gTheme.bg); g.drawString("(could not parse)", 6, y); }
+  if (y == cy0 + 16 * u) { g.setTextColor(gTheme.dim, gTheme.bg); g.drawString("(could not parse)", 6 * u, y); }
 }
 
 void PageAviation::drawSounding(App& app) {
   auto& g = app.display().gfx();
   const int cw = app.contentW(), cy0 = app.contentY(), ch = app.contentH();
+  const int u = app.ui();
   const auto& lv = _snd.levels();
   g.setTextDatum(textdatum_t::top_left);
+  g.setTextSize(u);
   g.setTextColor(gTheme.accent, gTheme.bg);
-  g.drawString(String("Model sounding @") + _loc.active().name + "  [tap: hazards]", 6, cy0 + 2);
+  g.drawString(String("Model sounding @") + _loc.active().name + "  [tap: hazards]", 6 * u, cy0 + 2 * u);
   if (lv.size() < 3) {
     g.setTextColor(gTheme.dim, gTheme.bg);
-    g.drawString(_snd.status() == ProviderStatus::Error ? "sounding unavailable" : "loading sounding...", 6, cy0 + ch / 2);
+    g.drawString(_snd.status() == ProviderStatus::Error ? "sounding unavailable" : "loading sounding...", 6 * u, cy0 + ch / 2);
     return;
   }
 
   // Plot box: x = temp -40..40 C, y = altitude 0..40 kft (aviation-native units).
   const float M2FT = 3.28084f;
-  const int gx = 24, gy = cy0 + 16, gw = cw - 90, gh = ch - 40;   // bottom rows: legend + analysis
+  const int gx = 24 * u, gy = cy0 + 16 * u, gw = cw - 90 * u, gh = ch - 40 * u;   // bottom rows: legend + analysis
   const float Tmin = -40, Tmax = 40, AmaxFt = 40000;
   auto px  = [&](float T)  { return gx + (int)((T - Tmin) / (Tmax - Tmin) * gw); };
   auto pyf = [&](float ft) { return gy + gh - (int)(fminf(ft, AmaxFt) / AmaxFt * gh); };
@@ -491,7 +495,7 @@ void PageAviation::drawSounding(App& app) {
   g.drawRect(gx, gy, gw, gh, gTheme.grid);
   g.setTextColor(gTheme.dim, gTheme.bg);
   if (px(0) > gx && px(0) < gx + gw) g.drawFastVLine(px(0), gy, gh, gTheme.grid);  // 0 C
-  for (int kft = 10; kft <= 30; kft += 10) { int yy = pyf(kft * 1000); g.drawFastHLine(gx, yy, gw, gTheme.grid); g.drawString(String(kft), 4, yy - 3); }
+  for (int kft = 10; kft <= 30; kft += 10) { int yy = pyf(kft * 1000); g.drawFastHLine(gx, yy, gw, gTheme.grid); g.drawString(String(kft), 4 * u, yy - 3 * u); }
 
   // Dashed dry-adiabat parcel from the surface (where it crosses temp = top of lift).
   if (!lv.empty()) {
@@ -514,7 +518,7 @@ void PageAviation::drawSounding(App& app) {
     g.drawFastHLine(gx, yf, gw, gTheme.ok);
     g.setTextColor(gTheme.ok, gTheme.bg);
     g.setTextDatum(textdatum_t::bottom_right);
-    g.drawString(String("FZL ") + (int)(_snd.freezingLevelM() * M2FT) + "ft", cw - 2, yf);
+    g.drawString(String("FZL ") + (int)(_snd.freezingLevelM() * M2FT) + "ft", cw - 2 * u, yf);
     g.setTextDatum(textdatum_t::top_left);
   }
 
@@ -528,17 +532,17 @@ void PageAviation::drawSounding(App& app) {
     if (best) {
       char b[24]; snprintf(b, sizeof(b), "%dk %03d@%dkt", t / 1000, best->wdir, best->wspd);
       g.setTextDatum(textdatum_t::middle_right);
-      g.drawString(b, cw - 2, pyf(best->altM * M2FT));    // altitude label + wind, at that altitude's y
+      g.drawString(b, cw - 2 * u, pyf(best->altM * M2FT));    // altitude label + wind, at that altitude's y
     }
   }
   g.setTextDatum(textdatum_t::top_left);
 
   // Legend.
-  int lgy = cy0 + ch - 22, lx = 4;
+  int lgy = cy0 + ch - 22 * u, lx = 4 * u;
   auto key = [&](Color c, const String& s) {
-    g.fillCircle(lx + 2, lgy + 3, 2, c); lx += 8;
+    g.fillCircle(lx + 2 * u, lgy + 3 * u, 2 * u, c); lx += 8 * u;
     g.setTextDatum(textdatum_t::top_left); g.setTextColor(gTheme.dim, gTheme.bg);
-    g.drawString(s, lx, lgy); lx += (int)s.length() * 6 + 6;
+    g.drawString(s, lx, lgy); lx += (int)s.length() * 6 * u + 6 * u;
   };
   key(gTheme.warn, "temp"); key(gTheme.accent, "dewpt"); key(gTheme.ok, "FZL");
   key(gTheme.dim, "parcel"); g.drawString("x:C y:kft", lx, lgy);
@@ -554,27 +558,29 @@ void PageAviation::drawSounding(App& app) {
   if (_snd.inversionFt() > 0)  a += " \xB7 inv " + kft(_snd.inversionFt());
   g.setTextDatum(textdatum_t::top_left);
   g.setTextColor(gTheme.fg, gTheme.bg);
-  g.drawString(a.length() ? a : String("(analysis n/a)"), 4, cy0 + ch - 10);
+  g.drawString(a.length() ? a : String("(analysis n/a)"), 4 * u, cy0 + ch - 10 * u);
 }
 
 void PageAviation::drawHazards(App& app) {
   auto& g = app.display().gfx();
   const int cw = app.contentW(), cy0 = app.contentY(), ch = app.contentH();
-  const int maxc = (cw - 10) / 6;
+  const int u = app.ui();
+  const int maxc = (cw - 10 * u) / (6 * u);
   g.setTextDatum(textdatum_t::top_left);
+  g.setTextSize(u);
   g.setTextColor(gTheme.accent, gTheme.bg);
-  g.drawString("Hazards  [tap mid: map]", 6, cy0 + 2);
+  g.drawString("Hazards  [tap mid: map]", 6 * u, cy0 + 2 * u);
   const auto& hz = _haz.hazards();
-  int y = cy0 + 16;
+  int y = cy0 + 16 * u;
   if (hz.empty()) {
     g.setTextColor(gTheme.dim, gTheme.bg);
-    g.drawString("no AIRMET/SIGMET/PIREP nearby", 6, cy0 + ch / 2);
+    g.drawString("no AIRMET/SIGMET/PIREP nearby", 6 * u, cy0 + ch / 2);
     return;
   }
   for (const auto& h : hz) {
-    if (y > cy0 + ch - 12) break;
-    y = drawWrapped(g, (h.pirep ? "PIREP " : "") + h.text, 6, y, maxc, 3, h.pirep ? gTheme.dim : gTheme.warn);
-    y += 3;
+    if (y > cy0 + ch - 12 * u) break;
+    y = drawWrapped(g, (h.pirep ? "PIREP " : "") + h.text, 6 * u, y, maxc, 3, h.pirep ? gTheme.dim : gTheme.warn, 11 * u);
+    y += 3 * u;
   }
 }
 
@@ -585,10 +591,11 @@ void PageAviation::drawHazards(App& app) {
 void PageAviation::drawTrends(App& app) {
   auto& g = app.display().gfx();
   const int cw = app.contentW(), cy0 = app.contentY(), ch = app.contentH();
+  const int u = app.ui();
   g.setTextDatum(textdatum_t::top_left);
-  g.setTextSize(1);
+  g.setTextSize(u);
   g.setTextColor(gTheme.fg, gTheme.bg);
-  g.drawString("Area trends 24h  [tap mid: map]", 4, cy0 + 2);
+  g.drawString("Area trends 24h  [tap mid: map]", 4 * u, cy0 + 2 * u);
 
   const auto& temp = _wxo.tempSeries();
   const auto& dewp = _wxo.dewpSeries();
@@ -599,7 +606,7 @@ void PageAviation::drawTrends(App& app) {
   time_t base = _wxo.baseTime();
   if (base == 0 || temp.size() < 3 || pres.size() < 3) {
     g.setTextColor(gTheme.dim, gTheme.bg);
-    g.drawString(_wxo.status() == ProviderStatus::Error ? "weather unavailable" : "loading trends...", 4, cy0 + ch / 2);
+    g.drawString(_wxo.status() == ProviderStatus::Error ? "weather unavailable" : "loading trends...", 4 * u, cy0 + ch / 2);
     return;
   }
   const int SENT = -32768;
@@ -611,8 +618,8 @@ void PageAviation::drawTrends(App& app) {
 
   int now = (int)((time(nullptr) - base) / 3600); if (now < 0) now = 0;
   const int span = 24;
-  const int gx = 62, gw = cw - gx - 6;
-  const int top = cy0 + 15, rowH = (ch - 15 - 15) / 5;
+  const int gx = 62 * u, gw = cw - gx - 6 * u;
+  const int top = cy0 + 15 * u, rowH = (ch - 15 * u - 15 * u) / 5;
 
   auto sparkRow = [&](int r, const char* name, std::function<int(int)> get, const String& cur, const String& cur2, Color c) {
     int y0 = top + r * rowH;
@@ -621,10 +628,10 @@ void PageAviation::drawTrends(App& app) {
     if (mn > mx) return;
     if (mn == mx) mx = mn + 1;
     g.setTextDatum(textdatum_t::top_left);
-    g.setTextColor(gTheme.dim, gTheme.bg); g.drawString(name, 4, y0);
-    g.setTextColor(c, gTheme.bg);          g.drawString(cur, 4, y0 + 10);
-    if (cur2.length()) { g.setTextColor(gTheme.dim, gTheme.bg); g.drawString(cur2, 4, y0 + 20); }  // imperial
-    int ph = rowH - 6, py = y0 + 2, px = -1, pv = 0;
+    g.setTextColor(gTheme.dim, gTheme.bg); g.drawString(name, 4 * u, y0);
+    g.setTextColor(c, gTheme.bg);          g.drawString(cur, 4 * u, y0 + 10 * u);
+    if (cur2.length()) { g.setTextColor(gTheme.dim, gTheme.bg); g.drawString(cur2, 4 * u, y0 + 20 * u); }  // imperial
+    int ph = rowH - 6 * u, py = y0 + 2 * u, px = -1, pv = 0;
     g.drawFastVLine(gx, py, ph, gTheme.grid);          // "now" baseline
     for (int i = now; i <= now + span; ++i) {
       int v = get(i); if (v == SENT) { px = -1; continue; }
@@ -667,7 +674,7 @@ void PageAviation::drawTrends(App& app) {
   else if (dC <= -25)   concl += "; clearing";
   g.setTextDatum(textdatum_t::bottom_left);
   g.setTextColor(gTheme.accent, gTheme.bg);
-  g.drawString(concl.substring(0, (cw - 8) / 6), 4, cy0 + ch - 2);
+  g.drawString(concl.substring(0, (cw - 8 * u) / (6 * u)), 4 * u, cy0 + ch - 2 * u);
 }
 
 // Station wind barb: a staff in the FROM direction with barbs (full = 10 kt,
