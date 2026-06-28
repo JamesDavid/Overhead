@@ -653,7 +653,7 @@ void PageAircraft::draw(App& app) {
   int ix = cw / 2 + 8 * u, iy = top + 6 * u;
   g.setTextDatum(textdatum_t::top_left);
   g.setTextSize(u);
-  auto line = [&](const String& s, Color col) { g.setTextColor(col, gTheme.bg); g.drawString(padRight(s, 20), ix, iy); iy += 14 * u; };
+  auto line = [&](const String& s, Color col) { g.setTextColor(col, gTheme.bg); g.drawString(padRight(s, 20), ix, iy); iy += (u > 1 ? 13 : 14) * u; };  // CrowPanel: tighter so the block clears the marquee; CYD unchanged
   g.setTextColor(gTheme.fg, gTheme.bg);
   g.setTextSize(2 * u); g.drawString("Aircraft", ix, iy); iy += 20 * u;
   g.setTextSize(u);
@@ -668,10 +668,10 @@ void PageAircraft::draw(App& app) {
 
   if (_sel >= 0 && _sel < (int)_filt.size()) {
     const Aircraft& a = list[_filt[_sel]];
-    iy += 4 * u;
+    iy += (u > 1 ? 2 : 4) * u;         // CrowPanel: lift the contact block off the frequency marquee; CYD unchanged
     g.setTextColor(gTheme.ok, gTheme.bg);
     g.setTextSize(2 * u);
-    g.drawString(a.flight.length() ? a.flight : a.hex, ix, iy); iy += 20 * u;
+    g.drawString(a.flight.length() ? a.flight : a.hex, ix, iy); iy += (u > 1 ? 18 : 20) * u;
     g.setTextSize(u);
     line(String(_sel + 1) + "/" + _filt.size() + "  (tap edges)", gTheme.dim);
     if (a.type.length() || a.category.length())
