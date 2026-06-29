@@ -11,6 +11,7 @@ class Page;
 class ClockOverlay;
 class Settings;
 class LocationService;
+class MorseBeeper;
 
 // core/App — the app shell (spec §4). For milestone 1 this is intentionally
 // minimal: it owns the page list, renders the always-visible status strip, and
@@ -44,6 +45,7 @@ public:
   bool autoAdvanceActive();             // step active page's tour; true if it completed a full cycle
   void setBadge(int index, bool on);
   void setAlert(const String& s, int targetPage = -1);  // cross-tab alert; tap the strip -> targetPage
+  void setBeeper(MorseBeeper* b) { _beeper = b; }       // Morse-code alert beeper (optional)
   void injectTap(int x, int y) { _injTapX = x; _injTapY = y; }   // debug: synthetic touch
   void injectSwipe(int dir) { _injSwipe = dir; }                 // debug: -1 prev, +1 next
   void injectScroll(int dy) { _injScroll = dy; }                 // debug: vertical scroll (dy<0 up, dy>0 down)
@@ -116,6 +118,7 @@ private:
   int      _lastX  = 0, _lastY  = 0;   // last point while touched
   uint32_t _lastStatusMs = 0;
   bool     _statusDirty  = true;
+  MorseBeeper* _beeper = nullptr;  // optional: beep the alert call sign in Morse
   String   _alert;               // Director alert text (shown in the status strip)
   int      _alertTarget = -1;    // page to jump to when the alert banner is tapped (-1 none)
   String   _switchBanner;        // brief "switched to X" banner on an auto-switch

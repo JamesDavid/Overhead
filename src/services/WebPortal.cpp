@@ -44,6 +44,7 @@ const FIELD={
  nightBacklight:['night backlight','n'],themeNightAlt:['night sun-alt (day→night)','n'],themeRedAlt:['red sun-alt (night→red)','n'],dimAfterSec:['dim after (s)','n'],dimLevel:['dim level','n'],
  focusEnabled:['focus enabled','c'],passLeadMin:['pass lead (min)','n'],launchLeadMin:['launch lead (min)','n'],satMinEl:['min pass el','n'],
  alertSat:['alert: satellite pass','c'],alertLaunch:['alert: launch','c'],alertAircraft:['alert: aircraft overhead','c'],alertWx:['alert: weather','c'],
+ audioEnabled:['Morse beeper on alerts','c'],audioKochWpm:['Koch WPM (character)','n'],audioFarnsworthWpm:['Farnsworth WPM (effective)','n'],audioBeepAtNight:['beep at night too','c'],
  nightAmbientAlt:['night ambient sun-alt','n'],inactivitySec:['inactivity->auto (s)','n'],
  adsbMode:['mode','sel',['cloud','local']],adsbHost:['local host','t'],adsbRadiusNm:['radius (nm)','n'],
  refreshLaunchMin:['launches (min)','n'],refreshTleHour:['TLE (h)','n'],refreshSpaceWxMin:['space wx (min)','n'],refreshWeatherMin:['weather (min)','n'],
@@ -52,7 +53,8 @@ const SECTIONS=[['Location','loc'],['Focus','focus'],['Satellites','sats'],['Bod
  ['Appearance',['themeMode','nightPalette','nightBacklight','themeNightAlt','themeRedAlt','dimAfterSec','dimLevel']],
  ['Aircraft',['adsbMode','adsbHost','adsbRadiusNm']],
  ['System',['hostname','debugShots','refreshLaunchMin','refreshTleHour','refreshSpaceWxMin','refreshWeatherMin','inactivitySec','webAuth','otaUser','otaPass']],
- ['Screen',['dispRotation','dispInvert','dispBgr']]];
+ ['Screen',['dispRotation','dispInvert','dispBgr']],
+ ['Audio',['audioEnabled','audioKochWpm','audioFarnsworthWpm','audioBeepAtNight']]];
 const PAGES=['Agenda','Launches','Aircraft','Aviation Wx','Satellites','Space Wx','Solar System','Star Map'];
 const ORRERY=['Roadster','Psyche','Ceres','Vesta'];
 const SATS=[['ISS','ISS'],['Tiangong (CSS)','CSS'],['Hubble','HST'],['SO-50','SO-50'],['AO-91','FOX-1B'],['SatGus','SATGUS'],

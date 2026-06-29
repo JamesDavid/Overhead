@@ -146,6 +146,14 @@
   #define CAP_HAS_GPS            0
   #define CAP_TOUCH_NEEDS_CAL    1   // resistive
 
+  // Onboard speaker on GPIO26 (via transistor) -- PWM tone for the Morse alert beeper.
+  #ifndef BUZZER_PIN
+  #define BUZZER_PIN            26
+  #endif
+  #ifndef BUZZER_FREQ
+  #define BUZZER_FREQ          700   // pleasant Morse pitch on the small speaker
+  #endif
+
 // ===========================================================================
 #elif defined(BOARD_CROWPANEL_S3_5HMI)
 // ===========================================================================
@@ -219,6 +227,16 @@
   #define CAP_HAS_RTC            1   // PCF8563 onboard
   #define CAP_HAS_GPS            0
   #define CAP_TOUCH_NEEDS_CAL    0   // capacitive
+
+  // Built-in buzzer on IO8 (3.3V logic, 20 mA) -- PWM tone for the Morse alert beeper.
+  // If it's an active (self-oscillating) buzzer that sounds rough under PWM, build with
+  // -D BUZZER_ACTIVE=1 to switch to plain digital on/off.
+  #ifndef BUZZER_PIN
+  #define BUZZER_PIN             8
+  #endif
+  #ifndef BUZZER_FREQ
+  #define BUZZER_FREQ         2700   // near a small buzzer's resonant peak
+  #endif
 
 // ===========================================================================
 #else

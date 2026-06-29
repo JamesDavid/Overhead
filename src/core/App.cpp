@@ -1,6 +1,7 @@
 #include "App.h"
 #include "Page.h"
 #include "ClockOverlay.h"
+#include "MorseBeeper.h"
 #include "EventBus.h"
 #include "Scheduler.h"
 #include "Theme.h"
@@ -66,7 +67,10 @@ bool App::autoAdvanceActive() {
 
 void App::setAlert(const String& s, int targetPage) {
   _alertTarget = s.length() ? targetPage : -1;
-  if (_alert != s) { _alert = s; _statusDirty = true; }
+  if (_alert != s) {                       // only on a NEW alert (Director re-asserts each tick)
+    _alert = s; _statusDirty = true;
+    if (_beeper && s.length()) _beeper->onAlert(s);   // beep the call sign in Morse
+  }
 }
 
 void App::setBadge(int index, bool on) {

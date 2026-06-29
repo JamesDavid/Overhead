@@ -21,6 +21,7 @@
 #include "core/ThemeController.h"
 #include "core/App.h"
 #include "core/Director.h"
+#include "core/MorseBeeper.h"
 #include "services/Settings.h"
 #include "services/Cache.h"
 #include "services/NetClient.h"
@@ -62,6 +63,7 @@ static EventBus  bus;
 static Scheduler sched;
 static App       app(display, touch, bus, sched);
 static ThemeController themeCtl;
+static MorseBeeper morse;
 static Director  director;
 // --- services ---
 static Settings        settings;
@@ -392,6 +394,8 @@ void setup() {
 
   // Intelligent Focus + day/night theming (spec §7).
   themeCtl.begin(&timeSvc, &locSvc, &display, &settings, &app);
+  morse.begin(&settings, &themeCtl);     // Morse-code alert beeper (gated by night tier + settings)
+  app.setBeeper(&morse);
   director.begin(&app, &settings, &timeSvc, &locSvc, &tleProv, &launchProv, satsPage);
   director.setSpaceWx(&spaceWxProv);
   director.setAviation(&avwxProv);
@@ -423,6 +427,9 @@ static void serviceSerialCmd() {
     Serial.printf("[cmd] web %s\n", web.running() ? "ON" : "OFF");
   } else if (cmd == "heap") {
     Serial.printf("[cmd] free=%u largestBlock=%u\n", (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getMaxAllocHeap());
+  } else if (cmd.startsWith("morse")) {
+    String w = cmd.substring(5); w.trim(); if (!w.length()) w = "test";
+    morse.play(w);                        // unconditional bench test (bypasses the enable/night gate)
   } else if (cmd == "reboot") {
     Serial.println("[cmd] rebooting"); delay(50); ESP.restart();
   } else if (cmd == "shot") {
@@ -476,6 +483,7 @@ void loop() {
   sched.tick(now);
   themeCtl.tick(now);   // day/night palette + backlight
   director.tick(now);   // Intelligent Focus
+  morse.tick(now);      // non-blocking Morse alert playback
   app.tick(now);
   display.flushFramebuffer();   // RGB panels: push the drawn cache out to PSRAM for the scan-out
 

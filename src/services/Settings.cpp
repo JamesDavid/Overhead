@@ -90,6 +90,11 @@ void Settings::fillDefaults(JsonDocument& _doc) {
   _doc["alertLaunch"]   = true;
   _doc["alertAircraft"] = false;      // plane-overhead alert off by default (can be chatty)
   _doc["alertWx"]       = true;
+  // Audio: Morse-code alert beeper (beeps the alert's first word -- ISS, FALCON...)
+  _doc["audioEnabled"]       = false; // master enable (opt-in; needs a buzzer/speaker)
+  _doc["audioKochWpm"]       = 18;    // character/element speed (WPM)
+  _doc["audioFarnsworthWpm"] = 12;    // effective speed (stretches inter-char gaps; clamped <= Koch)
+  _doc["audioBeepAtNight"]   = false; // also beep during the night theme tier
   _doc["inactivitySec"] = 90;         // MANUAL -> AUTO after this idle time
   _doc["dimAfterSec"]   = 120;        // backlight dims after this idle time (spec §13)
   _doc["dimLevel"]      = 20;         // dimmed backlight (0..255)
