@@ -46,6 +46,7 @@ public:
   void setBadge(int index, bool on);
   void setAlert(const String& s, int targetPage = -1);  // cross-tab alert; tap the strip -> targetPage
   void setBeeper(MorseBeeper* b) { _beeper = b; }       // Morse-code alert beeper (optional)
+  void beepTest(const String& w);                       // force a Morse beep (remote/serial test)
   void injectTap(int x, int y) { _injTapX = x; _injTapY = y; }   // debug: synthetic touch
   void injectSwipe(int dir) { _injSwipe = dir; }                 // debug: -1 prev, +1 next
   void injectScroll(int dy) { _injScroll = dy; }                 // debug: vertical scroll (dy<0 up, dy>0 down)

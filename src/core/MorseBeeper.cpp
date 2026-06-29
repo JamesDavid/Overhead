@@ -4,6 +4,9 @@
 #include "../hal/Board.h"
 #include <ctype.h>
 
+#ifndef BUZZER_VIA_EXPANDER
+#define BUZZER_VIA_EXPANDER 0     // 1 = buzzer is keyed by an I2C expander command (CrowPanel STC8)
+#endif
 #ifndef BUZZER_PIN
 #define BUZZER_PIN -1
 #endif
@@ -12,6 +15,10 @@
 #endif
 #ifndef BUZZER_ACTIVE
 #define BUZZER_ACTIVE 0           // 0 = PWM tone (passive speaker/buzzer); 1 = digital on/off (active buzzer)
+#endif
+
+#if BUZZER_VIA_EXPANDER
+#include <Wire.h>
 #endif
 
 #if BUZZER_PIN >= 0 && !BUZZER_ACTIVE && ESP_ARDUINO_VERSION_MAJOR < 3
@@ -34,43 +41,54 @@ static const char* pattern(char c) {
 
 void MorseBeeper::begin(Settings* s, ThemeController* theme) {
   _s = s; _theme = theme;
-#if BUZZER_PIN >= 0
+  _toneHz = _s ? (int)_s->getInt("audioToneHz", BUZZER_FREQ) : BUZZER_FREQ;
+  if (_toneHz < 100) _toneHz = 100; if (_toneHz > 5000) _toneHz = 5000;
+#if BUZZER_VIA_EXPANDER
+  _attached = true;                                 // Wire is already begun by Display::expanderBegin()
+  Wire.beginTransmission(I2C_ADDR_EXP_STC8); Wire.write((uint8_t)STC8_CMD_BUZZER_OFF); Wire.endTransmission();
+  Serial.printf("[morse] buzzer via STC8 expander 0x%02X (on=%d off=%d)\n",
+                I2C_ADDR_EXP_STC8, STC8_CMD_BUZZER_ON, STC8_CMD_BUZZER_OFF);
+#elif BUZZER_PIN >= 0
   #if BUZZER_ACTIVE
     pinMode(BUZZER_PIN, OUTPUT); digitalWrite(BUZZER_PIN, LOW); _attached = true;
   #elif ESP_ARDUINO_VERSION_MAJOR >= 3
-    _attached = ledcAttach(BUZZER_PIN, BUZZER_FREQ, 8);            // core 3.x: pin-based LEDC
+    _attached = ledcAttach(BUZZER_PIN, _toneHz, 8);               // core 3.x: pin-based LEDC
   #else
-    ledcSetup(kBuzzerCh, BUZZER_FREQ, 8); ledcAttachPin(BUZZER_PIN, kBuzzerCh); _attached = true;  // core 2.x
+    ledcSetup(kBuzzerCh, _toneHz, 8); ledcAttachPin(BUZZER_PIN, kBuzzerCh); _attached = true;  // core 2.x
   #endif
-  Serial.printf("[morse] buzzer pin=%d active=%d freq=%d attached=%d\n",
-                BUZZER_PIN, BUZZER_ACTIVE, BUZZER_FREQ, (int)_attached);
+  Serial.printf("[morse] buzzer pin=%d active=%d tone=%dHz attached=%d\n",
+                BUZZER_PIN, BUZZER_ACTIVE, _toneHz, (int)_attached);
 #else
-  Serial.println("[morse] no buzzer pin for this board");
+  Serial.println("[morse] no buzzer for this board");
 #endif
 }
 
 void MorseBeeper::toneOn() {
-#if BUZZER_PIN >= 0
+#if BUZZER_VIA_EXPANDER
+  Wire.beginTransmission(I2C_ADDR_EXP_STC8); Wire.write((uint8_t)STC8_CMD_BUZZER_ON); Wire.endTransmission();
+#elif BUZZER_PIN >= 0
   if (!_attached) return;
   #if BUZZER_ACTIVE
     digitalWrite(BUZZER_PIN, HIGH);
   #elif ESP_ARDUINO_VERSION_MAJOR >= 3
-    ledcWrite(BUZZER_PIN, 128);       // 50% duty
+    ledcWriteTone(BUZZER_PIN, _toneHz);    // tone at the configured freq
   #else
-    ledcWrite(kBuzzerCh, 128);
+    ledcWriteTone(kBuzzerCh, _toneHz);
   #endif
 #endif
 }
 
 void MorseBeeper::toneOff() {
-#if BUZZER_PIN >= 0
+#if BUZZER_VIA_EXPANDER
+  Wire.beginTransmission(I2C_ADDR_EXP_STC8); Wire.write((uint8_t)STC8_CMD_BUZZER_OFF); Wire.endTransmission();
+#elif BUZZER_PIN >= 0
   if (!_attached) return;
   #if BUZZER_ACTIVE
     digitalWrite(BUZZER_PIN, LOW);
   #elif ESP_ARDUINO_VERSION_MAJOR >= 3
-    ledcWrite(BUZZER_PIN, 0);
+    ledcWriteTone(BUZZER_PIN, 0);
   #else
-    ledcWrite(kBuzzerCh, 0);
+    ledcWriteTone(kBuzzerCh, 0);
   #endif
 #endif
 }
@@ -110,6 +128,8 @@ void MorseBeeper::onAlert(const String& title) {
 }
 
 void MorseBeeper::play(const String& word) {
+  if (_s) { _toneHz = (int)_s->getInt("audioToneHz", BUZZER_FREQ);   // pick up live settings changes
+            if (_toneHz < 100) _toneHz = 100; if (_toneHz > 5000) _toneHz = 5000; }
   buildSegments(word);
   if (_segN == 0) { _playing = false; return; }
   _segI = 0; _playing = true; _segEnd = millis();           // first tick starts segment 0

@@ -95,6 +95,7 @@ void Settings::fillDefaults(JsonDocument& _doc) {
   _doc["audioKochWpm"]       = 18;    // character/element speed (WPM)
   _doc["audioFarnsworthWpm"] = 12;    // effective speed (stretches inter-char gaps; clamped <= Koch)
   _doc["audioBeepAtNight"]   = false; // also beep during the night theme tier
+  _doc["audioToneHz"]        = 650;   // PWM tone pitch (CYD speaker etc.); on/off buzzers ignore it
   _doc["inactivitySec"] = 90;         // MANUAL -> AUTO after this idle time
   _doc["dimAfterSec"]   = 120;        // backlight dims after this idle time (spec §13)
   _doc["dimLevel"]      = 20;         // dimmed backlight (0..255)

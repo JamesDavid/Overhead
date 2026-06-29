@@ -65,6 +65,8 @@ bool App::autoAdvanceActive() {
   return false;
 }
 
+void App::beepTest(const String& w) { if (_beeper) _beeper->play(w); }   // bypasses the enable/night gate
+
 void App::setAlert(const String& s, int targetPage) {
   _alertTarget = s.length() ? targetPage : -1;
   if (_alert != s) {                       // only on a NEW alert (Director re-asserts each tick)

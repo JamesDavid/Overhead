@@ -29,6 +29,7 @@ private:
 
   struct Seg { bool on; uint16_t ms; };
   static constexpr int kMaxSeg = 256;       // ~12 chars of dits/dahs/gaps; plenty for a call sign
+  int      _toneHz = 650;                   // PWM tone freq (settings audioToneHz); ignored by on/off buzzers
   Seg      _seg[kMaxSeg];
   int      _segN = 0, _segI = 0;
   uint32_t _segEnd = 0;

@@ -151,7 +151,7 @@
   #define BUZZER_PIN            26
   #endif
   #ifndef BUZZER_FREQ
-  #define BUZZER_FREQ          700   // pleasant Morse pitch on the small speaker
+  #define BUZZER_FREQ          650   // pleasant Morse pitch on the small speaker
   #endif
 
 // ===========================================================================
@@ -228,15 +228,15 @@
   #define CAP_HAS_GPS            0
   #define CAP_TOUCH_NEEDS_CAL    0   // capacitive
 
-  // Built-in buzzer on IO8 (3.3V logic, 20 mA) -- PWM tone for the Morse alert beeper.
-  // If it's an active (self-oscillating) buzzer that sounds rough under PWM, build with
-  // -D BUZZER_ACTIVE=1 to switch to plain digital on/off.
-  #ifndef BUZZER_PIN
-  #define BUZZER_PIN             8
-  #endif
-  #ifndef BUZZER_FREQ
-  #define BUZZER_FREQ         2700   // near a small buzzer's resonant peak
-  #endif
+  // V1.2 buzzer + speaker are NOT raw GPIOs -- they're driven by the STC8 expander (0x30),
+  // the same single-command-byte channel as the backlight (crowpanel-5in.md): 246=buzzer on,
+  // 247=buzzer off, 248=speaker on, 249=speaker off. The Morse beeper keys the (active) buzzer
+  // on/off with these. (V1.1 used 0x15/0x16; this board is V1.2.)
+  #define BUZZER_VIA_EXPANDER    1
+  #define STC8_CMD_BUZZER_ON     246
+  #define STC8_CMD_BUZZER_OFF    247
+  #define STC8_CMD_SPEAKER_ON    248
+  #define STC8_CMD_SPEAKER_OFF   249
 
 // ===========================================================================
 #else
