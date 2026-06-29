@@ -50,26 +50,27 @@ ProviderStatus LaunchProvider::freshness() const {
 void LaunchProvider::fetchLL2() {
   if (_launches.empty()) _status = ProviderStatus::Loading;
   const char* url = "https://ll.thespacedevs.com/2.2.0/launch/upcoming/?limit=8&mode=list";
-  _net->get(url, [this](int code, const String& body) {
+  _inflight = _net->get(url, [this](int code, const String& body) {
     if (code == 200 && parseLL2(body)) {
       _cache->put(kCacheKey, body, code, (uint32_t)time(nullptr));
       _lastFetched = (uint32_t)time(nullptr);
       _fallback = false;
       _status = ProviderStatus::Ready;
+      _inflight = false;
       Serial.printf("[launch] LL2 ok: %u launches\n", (unsigned)_launches.size());
       if (_bus) _bus->publish(ProviderId::Launch);
     } else {
       Serial.printf("[launch] LL2 failed (code %d) -> fallback\n", code);
       // Keep fresh cache "Ready" (a skipped/failed refresh isn't staleness); try fallback.
       _status = freshness();
-      fetchFallback();
+      fetchFallback();                                 // keeps _inflight asserted through the fallback
     }
   });
 }
 
 void LaunchProvider::fetchFallback() {
   const char* url = "https://fdo.rocketlaunch.live/json/launches/next/5";
-  _net->get(url, [this](int code, const String& body) {
+  _inflight = _net->get(url, [this](int code, const String& body) {
     if (code == 200 && parseRLL(body)) {
       _lastFetched = (uint32_t)time(nullptr);
       _fallback = true;
@@ -79,6 +80,7 @@ void LaunchProvider::fetchFallback() {
       _status = freshness();                          // within TTL stays Ready, not Stale
       Serial.printf("[launch] fallback failed (code %d)\n", code);
     }
+    _inflight = false;
     if (_bus) _bus->publish(ProviderId::Launch);
   });
 }

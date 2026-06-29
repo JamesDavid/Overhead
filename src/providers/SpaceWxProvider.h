@@ -25,6 +25,7 @@ public:
   int   bz() const { return _bz; }                     // IMF Bz GSM (nT), -999 unknown
   ProviderStatus status() const { return _status; }
   uint32_t lastFetched() const { return _lastFetched; }
+  bool fetching() const { return _pendingFetches > 0; }   // any of the 5 SWPC fetches in-flight
 
 private:
   void fetchKp();
@@ -48,4 +49,5 @@ private:
   int   _bz = -999;
   ProviderStatus _status = ProviderStatus::Loading;
   uint32_t _lastFetched = 0;
+  int   _pendingFetches = 0;             // outstanding SWPC requests (Kp/SFI/X-ray/wind/mag)
 };

@@ -40,6 +40,7 @@ public:
 
   ProviderStatus status() const { return _status; }
   uint32_t       lastFetched() const { return _lastFetched; }
+  bool           fetching() const { return _pendingFetches > 0; }   // any TLE group fetch in-flight
 
   static constexpr int kGroupCount = 3;   // amateur + stations + SatGus (by name)
 

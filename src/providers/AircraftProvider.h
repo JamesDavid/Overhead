@@ -42,6 +42,7 @@ public:
   ProviderStatus status() const { return _status; }
   uint32_t       lastFetched() const { return _lastFetched; }
   bool           local() const { return _local; }
+  bool           fetching() const { return _inflight; }   // a poll is queued/in-flight
   float          radiusNm() const { return _radiusNm; }
   bool           hideGround() const { return _hideGround; }
   // A contact passing (nearly) overhead: within `nm` horizontal AND above `elMin`

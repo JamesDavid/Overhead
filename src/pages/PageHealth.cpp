@@ -106,9 +106,8 @@ void PageHealth::onTouch(App& app, int x, int y) {
   }
   if (y < app.contentH() - 24 * u) return;       // only the bottom button row
   int col = x / (app.contentW() / 3);
-  if (col == 0) {                                 // Refresh all
-    _tle.refresh(true); _launch.refresh(true); _air.poll();
-    _swx.refresh(true); _wx.refresh(true);
+  if (col == 0) {                                 // Refresh all -- serialized, one feed at a time
+    _rstep = 0; _rstepMs = 0;                     // advanceRefresh() (tick) walks the sequence
     _refreshMs = millis();
   } else if (col == 1) {                          // Recalibrate touch
     _touch.calibrate(app.display());
@@ -120,9 +119,31 @@ void PageHealth::onTouch(App& app, int x, int y) {
 }
 
 void PageHealth::tick(App& app, uint32_t nowMs) {
-  if (!_dirty && nowMs - _lastDraw < 1000) return;
+  if (_rstep >= 0) advanceRefresh();
+  uint32_t cadence = (_rstep >= 0) ? 200 : 1000;   // feeds light up live during a refresh sequence
+  if (!_dirty && nowMs - _lastDraw < cadence) return;
   _dirty = false; _lastDraw = nowMs;
   draw(app);
+}
+
+// Force-refresh the providers one at a time: trigger a feed, wait for it to finish (15s backstop),
+// then the next. Serializing keeps the 8-slot NetClient queue from overflowing -- TLE fires 3
+// requests and SpaceWx 5, so an all-at-once refresh would drop the later feeds (e.g. Launches).
+void PageHealth::advanceRefresh() {
+  if (anyFeedFetching() && millis() - _rstepMs < 15000) return;
+  switch (_rstep) {
+    case 0: _tle.refresh(true);    break;
+    case 1: _launch.refresh(true); break;
+    case 2: _air.poll();           break;
+    case 3: _swx.refresh(true);    break;
+    case 4: _wx.refresh(true);     break;
+    default: _rstep = -1; return;                  // sequence complete
+  }
+  _rstep++; _rstepMs = millis(); _dirty = true;
+}
+
+bool PageHealth::anyFeedFetching() const {
+  return _tle.fetching() || _launch.fetching() || _air.fetching() || _swx.fetching() || _wx.fetching();
 }
 
 String PageHealth::gridStatus() {
@@ -169,25 +190,28 @@ void PageHealth::draw(App& app) {
   if (loc.valid) { char b[48]; snprintf(b, sizeof(b), "loc %s  %.3f,%.3f", loc.name.c_str(), loc.lat, loc.lon); line(b, gTheme.dim); }
 
   y += 2 * u;
-  g.setTextColor(gTheme.fg, gTheme.bg); g.drawString("provider        status   age", x0, y); y += 12 * u;
+  g.setTextColor(gTheme.fg, gTheme.bg); g.drawString("provider        status    age", x0, y); y += 12 * u;
   uint32_t now = (uint32_t)time(nullptr);
-  auto prow = [&](const char* name, ProviderStatus st, uint32_t fetched) {
-    Color c = st == ProviderStatus::Ready ? gTheme.ok : st == ProviderStatus::Error ? gTheme.warn : gTheme.dim;
+  auto prow = [&](const char* name, ProviderStatus st, uint32_t fetched, bool busy, int idx) {
+    bool queued = (_rstep >= 0 && idx >= _rstep && !busy);   // waiting its turn in the refresh sequence
+    const char* tok = busy ? "fetching" : queued ? "queued" : statusStr(st);
+    Color c = busy ? gTheme.accent : queued ? gTheme.dim
+            : st == ProviderStatus::Ready ? gTheme.ok : st == ProviderStatus::Error ? gTheme.warn : gTheme.dim;
     char age[12] = "-";
-    if (fetched > 1600000000UL && now > fetched) fmtDur(now - fetched, age, sizeof(age));  // ignore pre-NTP stamps
-    char b[48]; snprintf(b, sizeof(b), "%-14s  %-7s  %s", name, statusStr(st), age);
+    if (!busy && !queued && fetched > 1600000000UL && now > fetched) fmtDur(now - fetched, age, sizeof(age));  // ignore pre-NTP stamps
+    char b[48]; snprintf(b, sizeof(b), "%-14s  %-8s  %s", name, tok, (busy || queued) ? "" : age);
     g.setTextColor(c, gTheme.bg); g.drawString(padRight(b, 40), x0, y); y += 12 * u;
   };
-  prow("TLE",      _tle.status(),    _tle.lastFetched());
-  prow("Launch",   _launch.status(), _launch.lastFetched());
-  prow("Aircraft", _air.status(),    _air.lastFetched());
-  prow("SpaceWx",  _swx.status(),    _swx.lastFetched());
-  prow("Weather",  _wx.status(),     _wx.lastFetched());
+  prow("TLE",      _tle.status(),    _tle.lastFetched(),    _tle.fetching(),    0);
+  prow("Launch",   _launch.status(), _launch.lastFetched(), _launch.fetching(), 1);
+  prow("Aircraft", _air.status(),    _air.lastFetched(),    _air.fetching(),    2);
+  prow("SpaceWx",  _swx.status(),    _swx.lastFetched(),    _swx.fetching(),    3);
+  prow("Weather",  _wx.status(),     _wx.lastFetched(),     _wx.fetching(),     4);
 
-  if (millis() - _refreshMs < 2500) {             // brief "refreshing" toast
+  if (_rstep >= 0) {                              // live while the serialized refresh runs
     g.setTextDatum(textdatum_t::middle_center);
     g.setTextColor(gTheme.ok, gTheme.bg);
-    g.drawString("refreshing providers...", cw / 2, cy0 + ch - 52 * u);
+    g.drawString("refreshing data sources...", cw / 2, cy0 + ch - 52 * u);
   }
 
   // Display / brightness / screenshots / web / mirror / invert buttons (tap to cycle/toggle).

@@ -34,6 +34,7 @@ public:
   ProviderStatus status() const { return _status; }
   uint32_t       lastFetched() const { return _lastFetched; }
   bool           usingFallback() const { return _fallback; }
+  bool           fetching() const { return _inflight; }   // a network fetch is queued/in-flight
 
 private:
   void fetchLL2();
@@ -53,4 +54,5 @@ private:
   ProviderStatus _status = ProviderStatus::Loading;
   uint32_t       _lastFetched = 0;
   bool           _fallback = false;
+  bool           _inflight = false;    // true while LL2/fallback request is queued or awaiting its callback
 };

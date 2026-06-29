@@ -22,6 +22,7 @@ public:
   bool valid() const { return !_cloud.empty(); }
   ProviderStatus status() const { return _status; }
   uint32_t lastFetched() const { return _lastFetched; }
+  bool fetching() const { return _inflight; }   // a forecast fetch is queued/in-flight
 
   // Hourly series (forecast window from baseTime()) for the Aviation Trends view.
   const std::vector<int8_t>&  tempSeries()  const { return _temp; }   // degC

@@ -52,7 +52,7 @@ void SpaceWxProvider::refresh(bool force) {
 
 // Latest GOES X-ray flare class (e.g. "M1.2"); tiny single-element array.
 void SpaceWxProvider::fetchXray() {
-  _net->get("https://services.swpc.noaa.gov/json/goes/primary/xray-flares-latest.json",
+  if (!_net->get("https://services.swpc.noaa.gov/json/goes/primary/xray-flares-latest.json",
     [this](int code, const String& body) {
       if (code == 200) {
         JsonDocument d;
@@ -61,13 +61,15 @@ void SpaceWxProvider::fetchXray() {
           if (!a.isNull() && a.size()) _flare = (const char*)(a[0]["current_class"] | "");
         }
       }
+      _pendingFetches--;
       if (_bus) _bus->publish(ProviderId::SpaceWx);
-    });
+    })) return;
+  _pendingFetches++;
 }
 
 // Solar-wind speed (km/s) + IMF Bz (nT) from the compact SWPC summary endpoints.
 void SpaceWxProvider::fetchWind() {
-  _net->get("https://services.swpc.noaa.gov/products/summary/solar-wind-speed.json",
+  if (!_net->get("https://services.swpc.noaa.gov/products/summary/solar-wind-speed.json",
     [this](int code, const String& body) {
       if (code == 200) {
         JsonDocument d;
@@ -76,12 +78,14 @@ void SpaceWxProvider::fetchWind() {
           if (!a.isNull() && a.size()) _windKms = (int)lround((float)(a[0]["proton_speed"] | -1.0));
         }
       }
+      _pendingFetches--;
       if (_bus) _bus->publish(ProviderId::SpaceWx);
-    });
+    })) return;
+  _pendingFetches++;
 }
 
 void SpaceWxProvider::fetchMag() {
-  _net->get("https://services.swpc.noaa.gov/products/summary/solar-wind-mag-field.json",
+  if (!_net->get("https://services.swpc.noaa.gov/products/summary/solar-wind-mag-field.json",
     [this](int code, const String& body) {
       if (code == 200) {
         JsonDocument d;
@@ -90,12 +94,14 @@ void SpaceWxProvider::fetchMag() {
           if (!a.isNull() && a.size()) _bz = (int)lround((float)(a[0]["bz_gsm"] | -999.0));
         }
       }
+      _pendingFetches--;
       if (_bus) _bus->publish(ProviderId::SpaceWx);
-    });
+    })) return;
+  _pendingFetches++;
 }
 
 void SpaceWxProvider::fetchKp() {
-  _net->get("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json",
+  if (!_net->get("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json",
     [this](int code, const String& body) {
       if (code == 200 && parseKp(body)) {
         _cache->put("swx_kp", body, code, (uint32_t)time(nullptr));
@@ -106,12 +112,14 @@ void SpaceWxProvider::fetchKp() {
         Serial.printf("[spacewx] Kp fetch failed code=%d len=%u\n", code, (unsigned)body.length());
         if (_kp < 0) _status = ProviderStatus::Error;
       }
+      _pendingFetches--;
       if (_bus) _bus->publish(ProviderId::SpaceWx);
-    });
+    })) return;
+  _pendingFetches++;
 }
 
 void SpaceWxProvider::fetchSfi() {
-  _net->get("https://services.swpc.noaa.gov/products/summary/10cm-flux.json",
+  if (!_net->get("https://services.swpc.noaa.gov/products/summary/10cm-flux.json",
     [this](int code, const String& body) {
       if (code == 200) {
         JsonDocument d;
@@ -123,8 +131,10 @@ void SpaceWxProvider::fetchSfi() {
       } else {
         Serial.printf("[spacewx] SFI fetch code=%d\n", code);
       }
+      _pendingFetches--;
       if (_bus) _bus->publish(ProviderId::SpaceWx);
-    });
+    })) return;
+  _pendingFetches++;
 }
 
 // Kp feed is an array of rows; row[0] is a header, the last row is most recent:

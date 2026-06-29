@@ -39,6 +39,8 @@ public:
 
 private:
   void draw(App& app);
+  void advanceRefresh();            // step the serialized force-refresh sequence (one feed at a time)
+  bool anyFeedFetching() const;
 
   Touch&           _touch;
   TimeService&     _time;
@@ -59,4 +61,6 @@ private:
   bool _rebootArm = false;        // two-tap reboot confirm
   uint32_t _rebootArmMs = 0;
   uint32_t _refreshMs = 0;        // "refreshing..." toast
+  int      _rstep = -1;           // serialized refresh: index of the next feed to trigger (-1 idle)
+  uint32_t _rstepMs = 0;          // when the current feed was triggered (per-step 15s backstop)
 };
