@@ -10,28 +10,29 @@ The wire format is shared with the dashboard (and the future radio node) in one 
 ## Build
 
 Standalone PlatformIO project (Arduino‑ESP32 **core 3.x**, target plain ESP32 WROOM). It reuses the
-CrowPanel env's isolated core dir to avoid a package clash with the dashboard build. **Two build
-targets** pick the motor/driver preset in [`src/config.h`](src/config.h):
+CrowPanel env's isolated core dir. **One firmware** — motor type, pins, switches, and channel are set
+at runtime in the browser (see [Configure](#configure-in-the-browser)), so there's a single build:
 
 ```powershell
 $env:PLATFORMIO_CORE_DIR = "$env:USERPROFILE\.platformio-crowpanel"
-pio run -d rotor -e byj              # 28BYJ-48 + ULN2003 (default)
-pio run -d rotor -e nema             # NEMA 17 + A4988/TMC2209 (STEP/DIR)
-pio run -d rotor -e byj -t upload    # build + flash over USB
+# use the -crowpanel penv's OWN launcher (Python 3.11); the registry one is 3.12 and breaks the build
+$pio = "$env:USERPROFILE\.platformio-crowpanel\penv\Scripts\platformio.exe"
+& $pio run -d rotor -e rotor              # build
+& $pio run -d rotor -e rotor -t upload    # build + flash over USB
 ```
 
-You do **not** enter a gear ratio — calibration measures it. If your pins/wiring differ from a
-preset, edit its block in `config.h` and rebuild that env.
+You do **not** enter a gear ratio — calibration measures it. `config.h` holds only the factory
+**defaults** (28BYJ pinout); every field is overridable at runtime from the web UI.
 
-**Switches (fit what your build has):**
+**Switches** — all assigned in the web UI; the defaults below ship off except az home:
 
-- **Az home switch** — **required.** Mechanical az zero + the reference for az auto‑cal (`AZ_LIMIT_PIN`, GPIO 34).
-- **El home switch** — optional. Set `EL_LIMIT_PIN` to home el to a horizon switch; leave it `-1` to home el off the accelerometer (gravity). Either way the accelerometer trims el while tracking.
-- **Travel end‑stops** — optional safety limits. Set `AZ_CW_LIMIT_PIN`/`AZ_CCW_LIMIT_PIN` and/or `EL_MIN_LIMIT_PIN`/`EL_MAX_LIMIT_PIN`; the axis won't drive past an active stop (guards cable‑wrap / over‑travel). All default `-1` (off).
+- **Az home switch** — **required.** Az zero + the reference for az auto‑cal (default GPIO 34).
+- **El home switch** — optional. Assign a GPIO to home el to a horizon switch; leave it unset to home el off the accelerometer (gravity). Either way the accelerometer trims el while tracking.
+- **Travel end‑stops** — optional safety limits (az CW/CCW, el min/max); the axis won't drive past an active stop (guards cable‑wrap / over‑travel).
 
 Every switch wires to **GND** and reads active‑LOW via `INPUT_PULLUP` (GPIO34‑39 have no internal pull‑up — add an external ~10k to 3V3).
 
-**Pinout** (edit the preset in `config.h` if yours differs):
+**Default pinout** (change any of these in the web UI):
 
 | Signal | 28BYJ‑48 (ULN2003) | NEMA 17 (A4988/TMC2209) |
 |---|---|---|
@@ -47,17 +48,27 @@ be swamped by the steppers anyway.
 ## Flash
 
 **Web flasher (easiest):** <https://jamesdavid.github.io/Overhead/rotor-flasher/> — open in
-**Chrome / Edge**, pick the build (**28BYJ** or **NEMA 17**) from the dropdown, plug the ESP32 in over
-USB, click *Install*, and choose the serial port. (Source lives in
-[`../docs/rotor-flasher/`](../docs/rotor-flasher/), served by the same GitHub Pages as the dashboard
-flasher.)
+**Chrome / Edge**, plug the ESP32 in over USB, click *Install*, and choose the serial port. One
+firmware covers both motor types. (Source: [`../docs/rotor-flasher/`](../docs/rotor-flasher/), served
+by the same GitHub Pages as the dashboard flasher.)
 
-Custom pins/ratios: edit `config.h` and flash from source
-(`pio run -d rotor -e byj|nema -t upload`).
+## Configure in the browser
+
+After flashing, the rotor hosts an always‑on **`Rotor-setup`** Wi‑Fi AP (open). Join it and open
+**`http://192.168.4.1/`** to:
+
+- pick the **motor type** (28BYJ/ULN2003 or NEMA/STEP‑DIR) and set every **pin**,
+- assign the **home switches** and optional **end‑stops** (+ active level),
+- set the **ESP‑NOW channel** (0 = auto‑hunt Overhead's channel), and
+- run **calibration** (CAL AZ/EL, SET NORTH, HOME, RESET) from buttons.
+
+Saving writes to NVS and reboots to apply. The AP coexists with ESP‑NOW on the same channel, and while
+you're connected the rotor holds its channel steady so the page stays reachable.
 
 ## Calibrate — no gear‑ratio math
 
-Open a serial monitor at **115200** and use the menu. Results persist to NVS and survive reflash.
+Use the buttons in the **Rotor‑setup** web UI, or a serial monitor at **115200**. Results persist to
+NVS and survive reflash.
 
 | Command | What it does |
 |---|---|
@@ -68,7 +79,7 @@ Open a serial monitor at **115200** and use the menu. Results persist to NVS and
 | `MARK` | Manual az cal: send at a reference mark, jog 360° back, send again. |
 | `SHOW` | Print current calibration. |
 | `HOME` | Re‑home. |
-| `RESET` | Clear NVS back to `config.h` defaults. |
+| `RESET` | Clear NVS back to factory defaults (web RESET reboots to apply). |
 
 Typical first run: `CAL EL` → `CAL AZ` → jog to north → `SETNORTH`. Done.
 

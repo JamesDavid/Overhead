@@ -37,41 +37,24 @@
   <p>The <b>Companion Rotor</b> is a two-axis pointer that aims at the ISS, a satellite, or a planet —
   live. It's a <i>dumb pointer</i>: the Overhead dashboard broadcasts az/el over <b>ESP-NOW</b>, and the
   rotor homes itself, calibrates without any gear-ratio math, and tracks. Runs on a plain
-  <b>ESP32</b> devkit driving either 28BYJ-48 or NEMA&nbsp;17 motors.</p>
+  <b>ESP32</b> devkit driving 28BYJ-48 <i>or</i> NEMA&nbsp;17 motors — <b>one firmware</b>, with the
+  motor type, pins, and switches all set in a browser after flashing.</p>
 
   <h2>Flash it from your browser</h2>
   <div class="flash">
-    <p>Both builds are the same firmware — they differ only in the motor/driver preset. Pick yours,
-    plug the <b>ESP32</b> in over USB, then click <b>Install</b> and choose its serial port.
-    Flashing takes ~1 minute and erases the device.</p>
-    <p><label>Build:&nbsp;
-      <select id="variant" onchange="pickVariant()">
-        <option value="byj">28BYJ-48 + ULN2003 (unipolar, default)</option>
-        <option value="nema">NEMA 17 + A4988 / TMC2209 (STEP/DIR)</option>
-      </select></label></p>
-    <esp-web-install-button id="btn-byj" manifest="manifest-byj.json">
-      <button slot="activate">⚡ Install Rotor (28BYJ)</button>
+    <p><b>One firmware for both motor types.</b> Plug the <b>ESP32</b> in over USB, click <b>Install</b>,
+    and choose its serial port. Flashing takes ~1 minute and erases the device.</p>
+    <esp-web-install-button manifest="manifest.json">
+      <button slot="activate">⚡ Install Overhead Rotor</button>
       <span slot="unsupported" class="btnfallback" style="display:block">
         Your browser can't do Web Serial — use desktop <b>Chrome</b> or <b>Edge</b>.</span>
       <span slot="not-allowed" class="btnfallback" style="display:block">
         Serial access was blocked — allow it and retry.</span>
     </esp-web-install-button>
-    <esp-web-install-button id="btn-nema" manifest="manifest-nema.json" style="display:none">
-      <button slot="activate">⚡ Install Rotor (NEMA 17)</button>
-      <span slot="unsupported" class="btnfallback" style="display:block">
-        Your browser can't do Web Serial — use desktop <b>Chrome</b> or <b>Edge</b>.</span>
-      <span slot="not-allowed" class="btnfallback" style="display:block">
-        Serial access was blocked — allow it and retry.</span>
-    </esp-web-install-button>
-    <script>
-    function pickVariant(){var v=document.getElementById('variant').value;
-      document.getElementById('btn-byj').style.display=(v=='byj')?'':'none';
-      document.getElementById('btn-nema').style.display=(v=='nema')?'':'none';}
-    </script>
-    <p class="dim" style="margin-bottom:0">The <b>NEMA</b> build ships a generic A4988/TMC2209 pinout and
-    needs its own 12–24&nbsp;V motor PSU. If your pins/wiring differ from a preset, edit
-    <code>rotor/src/config.h</code> and reflash from source
-    (<code>pio run -d rotor -e byj|nema -t upload</code>).</p>
+    <p class="dim" style="margin-bottom:0">After flashing, the rotor hosts a <b>Rotor-setup</b> Wi-Fi
+    network — join it and open <code>http://192.168.4.1/</code> to choose your motor type (28BYJ or
+    NEMA&nbsp;17), set pins, switches, and the ESP-NOW channel, and run calibration. Changing hardware
+    never needs a re-flash. (NEMA 17 needs its own 12–24&nbsp;V motor PSU.)</p>
   </div>
 
   <div class="need">
@@ -84,20 +67,20 @@
   Web Serial does not work from a <code>file://</code> page or over plain HTTP.</p>
 
   <h2>Wiring</h2>
-  <p>The web-flashed build assumes the pinout below. The optional switches are <b>off by default</b> —
-  to fit them, set their pin in <code>rotor/src/config.h</code> and reflash from source. Every switch
-  wires to <b>GND</b> and reads active-LOW (<code>INPUT_PULLUP</code>).</p>
+  <p>These are the <b>factory-default</b> pins — change any of them in the <b>Rotor-setup</b> web UI
+  (no re-flash). Optional switches stay off until you assign a pin there. Every switch wires to
+  <b>GND</b> and reads active-LOW (<code>INPUT_PULLUP</code>).</p>
   <div style="overflow-x:auto">
   <table>
-    <tr><th>Signal</th><th>28BYJ-48 build (ULN2003)</th><th>NEMA 17 build (A4988/TMC2209)</th></tr>
+    <tr><th>Signal</th><th>28BYJ-48 default (ULN2003)</th><th>NEMA 17 (A4988/TMC2209)</th></tr>
     <tr><td><b>Az motor</b></td><td>IN1–4 → GPIO <b>32, 33, 25, 26</b></td><td>STEP <b>26</b>, DIR <b>25</b>, EN <b>33</b></td></tr>
     <tr><td><b>El motor</b></td><td>IN1–4 → GPIO <b>27, 14, 12, 13</b></td><td>STEP <b>17</b>, DIR <b>16</b>, EN <b>4</b></td></tr>
     <tr><td><b>Az home switch</b><br><span class="dim">required · az zero + auto-cal</span></td>
       <td colspan="2">GPIO <b>34</b> ↔ GND — GPIO34 has no internal pull-up, so add an external ~10k to 3V3.</td></tr>
     <tr><td><b>El home switch</b><br><span class="dim">optional</span></td>
-      <td colspan="2">Any free GPIO → set <code>EL_LIMIT_PIN</code>. If unset, el homes off the accelerometer instead.</td></tr>
+      <td colspan="2">Any free GPIO, assigned in the web UI. If left unset, el homes off the accelerometer instead.</td></tr>
     <tr><td><b>Travel end-stops</b><br><span class="dim">optional · safety</span></td>
-      <td colspan="2">Az CW/CCW &amp; el min/max → <code>AZ_CW/CCW_LIMIT_PIN</code>, <code>EL_MIN/MAX_LIMIT_PIN</code>. The axis won't drive past an active stop.</td></tr>
+      <td colspan="2">Az CW/CCW &amp; el min/max, assigned in the web UI. The axis won't drive past an active stop.</td></tr>
     <tr><td><b>IMU — MPU6050</b></td>
       <td colspan="2">SDA <b>21</b>, SCL <b>22</b>, VCC 3V3, GND (I²C addr <code>0x68</code>).</td></tr>
   </table>
@@ -108,8 +91,9 @@
   stepper coils a compass would read garbage anyway.</p>
 
   <h2>Then calibrate — no gear-ratio math</h2>
-  <p>Open a serial monitor at <b>115200</b> and use the menu. Results persist to NVS and survive a
-  reflash. Typical first run: <code>CAL EL</code> → <code>CAL AZ</code> → jog to north → <code>SETNORTH</code>.</p>
+  <p>Use the buttons in the <b>Rotor-setup</b> web UI (or a serial monitor at <b>115200</b>). Results
+  persist to NVS and survive a reflash. Typical first run: <code>CAL EL</code> → <code>CAL AZ</code> →
+  jog to north → <code>SETNORTH</code>.</p>
   <table>
     <tr><th>Command</th><th>What it does</th></tr>
     <tr><td><code>CAL EL</code></td><td>Measures el <b>steps/deg</b> against gravity (the accelerometer) — automatic, exact.</td></tr>

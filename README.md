@@ -308,14 +308,16 @@ join the `Overhead-setup` WiFi to provision. After that, OTA from your desk.
 
 An optional alt/az pointer ([`rotor/`](rotor/)) physically tracks whatever the dashboard is
 following. Overhead broadcasts az/el over ESP‑NOW and the rotor homes itself and follows. It's a
-separate ESP32 firmware and supports both a 28BYJ‑48/ULN2003 build and NEMA 17 + STEP/DIR builds.
+separate ESP32 firmware — **one build** that drives 28BYJ‑48/ULN2003 or NEMA 17 + STEP/DIR motors,
+with the motor type, pins, and switches all configured in a browser after flashing.
 
 - The wire format is **shared in one place** — [`shared/telemetry.h`](shared/telemetry.h), included
   by both sides so it can't drift.
 - **Self‑measuring calibration** replaces entering a gear ratio by hand: `CAL EL` (against gravity),
   `CAL AZ` (a full switch‑to‑switch turn), `SETNORTH` — persisted to NVS.
-- Flash the default ESP32 build from the browser via [`rotor/flasher/`](rotor/flasher/); NEMA/custom
-  builds compile from source.
+- **Flash + configure from the browser:** install once from the
+  [web flasher](https://jamesdavid.github.io/Overhead/rotor-flasher/), then the rotor hosts a
+  `Rotor-setup` Wi‑Fi AP where you set motors, pins, switches, channel, and run calibration.
 
 Build, flash, and calibration steps: [`rotor/README.md`](rotor/README.md). (The Overhead **sender**
 side that broadcasts the packet is deferred — see spec §10.)

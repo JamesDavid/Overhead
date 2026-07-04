@@ -1,8 +1,0 @@
-{
-  "name": "Overhead Companion Rotor — nema",
-  "version": "0.0.1",
-  "new_install_prompt_erase": true,
-  "builds": [
-    { "chipFamily": "ESP32", "parts": [ { "path": "nema/firmware.factory.bin", "offset": 0 } ] }
-  ]
-}
