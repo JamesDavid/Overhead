@@ -13,6 +13,7 @@
 // =============================================================================
 
 #include <WiFi.h>
+#include <WebServer.h>        // core web server for the always-on setup AP
 #include <esp_now.h>
 #include <esp_wifi.h>
 #include <Wire.h>
@@ -195,12 +196,70 @@ void onRecv(const esp_now_recv_info_t* info, const uint8_t* data, int len) {
   haveData = true;
 }
 
+// ----------------------------------------------------------------------------
+//  Setup web UI — always-on AP (§ web config). Milestone 2: read-only status.
+//  Milestone 3 adds the editable form + calibration buttons. Uses the core
+//  WebServer (no extra lib) and shares the radio channel with ESP-NOW.
+// ----------------------------------------------------------------------------
+WebServer server(80);
+
+const char* stateName(State s) {
+  switch (s) {
+    case SCANNING:    return "SCANNING";   case HOMING_AZ: return "HOMING_AZ";
+    case HOMING_EL:   return "HOMING_EL";  case TRACKING:  return "TRACKING";
+    case PARK:        return "PARK";       case CALIBRATION: return "CALIBRATION";
+    default:          return "?";
+  }
+}
+static String pinStr(int8_t p) { return p < 0 ? String("—") : String((int)p); }
+
+void handleRoot() {
+  telemetry_t p; noInterrupts(); memcpy(&p, (const void*)&rxPkt, sizeof(p)); interrupts();
+  String h = F("<!doctype html><html lang=en><head><meta charset=utf-8>"
+    "<meta name=viewport content='width=device-width,initial-scale=1'>"
+    "<title>Overhead Rotor — setup</title><style>"
+    ":root{--bg:#0b0f17;--card:#141b26;--line:#243043;--fg:#e8eef6;--dim:#9fb0c4;--accent:#4ea1ff}"
+    "*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);"
+    "font:15px/1.5 system-ui,Segoe UI,Roboto,sans-serif}.wrap{max-width:640px;margin:0 auto;padding:22px 16px}"
+    "h1{font-size:1.4rem;margin:.2em 0}.tag{color:var(--accent);margin:0 0 1em}"
+    "table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);"
+    "border-radius:10px;overflow:hidden;margin-bottom:.4em}td,th{text-align:left;padding:8px 12px;"
+    "border-bottom:1px solid var(--line)}th{color:var(--dim);font-weight:600;width:42%}"
+    "h2{font-size:1rem;color:var(--dim);margin:1.3em 0 .4em}code{color:#cfe0f5}</style></head>"
+    "<body><div class=wrap><h1>Overhead Rotor</h1><p class=tag>setup &amp; status</p>");
+  h += F("<h2>Status</h2><table>");
+  h += "<tr><th>State</th><td><code>" + String(stateName(state)) + "</code></td></tr>";
+  h += "<tr><th>Channel</th><td>" + (lockedChannel ? String(lockedChannel) : String("hunting…")) + "</td></tr>";
+  h += "<tr><th>Telemetry</th><td>" + String(haveData ? "receiving" : "none yet") + "</td></tr>";
+  h += "<tr><th>Target az / el</th><td>" + String(p.az, 1) + "° / " + String(p.el, 1) + "°</td></tr>";
+  h += F("</table><h2>Calibration</h2><table>");
+  h += "<tr><th>az steps/deg</th><td>" + String(g_azSpd, 3) + " (sign " + String(g_azSign) + ")</td></tr>";
+  h += "<tr><th>el steps/deg</th><td>" + String(g_elSpd, 3) + " (sign " + String(g_elSign) + ")</td></tr>";
+  h += "<tr><th>north offset</th><td>" + String(g_northOff, 2) + "°</td></tr>";
+  h += F("</table><h2>Hardware</h2><table>");
+  h += "<tr><th>Az motor</th><td>" + String(cfg.azDriver == DRIVER_STEP_DIR ? "STEP/DIR" : "unipolar") +
+       " — " + pinStr(cfg.azPins[0]) + ", " + pinStr(cfg.azPins[1]) + ", " + pinStr(cfg.azPins[2]) + ", " + pinStr(cfg.azPins[3]) + "</td></tr>";
+  h += "<tr><th>El motor</th><td>" + String(cfg.elDriver == DRIVER_STEP_DIR ? "STEP/DIR" : "unipolar") +
+       " — " + pinStr(cfg.elPins[0]) + ", " + pinStr(cfg.elPins[1]) + ", " + pinStr(cfg.elPins[2]) + ", " + pinStr(cfg.elPins[3]) + "</td></tr>";
+  h += "<tr><th>Home switches az / el</th><td>" + pinStr(cfg.azHomePin) + " / " + pinStr(cfg.elHomePin) + "</td></tr>";
+  h += "<tr><th>End-stops az cw/ccw</th><td>" + pinStr(cfg.azCwPin) + " / " + pinStr(cfg.azCcwPin) + "</td></tr>";
+  h += "<tr><th>End-stops el min/max</th><td>" + pinStr(cfg.elMinPin) + " / " + pinStr(cfg.elMaxPin) + "</td></tr>";
+  h += "<tr><th>ESP-NOW channel</th><td>" + (cfg.channel ? String(cfg.channel) : String("auto-hunt")) + "</td></tr>";
+  h += F("</table><p style='color:#9fb0c4;font-size:.85rem;margin-top:1.1em'>Editable settings &amp; "
+    "calibration buttons arrive next. You're on the <b>Rotor-setup</b> AP.</p></div></body></html>");
+  server.send(200, "text/html", h);
+}
+
 void radioInit() {
-  WiFi.mode(WIFI_STA);
-  WiFi.disconnect();                                   // never associate
-  esp_wifi_set_channel(SCAN_CH[0], WIFI_SECOND_CHAN_NONE);  // hunt begins here
+  WiFi.mode(WIFI_AP_STA);                              // AP (setup UI) + STA (ESP-NOW) share the radio
+  if (strlen(AP_PASS)) WiFi.softAP(AP_SSID, AP_PASS);
+  else                 WiFi.softAP(AP_SSID);           // open network
+  esp_wifi_set_channel(cfg.channel ? cfg.channel : SCAN_CH[0], WIFI_SECOND_CHAN_NONE);
   if (esp_now_init() != ESP_OK) { Serial.println("esp_now_init failed"); return; }
   esp_now_register_recv_cb(onRecv);
+  server.on("/", handleRoot);
+  server.begin();
+  Serial.printf("[net] AP '%s' up -> http://%s/\n", AP_SSID, WiFi.softAPIP().toString().c_str());
 }
 
 // ----------------------------------------------------------------------------
@@ -225,16 +284,18 @@ void setChan(uint8_t ch) {
   esp_wifi_set_channel(ch, WIFI_SECOND_CHAN_NONE);
   chanChangeMs = millis();
 }
-void startScan() { scanIdx = 0; setChan(SCAN_CH[0]); state = SCANNING; }
+void startScan() { scanIdx = 0; setChan(cfg.channel ? cfg.channel : SCAN_CH[0]); state = SCANNING; }
 
 void scan() {
   // a valid packet received since we hopped here == Overhead is on this channel
   if (haveData && rxTimeMs >= chanChangeMs) {
-    lockedChannel = SCAN_CH[scanIdx];
+    lockedChannel = cfg.channel ? cfg.channel : SCAN_CH[scanIdx];
     Serial.printf("locked on channel %u\n", lockedChannel);
     state = HOMING_AZ;
     return;
   }
+  if (cfg.channel) return;                              // channel pinned in config — never hop
+  if (WiFi.softAPgetStationNum() > 0) return;           // someone's on the setup AP — hold the channel steady
   if (millis() - chanChangeMs > SCAN_DWELL_MS) {        // nothing here, hop on
     scanIdx = (scanIdx + 1) % N_SCAN_CH;
     setChan(SCAN_CH[scanIdx]);
@@ -500,6 +561,7 @@ void park() {
 }
 
 void loop() {
+  server.handleClient();         // setup AP web UI (non-blocking)
   serviceSerial();               // USB calibration menu (§7), available in any state
   switch (state) {
     case SCANNING:  scan();   break;

@@ -141,3 +141,8 @@
 #define SCAN_DWELL_MS     250     // listen this long per channel
 #define RESCAN_MS         8000    // signal lost this long -> hunt again
 #define PACKET_TIMEOUT_MS 2500    // no data this long -> park
+
+// Always-on setup AP (browser config UI). Open network by default; the web UI
+// coexists with ESP-NOW on the same radio channel.
+#define AP_SSID  "Rotor-setup"
+#define AP_PASS  ""              // "" = open; else 8+ chars for WPA2
