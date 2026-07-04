@@ -31,11 +31,37 @@ static const uint8_t  SCAN_CH[]  = SCAN_CH_LIST;
 static const uint8_t  N_SCAN_CH  = sizeof(SCAN_CH) / sizeof(SCAN_CH[0]);
 
 // ----------------------------------------------------------------------------
-// Steppers. Construction is HALF4WIRE here; the driver abstraction (§6, next
-// milestone) selects HALF4WIRE vs DRIVER per axis from config.h. The unipolar pin
-// ORDER (IN1,IN3,IN2,IN4) is the sequencing quirk that otherwise just buzzes.
+// Steppers — driver abstraction (§6). Each axis is constructed for its config-
+// selected driver: unipolar 4-wire (28BYJ/ULN2003) uses AccelStepper::HALF4WIRE
+// with the (IN1,IN3,IN2,IN4) sequencing-quirk pin order; STEP/DIR (NEMA + A4988/
+// TMC2209) uses AccelStepper::DRIVER with the STEP/DIR pins. AccelStepper handles
+// the stepping for both — we never hand-roll it.
+#if AZ_DRIVER == DRIVER_STEP_DIR
+AccelStepper azM(AccelStepper::DRIVER, AZ_PIN_STEP, AZ_PIN_DIR);
+#else
 AccelStepper azM(AccelStepper::HALF4WIRE, AZ_PIN_IN1, AZ_PIN_IN3, AZ_PIN_IN2, AZ_PIN_IN4);
+#endif
+#if EL_DRIVER == DRIVER_STEP_DIR
+AccelStepper elM(AccelStepper::DRIVER, EL_PIN_STEP, EL_PIN_DIR);
+#else
 AccelStepper elM(AccelStepper::HALF4WIRE, EL_PIN_IN1, EL_PIN_IN3, EL_PIN_IN2, EL_PIN_IN4);
+#endif
+
+// Per-axis direction sign from config `invert`. Applied uniformly to homing feeds
+// AND step commands so a flipped axis behaves the same on unipolar (which has no
+// clean pin-level direction invert) and STEP/DIR.
+static const int AZ_SIGN = AZ_INVERT ? -1 : 1;
+static const int EL_SIGN = EL_INVERT ? -1 : 1;
+
+// Wire up any STEP/DIR enable pins (A4988/TMC2209 EN is active-low). No-op for unipolar.
+void driverBegin() {
+#if AZ_DRIVER == DRIVER_STEP_DIR
+  if (AZ_PIN_EN >= 0) { azM.setEnablePin(AZ_PIN_EN); azM.setPinsInverted(false, false, true); azM.enableOutputs(); }
+#endif
+#if EL_DRIVER == DRIVER_STEP_DIR
+  if (EL_PIN_EN >= 0) { elM.setEnablePin(EL_PIN_EN); elM.setPinsInverted(false, false, true); elM.enableOutputs(); }
+#endif
+}
 
 // Pointing state received from Overhead. The full shared contract; the rotor reads the
 // pointing fields (az/el/az_rate/el_rate/valid/seq) and ignores the reserved radio fields.
@@ -100,11 +126,11 @@ float wrap360(float d){ while(d<0)d+=360; while(d>=360)d-=360; return d; }
 long azDegToSteps(float trueAz) {
   float mech = wrap360(trueAz - NORTH_OFFSET_DEG);
   // TODO cable-wrap: if a target crosses the no-go seam, take the long way instead
-  return lroundf(mech * AZ_STEPS_PER_DEG);
+  return AZ_SIGN * lroundf(mech * AZ_STEPS_PER_DEG);
 }
 long elDegToSteps(float el) {
   el = constrain(el, EL_MIN_DEG, EL_MAX_DEG);
-  return lroundf(el * EL_STEPS_PER_DEG);
+  return EL_SIGN * lroundf(el * EL_STEPS_PER_DEG);
 }
 
 // ----------------------------------------------------------------------------
@@ -137,13 +163,14 @@ void setup() {
   mpuInit();
   azM.setMaxSpeed(AZ_MAX_SPEED); azM.setAcceleration(AZ_ACCEL);
   elM.setMaxSpeed(EL_MAX_SPEED); elM.setAcceleration(EL_ACCEL);
+  driverBegin();               // STEP/DIR enable pins (§6); no-op for unipolar
   radioInit();
   startScan();           // find Overhead's channel before doing anything
 }
 
 // --- homing: az to the switch, el to level (accel = 0) ----------------------
 void homeAz() {
-  azM.setSpeed(-HOME_SPEED);                 // drive toward the switch
+  azM.setSpeed(AZ_SIGN * -HOME_SPEED);       // drive toward the switch (sign flips with invert)
   if (digitalRead(LIMIT_PIN) == LIMIT_ACTIVE) {
     azM.setCurrentPosition(0);               // mechanical zero
     state = HOMING_EL;
@@ -158,7 +185,7 @@ void homeEl() {
     state = TRACKING;
     return;
   }
-  elM.setSpeed(pitch > 0 ? -HOME_SPEED : HOME_SPEED);
+  elM.setSpeed(EL_SIGN * (pitch > 0 ? -HOME_SPEED : HOME_SPEED));
   elM.runSpeed();
 }
 
