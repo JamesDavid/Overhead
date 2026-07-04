@@ -2,62 +2,107 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Overhead Companion Rotor — Web Flasher</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Overhead Rotor — flash your alt/az pointer</title>
 <style>
-  body { font-family: system-ui, -apple-system, sans-serif; max-width: 44rem; margin: 2rem auto;
-         padding: 0 1rem; line-height: 1.55; color: #0b0f17; }
-  h1 { font-size: 1.4rem; margin-bottom: .2rem; }
-  code { background: #f0f0f4; padding: 0 .3em; border-radius: 4px; }
-  .note { color: #555; font-size: .9rem; }
-  .warn { background: #fff6e0; border: 1px solid #e6c34a; padding: .6rem .8rem; border-radius: 6px; }
-  esp-web-install-button { --esp-tools-button-color: #fff; --esp-tools-button-bg: #1f9d55; }
-  button[slot=activate] { font-size: 1rem; padding: .6rem 1rem; }
-  select { font-size: 1rem; padding: .3rem; }
+  :root { --bg:#0b0f17; --card:#141b26; --line:#243043; --fg:#e8eef6; --dim:#9fb0c4; --accent:#4ea1ff; --ok:#37d67a; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui,Segoe UI,Roboto,sans-serif; }
+  .wrap { max-width:880px; margin:0 auto; padding:28px 20px 64px; }
+  h1 { font-size:2rem; margin:.2em 0 .1em; }
+  h2 { margin:1.8em 0 .5em; font-size:1.3rem; border-bottom:1px solid var(--line); padding-bottom:.3em; }
+  .tag { color:var(--accent); font-size:1.05rem; margin:0 0 1.2em; }
+  p { color:var(--fg); } .dim { color:var(--dim); }
+  a { color:var(--accent); }
+  .flash { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:22px; margin:18px 0; text-align:center; }
+  .flash esp-web-install-button { --esp-tools-button-color:#0b0f17; --esp-tools-button-bg:var(--accent); }
+  .btnfallback { display:none; color:var(--dim); font-size:.9rem; margin-top:10px; }
+  .need { display:flex; flex-wrap:wrap; gap:14px; margin:14px 0; }
+  .need div { flex:1 1 200px; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 14px; }
+  .warn { background:#1c1710; border:1px solid #6b551e; border-radius:10px; padding:12px 14px; margin:14px 0; color:#e8d9a8; }
+  code { background:#0e1420; padding:1px 5px; border-radius:4px; color:#cfe0f5; }
+  table { width:100%; border-collapse:collapse; margin:12px 0; font-size:.95rem; }
+  th,td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--dim); font-weight:600; }
+  td code { white-space:nowrap; }
+  .foot { margin-top:40px; color:var(--dim); font-size:.9rem; border-top:1px solid var(--line); padding-top:16px; }
 </style>
-<script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
 </head>
 <body>
-  <h1>Overhead Companion Rotor — Web Flasher</h1>
-  <p class="note">alt/az pointer that slews to whatever the Overhead dashboard is tracking</p>
+<div class="wrap">
 
-  <p>Pick your motors/driver, plug the <b>ESP32</b> in over USB, click <b>Install</b>, and choose its
-  serial port. Both builds are the same firmware — they differ only in the motor/driver preset (edit
-  <code>src/config.h</code> and rebuild if your pins/wiring differ).</p>
+  <h1>Overhead Rotor</h1>
+  <p class="tag">An alt/az pointer that physically slews to whatever the dashboard is tracking.</p>
 
-  <p><label>Build:&nbsp;
-    <select id="variant" onchange="pickVariant()">
-      <option value="byj">28BYJ-48 + ULN2003 (unipolar, default)</option>
-      <option value="nema">NEMA 17 + A4988/TMC2209 (STEP/DIR)</option>
-    </select></label></p>
+  <p>The <b>Companion Rotor</b> is a two-axis pointer that aims at the ISS, a satellite, or a planet —
+  live. It's a <i>dumb pointer</i>: the Overhead dashboard broadcasts az/el over <b>ESP-NOW</b>, and the
+  rotor homes itself, calibrates without any gear-ratio math, and tracks. Runs on a plain
+  <b>ESP32</b> devkit driving either 28BYJ-48 or NEMA&nbsp;17 motors.</p>
 
-  <esp-web-install-button id="btn-byj" manifest="manifest-byj.json">
-    <button slot="activate">⚡ Install Rotor (28BYJ)</button>
-    <span slot="unsupported">Your browser can't do Web Serial — use desktop <b>Chrome</b> or <b>Edge</b>.</span>
-    <span slot="not-allowed">Serial access was blocked — allow it and retry.</span>
-  </esp-web-install-button>
-  <esp-web-install-button id="btn-nema" manifest="manifest-nema.json" style="display:none">
-    <button slot="activate">⚡ Install Rotor (NEMA 17)</button>
-    <span slot="unsupported">Your browser can't do Web Serial — use desktop <b>Chrome</b> or <b>Edge</b>.</span>
-    <span slot="not-allowed">Serial access was blocked — allow it and retry.</span>
-  </esp-web-install-button>
-  <script>
-  function pickVariant(){var v=document.getElementById('variant').value;
-    document.getElementById('btn-byj').style.display=(v=='byj')?'':'none';
-    document.getElementById('btn-nema').style.display=(v=='nema')?'':'none';}
-  </script>
+  <h2>Flash it from your browser</h2>
+  <div class="flash">
+    <p>Both builds are the same firmware — they differ only in the motor/driver preset. Pick yours,
+    plug the <b>ESP32</b> in over USB, then click <b>Install</b> and choose its serial port.
+    Flashing takes ~1 minute and erases the device.</p>
+    <p><label>Build:&nbsp;
+      <select id="variant" onchange="pickVariant()">
+        <option value="byj">28BYJ-48 + ULN2003 (unipolar, default)</option>
+        <option value="nema">NEMA 17 + A4988 / TMC2209 (STEP/DIR)</option>
+      </select></label></p>
+    <esp-web-install-button id="btn-byj" manifest="manifest-byj.json">
+      <button slot="activate">⚡ Install Rotor (28BYJ)</button>
+      <span slot="unsupported" class="btnfallback" style="display:block">
+        Your browser can't do Web Serial — use desktop <b>Chrome</b> or <b>Edge</b>.</span>
+      <span slot="not-allowed" class="btnfallback" style="display:block">
+        Serial access was blocked — allow it and retry.</span>
+    </esp-web-install-button>
+    <esp-web-install-button id="btn-nema" manifest="manifest-nema.json" style="display:none">
+      <button slot="activate">⚡ Install Rotor (NEMA 17)</button>
+      <span slot="unsupported" class="btnfallback" style="display:block">
+        Your browser can't do Web Serial — use desktop <b>Chrome</b> or <b>Edge</b>.</span>
+      <span slot="not-allowed" class="btnfallback" style="display:block">
+        Serial access was blocked — allow it and retry.</span>
+    </esp-web-install-button>
+    <script>
+    function pickVariant(){var v=document.getElementById('variant').value;
+      document.getElementById('btn-byj').style.display=(v=='byj')?'':'none';
+      document.getElementById('btn-nema').style.display=(v=='nema')?'':'none';}
+    </script>
+    <p class="dim" style="margin-bottom:0">The <b>NEMA</b> build ships a generic A4988/TMC2209 pinout and
+    needs its own 12–24&nbsp;V motor PSU. If your pins/wiring differ from a preset, edit
+    <code>rotor/src/config.h</code> and reflash from source
+    (<code>pio run -d rotor -e byj|nema -t upload</code>).</p>
+  </div>
+
+  <div class="need">
+    <div><b>Board</b><br>Any plain ESP32 WROOM devkit. Drives 28BYJ-48 (ULN2003) or NEMA 17 (A4988/TMC2209).</div>
+    <div><b>Browser</b><br>Desktop Chrome or Edge (Web Serial). Won't work on Firefox/Safari/mobile.</div>
+    <div><b>Sensors</b><br>MPU6050 (el reference), an azimuth limit switch, optionally an elevation switch.</div>
+  </div>
 
   <p class="warn">Requires a <b>Chromium</b> browser (Chrome / Edge) served over <b>HTTPS or localhost</b>.
   Web Serial does not work from a <code>file://</code> page or over plain HTTP.</p>
 
-  <p class="note">The <b>NEMA</b> build ships a generic A4988/TMC2209 pinout; if your wiring differs,
-  edit the preset in <code>rotor/src/config.h</code> and rebuild that env
-  (<code>pio run -d rotor -e nema -t upload</code>). NEMA 17 needs its own 12–24&nbsp;V motor PSU.</p>
+  <h2>Then calibrate — no gear-ratio math</h2>
+  <p>Open a serial monitor at <b>115200</b> and use the menu. Results persist to NVS and survive a
+  reflash. Typical first run: <code>CAL EL</code> → <code>CAL AZ</code> → jog to north → <code>SETNORTH</code>.</p>
+  <table>
+    <tr><th>Command</th><th>What it does</th></tr>
+    <tr><td><code>CAL EL</code></td><td>Measures el <b>steps/deg</b> against gravity (the accelerometer) — automatic, exact.</td></tr>
+    <tr><td><code>CAL AZ</code></td><td>Homes to the limit switch, jogs one full turn back to it → az <b>steps/deg</b>. Falls back to a guided <code>MARK</code> cal if cable-wrap blocks a full turn.</td></tr>
+    <tr><td><code>SETNORTH</code></td><td>Jog the pointer to true north first, then this stores the north offset.</td></tr>
+    <tr><td><code>AZ± / EL±</code></td><td>Jog an axis by degrees (used for <code>SETNORTH</code> and the manual az fallback).</td></tr>
+    <tr><td><code>SHOW</code> / <code>HOME</code> / <code>RESET</code></td><td>Print calibration · re-home · clear NVS back to <code>config.h</code> defaults.</td></tr>
+  </table>
+  <p class="dim">Full build/wiring guide: <a href="https://github.com/JamesDavid/Overhead/blob/main/rotor/README.md">rotor/README.md</a>.</p>
 
-  <p class="note">After flashing, open a serial monitor at <b>115200</b> and calibrate:
-  <code>CAL EL</code>, <code>CAL AZ</code>, <code>SETNORTH</code> — no gear-ratio math needed.
-  See <code>rotor/README.md</code>.</p>
+  <div class="foot">
+    <p>← Back to the <a href="../">Overhead dashboard flasher</a> — the display this rotor points along with.</p>
+    <p>Source, hardware guide &amp; backlog: <a href="https://github.com/JamesDavid/Overhead">github.com/JamesDavid/Overhead</a>
+    · Free for personal/non-commercial use (PolyForm Noncommercial 1.0.0). · DE KE7AQA</p>
+  </div>
 
-  <p class="note">← Back to the <a href="../">Overhead dashboard flasher</a>.</p>
+</div>
+<script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js"></script>
 </body>
 </html>
