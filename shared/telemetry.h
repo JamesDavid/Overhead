@@ -29,7 +29,7 @@ typedef struct __attribute__((packed)) {
   float    az_rate;        // deg/s, signed
   float    el_rate;        // deg/s, signed
 
-  // --- radio (reserved for the deferred Doppler node; rotor ignores) ---
+  // --- radio: DEFERRED (§10.3) — reserved for the Doppler node; the rotor ignores these ---
   uint32_t base_freq_hz;   // nominal freq (Hz); uint32 covers to 4.29 GHz
   int32_t  doppler_hz;     // signed Doppler offset (Hz)
   float    range_rate_kms; // km/s; lets the radio node recompute Doppler for its own freq

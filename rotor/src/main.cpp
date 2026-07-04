@@ -78,6 +78,10 @@ volatile telemetry_t rxPkt   = {0};
 volatile uint32_t     rxTimeMs = 0;
 volatile bool         haveData = false;
 
+// State machine (§9):
+//   SCANNING --lock--> HOMING_AZ --> HOMING_EL --> TRACKING <-> PARK
+//   PARK --lost > RESCAN_MS--> SCANNING (re-hunt the channel)
+//   CALIBRATION: entered on demand (serial menu / boot hold), returns to SCANNING when done.
 enum State { SCANNING, HOMING_AZ, HOMING_EL, TRACKING, PARK, CALIBRATION };
 State state = SCANNING;
 
@@ -110,6 +114,11 @@ float readPitchDeg() {
 // ----------------------------------------------------------------------------
 //  ESP-NOW
 // ----------------------------------------------------------------------------
+// DEFERRED (§10.1): the Overhead SENDER side is NOT part of the rotor task. On integration,
+// the dashboard adds a broadcast peer that differences its ephemeris into az_rate/el_rate,
+// fills the reserved radio fields from the same TLE math, and emits telemetry_t at ~2 Hz to
+// FF:FF:FF:FF:FF:FF (even when idle, valid=0). This node is purely the receiver below.
+//
 // Core 3.x signature. (Core 2.x: void onRecv(const uint8_t* mac, const uint8_t* d, int len))
 void onRecv(const esp_now_recv_info_t* info, const uint8_t* data, int len) {
   if (len != sizeof(telemetry_t)) return;                       // §4: reject on wrong length
@@ -371,6 +380,9 @@ void track() {
     if (fabsf(err) > EL_TRIM_DEADBAND_DEG) elCmd += EL_TRIM_GAIN * err;
   }
 
+  // Known limitation (§9): near a zenith pass, az slews faster than a 28BYJ can follow, so the
+  // rotor lags through overhead and recovers on the far side. Cosmetic for a pointer — this is
+  // deliberately NOT "fixed" in software.
   azM.moveTo(azDegToSteps(azCmd));
   elM.moveTo(elDegToSteps(elCmd));
   azM.run(); elM.run();
