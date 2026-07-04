@@ -13,6 +13,7 @@
   .warn { background: #fff6e0; border: 1px solid #e6c34a; padding: .6rem .8rem; border-radius: 6px; }
   esp-web-install-button { --esp-tools-button-color: #fff; --esp-tools-button-bg: #1f9d55; }
   button[slot=activate] { font-size: 1rem; padding: .6rem 1rem; }
+  select { font-size: 1rem; padding: .3rem; }
 </style>
 <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
 </head>
@@ -20,23 +21,38 @@
   <h1>Overhead Companion Rotor — Web Flasher</h1>
   <p class="note">alt/az pointer that slews to whatever the Overhead dashboard is tracking</p>
 
-  <p>Flash the <b>default build</b> (plain <b>ESP32</b> + <b>28BYJ-48 / ULN2003</b> steppers) straight
-  from your browser over USB. Plug the ESP32 in, click <b>Install</b>, and choose its serial port.</p>
+  <p>Pick your motors/driver, plug the <b>ESP32</b> in over USB, click <b>Install</b>, and choose its
+  serial port. Both builds are the same firmware — they differ only in the motor/driver preset (edit
+  <code>src/config.h</code> and rebuild if your pins/wiring differ).</p>
 
-  <p>
-    <esp-web-install-button manifest="manifest.json">
-      <button slot="activate">⚡ Install Rotor firmware</button>
-      <span slot="unsupported">Your browser can't do Web Serial — use desktop <b>Chrome</b> or <b>Edge</b>.</span>
-      <span slot="not-allowed">Serial access was blocked — allow it and retry.</span>
-    </esp-web-install-button>
-  </p>
+  <p><label>Build:&nbsp;
+    <select id="variant" onchange="pickVariant()">
+      <option value="byj">28BYJ-48 + ULN2003 (unipolar, default)</option>
+      <option value="nema">NEMA 17 + A4988/TMC2209 (STEP/DIR)</option>
+    </select></label></p>
+
+  <esp-web-install-button id="btn-byj" manifest="manifest-byj.json">
+    <button slot="activate">⚡ Install Rotor (28BYJ)</button>
+    <span slot="unsupported">Your browser can't do Web Serial — use desktop <b>Chrome</b> or <b>Edge</b>.</span>
+    <span slot="not-allowed">Serial access was blocked — allow it and retry.</span>
+  </esp-web-install-button>
+  <esp-web-install-button id="btn-nema" manifest="manifest-nema.json" style="display:none">
+    <button slot="activate">⚡ Install Rotor (NEMA 17)</button>
+    <span slot="unsupported">Your browser can't do Web Serial — use desktop <b>Chrome</b> or <b>Edge</b>.</span>
+    <span slot="not-allowed">Serial access was blocked — allow it and retry.</span>
+  </esp-web-install-button>
+  <script>
+  function pickVariant(){var v=document.getElementById('variant').value;
+    document.getElementById('btn-byj').style.display=(v=='byj')?'':'none';
+    document.getElementById('btn-nema').style.display=(v=='nema')?'':'none';}
+  </script>
 
   <p class="warn">Requires a <b>Chromium</b> browser (Chrome / Edge) served over <b>HTTPS or localhost</b>.
   Web Serial does not work from a <code>file://</code> page or over plain HTTP.</p>
 
-  <p class="note"><b>NEMA 17 / custom builds:</b> this flasher only ships the default ESP32 + 28BYJ preset.
-  Different drivers, pins, or gear ratios build from source instead — edit <code>rotor/src/config.h</code>
-  (the NEMA 17 + A4988/TMC2209 preset is in there) and run <code>pio run -d rotor -t upload</code>.</p>
+  <p class="note">The <b>NEMA</b> build ships a generic A4988/TMC2209 pinout; if your wiring differs,
+  edit the preset in <code>rotor/src/config.h</code> and rebuild that env
+  (<code>pio run -d rotor -e nema -t upload</code>). NEMA 17 needs its own 12–24&nbsp;V motor PSU.</p>
 
   <p class="note">After flashing, open a serial monitor at <b>115200</b> and calibrate:
   <code>CAL EL</code>, <code>CAL AZ</code>, <code>SETNORTH</code> — no gear-ratio math needed.

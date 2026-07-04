@@ -10,23 +10,30 @@ The wire format is shared with the dashboard (and the future radio node) in one 
 ## Build
 
 Standalone PlatformIO project (Arduino‑ESP32 **core 3.x**, target plain ESP32 WROOM). It reuses the
-CrowPanel env's isolated core dir to avoid a package clash with the dashboard build:
+CrowPanel env's isolated core dir to avoid a package clash with the dashboard build. **Two build
+targets** pick the motor/driver preset in [`src/config.h`](src/config.h):
 
 ```powershell
 $env:PLATFORMIO_CORE_DIR = "$env:USERPROFILE\.platformio-crowpanel"
-pio run -d rotor                 # build
-pio run -d rotor -t upload       # build + flash over USB
+pio run -d rotor -e byj              # 28BYJ-48 + ULN2003 (default)
+pio run -d rotor -e nema             # NEMA 17 + A4988/TMC2209 (STEP/DIR)
+pio run -d rotor -e byj -t upload    # build + flash over USB
 ```
 
-Everything build‑specific lives in [`src/config.h`](src/config.h). It ships two presets: **28BYJ‑48
-+ ULN2003** (default, active) and **NEMA 17 + A4988/TMC2209** (commented). Swap the block for your
-motors/driver — you do **not** enter a gear ratio (calibration measures it).
+You do **not** enter a gear ratio — calibration measures it. If your pins/wiring differ from a
+preset, edit its block in `config.h` and rebuild that env.
+
+**Switches:** an **azimuth** limit switch is required (mechanical home + az auto‑cal). An
+**elevation** limit switch is **optional** — set `EL_LIMIT_PIN` in `config.h` to home el off a
+horizon switch, or leave it `-1` to home el off gravity (the accelerometer). Either way the
+accelerometer still does the closed‑loop el trim while tracking.
 
 ## Flash
 
-- **Default build (ESP32 + 28BYJ):** browser flasher in [`flasher/`](flasher/) — open `index.html`
-  over **HTTPS or localhost** in **Chrome/Edge**, click *Install*, pick the serial port.
-- **NEMA / custom builds:** compile from source (`pio run -d rotor -t upload`) after editing `config.h`.
+Browser flasher in [`flasher/`](flasher/): open `index.html` over **HTTPS or localhost** in
+**Chrome / Edge**, pick the build (**28BYJ** or **NEMA 17**) from the dropdown, click *Install*, and
+choose the serial port. Custom pins/ratios: edit `config.h` and flash from source
+(`pio run -d rotor -e byj|nema -t upload`).
 
 ## Calibrate — no gear‑ratio math
 

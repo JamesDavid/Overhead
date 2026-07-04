@@ -212,7 +212,7 @@ void showConfig() {
 // Blocking helpers, used only during operator-driven calibration.
 void homeAzBlocking() {
   azM.setSpeed(g_azSign * -HOME_SPEED);
-  while (digitalRead(LIMIT_PIN) != LIMIT_ACTIVE) azM.runSpeed();
+  while (digitalRead(AZ_LIMIT_PIN) != AZ_LIMIT_ACTIVE) azM.runSpeed();
   azM.setCurrentPosition(0);
 }
 void jogAxis(AccelStepper& m, int sign, float spd, float deg) {
@@ -264,7 +264,7 @@ void calAz() {
   long maxSteps = lroundf(g_azSpd * 400.0f);      // safety cap > one revolution
   while (labs(azM.currentPosition()) < maxSteps) {
     azM.runSpeed();
-    bool active = (digitalRead(LIMIT_PIN) == LIMIT_ACTIVE);
+    bool active = (digitalRead(AZ_LIMIT_PIN) == AZ_LIMIT_ACTIVE);
     if (!leftFlag) { if (!active) leftFlag = true; }         // rolled off the home flag
     else if (active) {                                        // flag again -> full revolution
       long steps = labs(azM.currentPosition());
@@ -323,7 +323,10 @@ void serviceSerial() {
 // ----------------------------------------------------------------------------
 void setup() {
   Serial.begin(115200);
-  pinMode(LIMIT_PIN, INPUT_PULLUP);
+  pinMode(AZ_LIMIT_PIN, INPUT_PULLUP);
+#if EL_LIMIT_PIN >= 0
+  pinMode(EL_LIMIT_PIN, INPUT_PULLUP);
+#endif
   mpuInit();
   nvsLoad();                     // calibration over config.h defaults (§8)
   azM.setMaxSpeed(AZ_MAX_SPEED); azM.setAcceleration(AZ_ACCEL);
@@ -332,7 +335,7 @@ void setup() {
   showConfig();
   // Optional (§7): hold the limit switch at boot -> a calibration prompt. The serial menu
   // is available in any state, so this is just a hint; motion still proceeds normally.
-  if (digitalRead(LIMIT_PIN) == LIMIT_ACTIVE)
+  if (digitalRead(AZ_LIMIT_PIN) == AZ_LIMIT_ACTIVE)
     Serial.println("[boot] limit held -> send CAL AZ | CAL EL | SETNORTH to calibrate.");
   radioInit();
   startScan();           // find Overhead's channel before doing anything
@@ -341,7 +344,7 @@ void setup() {
 // --- homing: az to the switch, el to level (accel = 0) ----------------------
 void homeAz() {
   azM.setSpeed(g_azSign * -HOME_SPEED);      // drive toward the switch (sign flips with invert)
-  if (digitalRead(LIMIT_PIN) == LIMIT_ACTIVE) {
+  if (digitalRead(AZ_LIMIT_PIN) == AZ_LIMIT_ACTIVE) {
     azM.setCurrentPosition(0);               // mechanical zero
     state = HOMING_EL;
     return;
@@ -349,6 +352,17 @@ void homeAz() {
   azM.runSpeed();
 }
 void homeEl() {
+#if EL_LIMIT_PIN >= 0
+  // El limit switch (optional, config): drive down to the horizon switch -> el zero.
+  elM.setSpeed(g_elSign * -HOME_SPEED);
+  if (digitalRead(EL_LIMIT_PIN) == EL_LIMIT_ACTIVE) {
+    elM.setCurrentPosition(0);
+    state = TRACKING;
+    return;
+  }
+  elM.runSpeed();
+#else
+  // Gravity homing (default): drive to level (accelerometer pitch ~ 0) -> el zero.
   float pitch = readPitchDeg();
   if (fabsf(pitch) < 0.5f) {                 // level == elevation 0
     elM.setCurrentPosition(0);
@@ -357,6 +371,7 @@ void homeEl() {
   }
   elM.setSpeed(g_elSign * (pitch > 0 ? -HOME_SPEED : HOME_SPEED));
   elM.runSpeed();
+#endif
 }
 
 // --- tracking: extrapolate target from last packet + rate ------------------

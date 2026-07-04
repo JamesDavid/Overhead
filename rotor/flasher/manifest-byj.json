@@ -1,0 +1,8 @@
+{
+  "name": "Overhead Companion Rotor — byj",
+  "version": "0.0.1",
+  "new_install_prompt_erase": true,
+  "builds": [
+    { "chipFamily": "ESP32", "parts": [ { "path": "byj/firmware.factory.bin", "offset": 0 } ] }
+  ]
+}
