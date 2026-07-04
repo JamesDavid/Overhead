@@ -304,6 +304,24 @@ join the `Overhead-setup` WiFi to provision. After that, OTA from your desk.
 
 ---
 
+## Companion rotor — a pointer that slews to what's overhead
+
+An optional alt/az pointer ([`rotor/`](rotor/)) physically tracks whatever the dashboard is
+following. Overhead broadcasts az/el over ESP‑NOW and the rotor homes itself and follows. It's a
+separate ESP32 firmware and supports both a 28BYJ‑48/ULN2003 build and NEMA 17 + STEP/DIR builds.
+
+- The wire format is **shared in one place** — [`shared/telemetry.h`](shared/telemetry.h), included
+  by both sides so it can't drift.
+- **Self‑measuring calibration** replaces entering a gear ratio by hand: `CAL EL` (against gravity),
+  `CAL AZ` (a full switch‑to‑switch turn), `SETNORTH` — persisted to NVS.
+- Flash the default ESP32 build from the browser via [`rotor/flasher/`](rotor/flasher/); NEMA/custom
+  builds compile from source.
+
+Build, flash, and calibration steps: [`rotor/README.md`](rotor/README.md). (The Overhead **sender**
+side that broadcasts the packet is deferred — see spec §10.)
+
+---
+
 ## Technical challenges — overcome & still open
 
 **Overcome** (details in [CYD-ESP32-2432S028R.md](CYD-ESP32-2432S028R.md) and
