@@ -32,21 +32,67 @@ static const uint8_t  SCAN_CH[]  = SCAN_CH_LIST;
 static const uint8_t  N_SCAN_CH  = sizeof(SCAN_CH) / sizeof(SCAN_CH[0]);
 
 // ----------------------------------------------------------------------------
-// Steppers — driver abstraction (§6). Each axis is constructed for its config-
-// selected driver: unipolar 4-wire (28BYJ/ULN2003) uses AccelStepper::HALF4WIRE
-// with the (IN1,IN3,IN2,IN4) sequencing-quirk pin order; STEP/DIR (NEMA + A4988/
-// TMC2209) uses AccelStepper::DRIVER with the STEP/DIR pins. AccelStepper handles
-// the stepping for both — we never hand-roll it.
+//  Runtime hardware config (web-configurable, NVS-backed). config.h supplies the
+//  factory DEFAULTS (the BYJ preset ships); the always-on setup AP overrides any
+//  field and persists it. Making the driver + pins runtime is what lets ONE
+//  firmware cover both motor types — the steppers are built in setup() from cfg,
+//  not selected at compile time.
+// ----------------------------------------------------------------------------
+struct RotorCfg {
+  uint8_t ver;                 // blob version (NVS migration guard)
+  uint8_t azDriver, elDriver;  // DRIVER_UNIPOLAR_4WIRE | DRIVER_STEP_DIR
+  // Per-axis pins. Unipolar: [IN1,IN2,IN3,IN4]. STEP/DIR: [STEP,DIR,EN]. -1 = unused.
+  int8_t  azPins[4], elPins[4];
+  // Switches (-1 = not fitted). Home = axis zero; end-stops = travel-limit safety.
+  int8_t  azHomePin, elHomePin;
+  int8_t  azCwPin, azCcwPin, elMinPin, elMaxPin;
+  uint8_t homeActive, endstopActive;   // 0 = active-LOW, 1 = active-HIGH
+  // Radio (used from milestone 2 on): fixed ESP-NOW channel (0 = auto-hunt) + target.
+  uint8_t channel, targetId;
+};
+RotorCfg cfg;
+
+// Seed cfg from the config.h factory defaults (BYJ preset unless built with the flag).
+void cfgDefaults() {
+  cfg.ver = 1;
+  cfg.azDriver = AZ_DRIVER;  cfg.elDriver = EL_DRIVER;
 #if AZ_DRIVER == DRIVER_STEP_DIR
-AccelStepper azM(AccelStepper::DRIVER, AZ_PIN_STEP, AZ_PIN_DIR);
+  cfg.azPins[0]=AZ_PIN_STEP; cfg.azPins[1]=AZ_PIN_DIR; cfg.azPins[2]=AZ_PIN_EN; cfg.azPins[3]=-1;
 #else
-AccelStepper azM(AccelStepper::HALF4WIRE, AZ_PIN_IN1, AZ_PIN_IN3, AZ_PIN_IN2, AZ_PIN_IN4);
+  cfg.azPins[0]=AZ_PIN_IN1;  cfg.azPins[1]=AZ_PIN_IN2; cfg.azPins[2]=AZ_PIN_IN3; cfg.azPins[3]=AZ_PIN_IN4;
 #endif
 #if EL_DRIVER == DRIVER_STEP_DIR
-AccelStepper elM(AccelStepper::DRIVER, EL_PIN_STEP, EL_PIN_DIR);
+  cfg.elPins[0]=EL_PIN_STEP; cfg.elPins[1]=EL_PIN_DIR; cfg.elPins[2]=EL_PIN_EN; cfg.elPins[3]=-1;
 #else
-AccelStepper elM(AccelStepper::HALF4WIRE, EL_PIN_IN1, EL_PIN_IN3, EL_PIN_IN2, EL_PIN_IN4);
+  cfg.elPins[0]=EL_PIN_IN1;  cfg.elPins[1]=EL_PIN_IN2; cfg.elPins[2]=EL_PIN_IN3; cfg.elPins[3]=EL_PIN_IN4;
 #endif
+  cfg.azHomePin=AZ_LIMIT_PIN; cfg.elHomePin=EL_LIMIT_PIN;
+  cfg.azCwPin=AZ_CW_LIMIT_PIN; cfg.azCcwPin=AZ_CCW_LIMIT_PIN;
+  cfg.elMinPin=EL_MIN_LIMIT_PIN; cfg.elMaxPin=EL_MAX_LIMIT_PIN;
+  cfg.homeActive    = (AZ_LIMIT_ACTIVE == HIGH) ? 1 : 0;
+  cfg.endstopActive = (ENDSTOP_ACTIVE  == HIGH) ? 1 : 0;
+  cfg.channel = 0;  cfg.targetId = 0;
+}
+inline int homeLvl()    { return cfg.homeActive    ? HIGH : LOW; }
+inline int endstopLvl() { return cfg.endstopActive ? HIGH : LOW; }
+
+// Steppers are constructed at runtime from cfg (§6 driver abstraction). Unipolar
+// 4-wire (28BYJ/ULN2003) keeps the (IN1,IN3,IN2,IN4) sequencing-quirk order; STEP/DIR
+// (NEMA + A4988/TMC2209) uses STEP,DIR. Pointer + alias so call sites stay `azM.foo()`.
+AccelStepper* g_azM = nullptr;
+AccelStepper* g_elM = nullptr;
+#define azM (*g_azM)
+#define elM (*g_elM)
+void buildSteppers() {
+  if (cfg.azDriver == DRIVER_STEP_DIR)
+    g_azM = new AccelStepper(AccelStepper::DRIVER, cfg.azPins[0], cfg.azPins[1]);
+  else
+    g_azM = new AccelStepper(AccelStepper::HALF4WIRE, cfg.azPins[0], cfg.azPins[2], cfg.azPins[1], cfg.azPins[3]);
+  if (cfg.elDriver == DRIVER_STEP_DIR)
+    g_elM = new AccelStepper(AccelStepper::DRIVER, cfg.elPins[0], cfg.elPins[1]);
+  else
+    g_elM = new AccelStepper(AccelStepper::HALF4WIRE, cfg.elPins[0], cfg.elPins[2], cfg.elPins[1], cfg.elPins[3]);
+}
 
 // Runtime calibration state (§7/§8). Starts from the config.h defaults, then NVS
 // overrides it on boot; CAL/SETNORTH MEASURE and persist. This is the self-measuring
@@ -64,12 +110,12 @@ Preferences prefs;                      // NVS namespace "rotor"
 
 // Wire up any STEP/DIR enable pins (A4988/TMC2209 EN is active-low). No-op for unipolar.
 void driverBegin() {
-#if AZ_DRIVER == DRIVER_STEP_DIR
-  if (AZ_PIN_EN >= 0) { azM.setEnablePin(AZ_PIN_EN); azM.setPinsInverted(false, false, true); azM.enableOutputs(); }
-#endif
-#if EL_DRIVER == DRIVER_STEP_DIR
-  if (EL_PIN_EN >= 0) { elM.setEnablePin(EL_PIN_EN); elM.setPinsInverted(false, false, true); elM.enableOutputs(); }
-#endif
+  if (cfg.azDriver == DRIVER_STEP_DIR && cfg.azPins[2] >= 0) {
+    azM.setEnablePin(cfg.azPins[2]); azM.setPinsInverted(false, false, true); azM.enableOutputs();
+  }
+  if (cfg.elDriver == DRIVER_STEP_DIR && cfg.elPins[2] >= 0) {
+    elM.setEnablePin(cfg.elPins[2]); elM.setPinsInverted(false, false, true); elM.enableOutputs();
+  }
 }
 
 // --- optional travel end-stops (config-gated) -------------------------------
@@ -77,13 +123,13 @@ void driverBegin() {
 // Unfitted pins (-1) short-circuit to never-block, so the default build (all -1) keeps
 // its exact prior motion. Moving AWAY from a stop is always allowed.
 static inline bool azStopHit(int dir) {
-  if (dir > 0 && AZ_CW_LIMIT_PIN  >= 0 && digitalRead(AZ_CW_LIMIT_PIN)  == ENDSTOP_ACTIVE) return true;
-  if (dir < 0 && AZ_CCW_LIMIT_PIN >= 0 && digitalRead(AZ_CCW_LIMIT_PIN) == ENDSTOP_ACTIVE) return true;
+  if (dir > 0 && cfg.azCwPin  >= 0 && digitalRead(cfg.azCwPin)  == endstopLvl()) return true;
+  if (dir < 0 && cfg.azCcwPin >= 0 && digitalRead(cfg.azCcwPin) == endstopLvl()) return true;
   return false;
 }
 static inline bool elStopHit(int dir) {
-  if (dir > 0 && EL_MAX_LIMIT_PIN >= 0 && digitalRead(EL_MAX_LIMIT_PIN) == ENDSTOP_ACTIVE) return true;
-  if (dir < 0 && EL_MIN_LIMIT_PIN >= 0 && digitalRead(EL_MIN_LIMIT_PIN) == ENDSTOP_ACTIVE) return true;
+  if (dir > 0 && cfg.elMaxPin >= 0 && digitalRead(cfg.elMaxPin) == endstopLvl()) return true;
+  if (dir < 0 && cfg.elMinPin >= 0 && digitalRead(cfg.elMinPin) == endstopLvl()) return true;
   return false;
 }
 // End-stop-guarded stepping — used everywhere the motors actually move. Position mode
@@ -205,6 +251,11 @@ float readPitchAvg(int n = 12) {
 
 void nvsLoad() {
   prefs.begin("rotor", true);                     // read-only
+  // hardware cfg blob, layered over the cfgDefaults() seed (ver-guarded)
+  if (prefs.isKey("cfg")) {
+    RotorCfg tmp;
+    if (prefs.getBytes("cfg", &tmp, sizeof(tmp)) == sizeof(tmp) && tmp.ver == cfg.ver) cfg = tmp;
+  }
   g_azSpd    = prefs.getFloat("azSpd",  g_azSpd);
   g_elSpd    = prefs.getFloat("elSpd",  g_elSpd);
   g_northOff = prefs.getFloat("north",  g_northOff);
@@ -214,6 +265,7 @@ void nvsLoad() {
 }
 void nvsSave() {
   prefs.begin("rotor", false);
+  prefs.putBytes("cfg", &cfg, sizeof(cfg));
   prefs.putFloat("azSpd", g_azSpd);   prefs.putFloat("elSpd", g_elSpd);
   prefs.putFloat("north", g_northOff);
   prefs.putInt  ("azSign", g_azSign); prefs.putInt("elSign", g_elSign);
@@ -221,6 +273,7 @@ void nvsSave() {
 }
 void nvsReset() {
   prefs.begin("rotor", false); prefs.clear(); prefs.end();
+  cfgDefaults();                                  // hardware back to config.h factory defaults
   g_azSpd = AZ_STEPS_PER_DEG; g_elSpd = EL_STEPS_PER_DEG; g_northOff = NORTH_OFFSET_DEG;
   g_azSign = (AZ_INVERT ? -1 : 1); g_elSign = (EL_INVERT ? -1 : 1);
 }
@@ -234,7 +287,7 @@ void showConfig() {
 void homeAzBlocking() {
   azM.setSpeed(g_azSign * -HOME_SPEED);
   int dir = (azM.speed() > 0) - (azM.speed() < 0);
-  while (digitalRead(AZ_LIMIT_PIN) != AZ_LIMIT_ACTIVE) {
+  while (digitalRead(cfg.azHomePin) != homeLvl()) {
     if (dir && azStopHit(dir)) break;             // an end-stop blocks the path to home
     azM.runSpeed();
   }
@@ -292,7 +345,7 @@ void calAz() {
   while (labs(azM.currentPosition()) < maxSteps) {
     if (dir && azStopHit(dir)) break;             // an end-stop stops the full-turn cal
     azM.runSpeed();
-    bool active = (digitalRead(AZ_LIMIT_PIN) == AZ_LIMIT_ACTIVE);
+    bool active = (digitalRead(cfg.azHomePin) == homeLvl());
     if (!leftFlag) { if (!active) leftFlag = true; }         // rolled off the home flag
     else if (active) {                                        // flag again -> full revolution
       long steps = labs(azM.currentPosition());
@@ -351,31 +404,25 @@ void serviceSerial() {
 // ----------------------------------------------------------------------------
 void setup() {
   Serial.begin(115200);
-  pinMode(AZ_LIMIT_PIN, INPUT_PULLUP);
-#if EL_LIMIT_PIN >= 0
-  pinMode(EL_LIMIT_PIN, INPUT_PULLUP);
-#endif
-#if AZ_CCW_LIMIT_PIN >= 0
-  pinMode(AZ_CCW_LIMIT_PIN, INPUT_PULLUP);
-#endif
-#if AZ_CW_LIMIT_PIN >= 0
-  pinMode(AZ_CW_LIMIT_PIN, INPUT_PULLUP);
-#endif
-#if EL_MIN_LIMIT_PIN >= 0
-  pinMode(EL_MIN_LIMIT_PIN, INPUT_PULLUP);
-#endif
-#if EL_MAX_LIMIT_PIN >= 0
-  pinMode(EL_MAX_LIMIT_PIN, INPUT_PULLUP);
-#endif
+  cfgDefaults();                 // config.h factory defaults (§5)...
+  nvsLoad();                     // ...then NVS overrides hardware cfg + calibration (§8)
+  buildSteppers();               // construct steppers from cfg driver + pins (§6)
+
+  pinMode(cfg.azHomePin, INPUT_PULLUP);           // az home switch (required)
+  if (cfg.elHomePin >= 0) pinMode(cfg.elHomePin, INPUT_PULLUP);
+  if (cfg.azCwPin   >= 0) pinMode(cfg.azCwPin,   INPUT_PULLUP);   // optional end-stops
+  if (cfg.azCcwPin  >= 0) pinMode(cfg.azCcwPin,  INPUT_PULLUP);
+  if (cfg.elMinPin  >= 0) pinMode(cfg.elMinPin,  INPUT_PULLUP);
+  if (cfg.elMaxPin  >= 0) pinMode(cfg.elMaxPin,  INPUT_PULLUP);
+
   mpuInit();
-  nvsLoad();                     // calibration over config.h defaults (§8)
   azM.setMaxSpeed(AZ_MAX_SPEED); azM.setAcceleration(AZ_ACCEL);
   elM.setMaxSpeed(EL_MAX_SPEED); elM.setAcceleration(EL_ACCEL);
   driverBegin();                 // STEP/DIR enable pins (§6); no-op for unipolar
   showConfig();
   // Optional (§7): hold the limit switch at boot -> a calibration prompt. The serial menu
   // is available in any state, so this is just a hint; motion still proceeds normally.
-  if (digitalRead(AZ_LIMIT_PIN) == AZ_LIMIT_ACTIVE)
+  if (digitalRead(cfg.azHomePin) == homeLvl())
     Serial.println("[boot] limit held -> send CAL AZ | CAL EL | SETNORTH to calibrate.");
   radioInit();
   startScan();           // find Overhead's channel before doing anything
@@ -384,7 +431,7 @@ void setup() {
 // --- homing: az to the switch; el to a switch (if fitted) else to level -----
 void homeAz() {
   azM.setSpeed(g_azSign * -HOME_SPEED);      // drive toward the switch (sign flips with invert)
-  if (digitalRead(AZ_LIMIT_PIN) == AZ_LIMIT_ACTIVE) {
+  if (digitalRead(cfg.azHomePin) == homeLvl()) {
     azM.setCurrentPosition(0);               // mechanical zero
     state = HOMING_EL;
     return;
@@ -392,26 +439,26 @@ void homeAz() {
   azRunSpeed();
 }
 void homeEl() {
-#if EL_LIMIT_PIN >= 0
-  // El HOME switch fitted (config): drive down to the horizon switch -> el zero.
-  elM.setSpeed(g_elSign * -HOME_SPEED);
-  if (digitalRead(EL_LIMIT_PIN) == EL_LIMIT_ACTIVE) {
-    elM.setCurrentPosition(0);
-    state = TRACKING;
-    return;
+  if (cfg.elHomePin >= 0) {
+    // El HOME switch fitted (config): drive down to the horizon switch -> el zero.
+    elM.setSpeed(g_elSign * -HOME_SPEED);
+    if (digitalRead(cfg.elHomePin) == homeLvl()) {
+      elM.setCurrentPosition(0);
+      state = TRACKING;
+      return;
+    }
+    elRunSpeed();
+  } else {
+    // Gravity homing (default): drive to level (accelerometer pitch ~ 0) -> el zero.
+    float pitch = readPitchDeg();
+    if (fabsf(pitch) < 0.5f) {               // level == elevation 0
+      elM.setCurrentPosition(0);
+      state = TRACKING;
+      return;
+    }
+    elM.setSpeed(g_elSign * (pitch > 0 ? -HOME_SPEED : HOME_SPEED));
+    elRunSpeed();
   }
-  elRunSpeed();
-#else
-  // Gravity homing (default): drive to level (accelerometer pitch ~ 0) -> el zero.
-  float pitch = readPitchDeg();
-  if (fabsf(pitch) < 0.5f) {                 // level == elevation 0
-    elM.setCurrentPosition(0);
-    state = TRACKING;
-    return;
-  }
-  elM.setSpeed(g_elSign * (pitch > 0 ? -HOME_SPEED : HOME_SPEED));
-  elRunSpeed();
-#endif
 }
 
 // --- tracking: extrapolate target from last packet + rate ------------------
