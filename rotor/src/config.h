@@ -91,13 +91,36 @@
 #endif
 
 // ── Globals (build-agnostic; shared by both presets) ────────────────────────
-// Azimuth limit switch — mechanical home. REQUIRED (az homing + az auto-cal use it).
-// Elevation has no switch: the accelerometer is the el reference (el homes to level,
-// and trims against gravity while tracking).
-#define AZ_LIMIT_PIN     34       // input-only pin is ideal for a switch (saves an output GPIO)
-#define AZ_LIMIT_ACTIVE  LOW      // switch to GND, INPUT_PULLUP
+//  Limit / home switches. DIY rotors vary — fit only what your build has; every
+//  pin below is OPTIONAL except the az home switch. Wire each switch to GND and it
+//  reads active-LOW with INPUT_PULLUP (flip the *_ACTIVE macro for normally-closed).
+//  -1 = not fitted. Two roles:
+//    HOME switch — sets an axis zero during homing.
+//    END-STOP    — safety limit: the axis won't drive PAST an active one (moving
+//                  away is always allowed). Guards cable-wrap (az) / over-travel (el).
+//  NOTE: GPIO34-39 are input-only and have NO internal pullup — a switch there needs
+//  an external ~10k to 3V3 (fine for the az home switch, which idles open here).
 
-// IMU (MPU6050) — el reference (gravity): el homing (to level) and el trim while tracking.
+// Az HOME switch — REQUIRED. Mechanical az zero + the reference for az auto-cal.
+#define AZ_LIMIT_PIN     34       // input-only pin is ideal for a switch (saves an output GPIO)
+#define AZ_LIMIT_ACTIVE  LOW      // switch to GND
+
+// El HOME switch — OPTIONAL. If fitted, el homes to it (horizon = el 0). If -1, el
+// homes off the accelerometer (gravity). Either way the accel still trims el in flight.
+#define EL_LIMIT_PIN     -1       // -1 = gravity homing (default); else a switch GPIO
+#define EL_LIMIT_ACTIVE  LOW      // switch to GND, INPUT_PULLUP (used only when EL_LIMIT_PIN >= 0)
+
+// Travel END-STOPS — OPTIONAL. Fit at the motion extremes; the axis will not step
+// further INTO an active stop. -1 = not fitted (the default: no end-stops).
+#define AZ_CCW_LIMIT_PIN -1       // az min end (counter-clockwise travel stop)
+#define AZ_CW_LIMIT_PIN  -1       // az max end (clockwise travel stop)
+#define EL_MIN_LIMIT_PIN -1       // el min end (below the horizon)
+#define EL_MAX_LIMIT_PIN -1       // el max end (past the zenith)
+#define ENDSTOP_ACTIVE   LOW      // polarity shared by the four end-stops (switch to GND)
+
+// IMU (MPU6050, 6-DOF) — el reference (gravity): el homing (when no el switch) and el
+// trim while tracking. Only the ACCELEROMETER is used; a 9-DOF's magnetometer is not
+// read (az heading comes from the home switch + step count + SETNORTH, not a compass).
 #define I2C_SDA  21
 #define I2C_SCL  22
 #define MPU_ADDR 0x68

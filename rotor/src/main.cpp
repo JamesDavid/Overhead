@@ -72,6 +72,27 @@ void driverBegin() {
 #endif
 }
 
+// --- optional travel end-stops (config-gated) -------------------------------
+// True if an active end-stop forbids stepping the axis in step-direction `dir` (+1/-1).
+// Unfitted pins (-1) short-circuit to never-block, so the default build (all -1) keeps
+// its exact prior motion. Moving AWAY from a stop is always allowed.
+static inline bool azStopHit(int dir) {
+  if (dir > 0 && AZ_CW_LIMIT_PIN  >= 0 && digitalRead(AZ_CW_LIMIT_PIN)  == ENDSTOP_ACTIVE) return true;
+  if (dir < 0 && AZ_CCW_LIMIT_PIN >= 0 && digitalRead(AZ_CCW_LIMIT_PIN) == ENDSTOP_ACTIVE) return true;
+  return false;
+}
+static inline bool elStopHit(int dir) {
+  if (dir > 0 && EL_MAX_LIMIT_PIN >= 0 && digitalRead(EL_MAX_LIMIT_PIN) == ENDSTOP_ACTIVE) return true;
+  if (dir < 0 && EL_MIN_LIMIT_PIN >= 0 && digitalRead(EL_MIN_LIMIT_PIN) == ENDSTOP_ACTIVE) return true;
+  return false;
+}
+// End-stop-guarded stepping — used everywhere the motors actually move. Position mode
+// (run) holds at an active stop; speed mode (runSpeed) just declines to step into it.
+static inline void azRun()      { long d = azM.distanceToGo(); int dir = (d > 0) - (d < 0); if (dir && azStopHit(dir)) { azM.moveTo(azM.currentPosition()); return; } azM.run(); }
+static inline void elRun()      { long d = elM.distanceToGo(); int dir = (d > 0) - (d < 0); if (dir && elStopHit(dir)) { elM.moveTo(elM.currentPosition()); return; } elM.run(); }
+static inline void azRunSpeed() { float s = azM.speed(); int dir = (s > 0) - (s < 0); if (dir && azStopHit(dir)) return; azM.runSpeed(); }
+static inline void elRunSpeed() { float s = elM.speed(); int dir = (s > 0) - (s < 0); if (dir && elStopHit(dir)) return; elM.runSpeed(); }
+
 // Pointing state received from Overhead. The full shared contract; the rotor reads the
 // pointing fields (az/el/az_rate/el_rate/valid/seq) and ignores the reserved radio fields.
 volatile telemetry_t rxPkt   = {0};
@@ -212,12 +233,17 @@ void showConfig() {
 // Blocking helpers, used only during operator-driven calibration.
 void homeAzBlocking() {
   azM.setSpeed(g_azSign * -HOME_SPEED);
-  while (digitalRead(AZ_LIMIT_PIN) != AZ_LIMIT_ACTIVE) azM.runSpeed();
+  int dir = (azM.speed() > 0) - (azM.speed() < 0);
+  while (digitalRead(AZ_LIMIT_PIN) != AZ_LIMIT_ACTIVE) {
+    if (dir && azStopHit(dir)) break;             // an end-stop blocks the path to home
+    azM.runSpeed();
+  }
   azM.setCurrentPosition(0);
 }
 void jogAxis(AccelStepper& m, int sign, float spd, float deg) {
+  bool isAz = (&m == &azM);                        // pick the axis' end-stop guard
   m.move(sign * lroundf(deg * spd));
-  while (m.distanceToGo() != 0) m.run();
+  while (m.distanceToGo() != 0) { isAz ? azRun() : elRun(); }
 }
 
 // EL steps/deg — automatic + exact: step a block, read the gravity pitch before/after,
@@ -231,7 +257,7 @@ void calEl() {
   for (int s = 0; s < SPANS; ++s) {
     float p0 = readPitchAvg();
     long from = elM.currentPosition();
-    elM.move(block); while (elM.distanceToGo() != 0) elM.run();
+    elM.move(block); while (elM.distanceToGo() != 0) elRun();
     delay(300);
     float dp = readPitchAvg() - p0;
     if (fabsf(dp) > 2.0f) {                        // enough travel to trust the ratio
@@ -239,7 +265,7 @@ void calEl() {
       signVotes += (dp >= 0) ? 1 : -1;            // +steps -> +pitch means sign matches
       Serial.printf("[cal] EL span %d: %ld steps / %.2f deg = %.3f\n", s, block, fabsf(dp), block / fabsf(dp));
     }
-    elM.moveTo(from); while (elM.distanceToGo() != 0) elM.run();   // return
+    elM.moveTo(from); while (elM.distanceToGo() != 0) elRun();   // return
     delay(300);
   }
   if (n == 0) { Serial.println("[cal] EL failed — too little pitch change. Is the el axis free / IMU mounted?"); return; }
@@ -262,7 +288,9 @@ void calAz() {
   azM.setSpeed(g_azSign * (AZ_MAX_SPEED * 0.6f));
   bool leftFlag = false;
   long maxSteps = lroundf(g_azSpd * 400.0f);      // safety cap > one revolution
+  int  dir = (azM.speed() > 0) - (azM.speed() < 0);
   while (labs(azM.currentPosition()) < maxSteps) {
+    if (dir && azStopHit(dir)) break;             // an end-stop stops the full-turn cal
     azM.runSpeed();
     bool active = (digitalRead(AZ_LIMIT_PIN) == AZ_LIMIT_ACTIVE);
     if (!leftFlag) { if (!active) leftFlag = true; }         // rolled off the home flag
@@ -324,6 +352,21 @@ void serviceSerial() {
 void setup() {
   Serial.begin(115200);
   pinMode(AZ_LIMIT_PIN, INPUT_PULLUP);
+#if EL_LIMIT_PIN >= 0
+  pinMode(EL_LIMIT_PIN, INPUT_PULLUP);
+#endif
+#if AZ_CCW_LIMIT_PIN >= 0
+  pinMode(AZ_CCW_LIMIT_PIN, INPUT_PULLUP);
+#endif
+#if AZ_CW_LIMIT_PIN >= 0
+  pinMode(AZ_CW_LIMIT_PIN, INPUT_PULLUP);
+#endif
+#if EL_MIN_LIMIT_PIN >= 0
+  pinMode(EL_MIN_LIMIT_PIN, INPUT_PULLUP);
+#endif
+#if EL_MAX_LIMIT_PIN >= 0
+  pinMode(EL_MAX_LIMIT_PIN, INPUT_PULLUP);
+#endif
   mpuInit();
   nvsLoad();                     // calibration over config.h defaults (§8)
   azM.setMaxSpeed(AZ_MAX_SPEED); azM.setAcceleration(AZ_ACCEL);
@@ -338,7 +381,7 @@ void setup() {
   startScan();           // find Overhead's channel before doing anything
 }
 
-// --- homing: az to the switch, el to level (accel = 0) ----------------------
+// --- homing: az to the switch; el to a switch (if fitted) else to level -----
 void homeAz() {
   azM.setSpeed(g_azSign * -HOME_SPEED);      // drive toward the switch (sign flips with invert)
   if (digitalRead(AZ_LIMIT_PIN) == AZ_LIMIT_ACTIVE) {
@@ -346,11 +389,20 @@ void homeAz() {
     state = HOMING_EL;
     return;
   }
-  azM.runSpeed();
+  azRunSpeed();
 }
 void homeEl() {
-  // Gravity homing: drive to level (accelerometer pitch ~ 0) -> el zero. El has no
-  // switch — the accelerometer is the el reference (homing here, and trim while tracking).
+#if EL_LIMIT_PIN >= 0
+  // El HOME switch fitted (config): drive down to the horizon switch -> el zero.
+  elM.setSpeed(g_elSign * -HOME_SPEED);
+  if (digitalRead(EL_LIMIT_PIN) == EL_LIMIT_ACTIVE) {
+    elM.setCurrentPosition(0);
+    state = TRACKING;
+    return;
+  }
+  elRunSpeed();
+#else
+  // Gravity homing (default): drive to level (accelerometer pitch ~ 0) -> el zero.
   float pitch = readPitchDeg();
   if (fabsf(pitch) < 0.5f) {                 // level == elevation 0
     elM.setCurrentPosition(0);
@@ -358,7 +410,8 @@ void homeEl() {
     return;
   }
   elM.setSpeed(g_elSign * (pitch > 0 ? -HOME_SPEED : HOME_SPEED));
-  elM.runSpeed();
+  elRunSpeed();
+#endif
 }
 
 // --- tracking: extrapolate target from last packet + rate ------------------
@@ -387,14 +440,14 @@ void track() {
   // deliberately NOT "fixed" in software.
   azM.moveTo(azDegToSteps(azCmd));
   elM.moveTo(elDegToSteps(elCmd));
-  azM.run(); elM.run();
+  azRun(); elRun();
 }
 
 void park() {
   if (millis() - rxTimeMs > RESCAN_MS) { startScan(); return; }  // lost -> re-hunt
   azM.moveTo(0);
   elM.moveTo(elDegToSteps(EL_MIN_DEG));
-  azM.run(); elM.run();
+  azRun(); elRun();
   // when a fresh valid packet shows up, resume tracking
   if (haveData && rxPkt.valid && (millis() - rxTimeMs) < PACKET_TIMEOUT_MS) state = TRACKING;
 }

@@ -83,6 +83,30 @@
   <p class="warn">Requires a <b>Chromium</b> browser (Chrome / Edge) served over <b>HTTPS or localhost</b>.
   Web Serial does not work from a <code>file://</code> page or over plain HTTP.</p>
 
+  <h2>Wiring</h2>
+  <p>The web-flashed build assumes the pinout below. The optional switches are <b>off by default</b> —
+  to fit them, set their pin in <code>rotor/src/config.h</code> and reflash from source. Every switch
+  wires to <b>GND</b> and reads active-LOW (<code>INPUT_PULLUP</code>).</p>
+  <div style="overflow-x:auto">
+  <table>
+    <tr><th>Signal</th><th>28BYJ-48 build (ULN2003)</th><th>NEMA 17 build (A4988/TMC2209)</th></tr>
+    <tr><td><b>Az motor</b></td><td>IN1–4 → GPIO <b>32, 33, 25, 26</b></td><td>STEP <b>26</b>, DIR <b>25</b>, EN <b>33</b></td></tr>
+    <tr><td><b>El motor</b></td><td>IN1–4 → GPIO <b>27, 14, 12, 13</b></td><td>STEP <b>17</b>, DIR <b>16</b>, EN <b>4</b></td></tr>
+    <tr><td><b>Az home switch</b><br><span class="dim">required · az zero + auto-cal</span></td>
+      <td colspan="2">GPIO <b>34</b> ↔ GND — GPIO34 has no internal pull-up, so add an external ~10k to 3V3.</td></tr>
+    <tr><td><b>El home switch</b><br><span class="dim">optional</span></td>
+      <td colspan="2">Any free GPIO → set <code>EL_LIMIT_PIN</code>. If unset, el homes off the accelerometer instead.</td></tr>
+    <tr><td><b>Travel end-stops</b><br><span class="dim">optional · safety</span></td>
+      <td colspan="2">Az CW/CCW &amp; el min/max → <code>AZ_CW/CCW_LIMIT_PIN</code>, <code>EL_MIN/MAX_LIMIT_PIN</code>. The axis won't drive past an active stop.</td></tr>
+    <tr><td><b>IMU — MPU6050</b></td>
+      <td colspan="2">SDA <b>21</b>, SCL <b>22</b>, VCC 3V3, GND (I²C addr <code>0x68</code>).</td></tr>
+  </table>
+  </div>
+  <p class="dim"><b>Use a 6-DOF MPU6050 — not a 9-DOF.</b> Only the accelerometer (the gravity vector) is
+  read, to reference and trim elevation. A 9-DOF's magnetometer is never used — azimuth heading comes
+  from the home switch + step count + your one-time <code>SETNORTH</code> — and sitting inches from the
+  stepper coils a compass would read garbage anyway.</p>
+
   <h2>Then calibrate — no gear-ratio math</h2>
   <p>Open a serial monitor at <b>115200</b> and use the menu. Results persist to NVS and survive a
   reflash. Typical first run: <code>CAL EL</code> → <code>CAL AZ</code> → jog to north → <code>SETNORTH</code>.</p>

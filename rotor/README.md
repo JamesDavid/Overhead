@@ -23,9 +23,26 @@ pio run -d rotor -e byj -t upload    # build + flash over USB
 You do **not** enter a gear ratio — calibration measures it. If your pins/wiring differ from a
 preset, edit its block in `config.h` and rebuild that env.
 
-**Switch:** an **azimuth** limit switch is required — it's the mechanical home and the reference
-for az auto‑cal. Elevation has no switch: the accelerometer (MPU6050) is the el reference, homing
-el to level and trimming it against gravity while tracking.
+**Switches (fit what your build has):**
+
+- **Az home switch** — **required.** Mechanical az zero + the reference for az auto‑cal (`AZ_LIMIT_PIN`, GPIO 34).
+- **El home switch** — optional. Set `EL_LIMIT_PIN` to home el to a horizon switch; leave it `-1` to home el off the accelerometer (gravity). Either way the accelerometer trims el while tracking.
+- **Travel end‑stops** — optional safety limits. Set `AZ_CW_LIMIT_PIN`/`AZ_CCW_LIMIT_PIN` and/or `EL_MIN_LIMIT_PIN`/`EL_MAX_LIMIT_PIN`; the axis won't drive past an active stop (guards cable‑wrap / over‑travel). All default `-1` (off).
+
+Every switch wires to **GND** and reads active‑LOW via `INPUT_PULLUP` (GPIO34‑39 have no internal pull‑up — add an external ~10k to 3V3).
+
+**Pinout** (edit the preset in `config.h` if yours differs):
+
+| Signal | 28BYJ‑48 (ULN2003) | NEMA 17 (A4988/TMC2209) |
+|---|---|---|
+| Az motor | IN1–4 → 32, 33, 25, 26 | STEP 26, DIR 25, EN 33 |
+| El motor | IN1–4 → 27, 14, 12, 13 | STEP 17, DIR 16, EN 4 |
+| Az home switch | GPIO 34 ↔ GND | GPIO 34 ↔ GND |
+| IMU (MPU6050, **6‑DOF**) | SDA 21, SCL 22, `0x68` | SDA 21, SCL 22, `0x68` |
+
+The IMU is a **6‑DOF MPU6050** — only the accelerometer is used (el reference + trim). A 9‑DOF's
+magnetometer isn't read (az heading comes from the home switch + step count + `SETNORTH`) and would
+be swamped by the steppers anyway.
 
 ## Flash
 
