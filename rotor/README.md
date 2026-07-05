@@ -68,9 +68,10 @@ you're connected the rotor holds its channel steady so the page stays reachable.
 ### Example build — thing:314027 pan/tilt head
 
 Set up against hollerer's [360° pan / 180° tilt head](https://www.thingiverse.com/thing:314027) (two
-28BYJ‑48 + ULN2003, a microswitch per axis, printed gear reduction) and the
-[tilt/pan remix](https://www.thingiverse.com/thing:5461912). The exact model printed and assembled for
-this project is [`hardware/pan-tilt-rotor.3mf`](hardware/pan-tilt-rotor.3mf). Recommended config for it:
+28BYJ‑48 + ULN2003, a microswitch per axis, printed gear reduction) and BalooRM's
+[tilt/pan remix](https://www.thingiverse.com/thing:5461912) (also dual 28BYJ). The exact model printed
+and assembled for this project is [`hardware/pan-tilt-rotor.3mf`](hardware/pan-tilt-rotor.3mf).
+Recommended config for it:
 
 - **Az** — home to the *pan* microswitch (default GPIO 34); `SET NORTH` sets true north (the switch sits mid‑travel, which is fine).
 - **El** — home off the **accelerometer** (leave the el home switch unset). The *tilt* switch sits at a mechanical extreme, not the horizon, so gravity gives a true el 0; wire that switch as an **el end‑stop** instead.
