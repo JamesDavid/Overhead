@@ -71,6 +71,13 @@ Set up against hollerer's [360° pan / 180° tilt head](https://www.thingiverse.
 28BYJ‑48 + ULN2003, a microswitch per axis, printed gear reduction) and BalooRM's
 [tilt/pan remix](https://www.thingiverse.com/thing:5461912) (also dual 28BYJ). The exact model printed
 and assembled for this project is [`hardware/pan-tilt-rotor.3mf`](hardware/pan-tilt-rotor.3mf).
+
+![Assembled pan/tilt head — 28BYJ steppers driving printed reduction gears](hardware/img/pan-tilt-assembled.jpg)
+![The 3D-printed parts — spur + bevel gears, housing, base plate](hardware/img/pan-tilt-parts.jpg)
+
+*Photos of the 314027 build © Thingiverse user [hollerer](https://www.thingiverse.com/thing:314027),
+licensed [CC BY‑NC‑SA](https://creativecommons.org/licenses/by-nc-sa/3.0/).*
+
 Recommended config for it:
 
 - **Az** — home to the *pan* microswitch (default GPIO 34); `SET NORTH` sets true north (the switch sits mid‑travel, which is fine).
