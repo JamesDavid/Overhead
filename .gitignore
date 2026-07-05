@@ -7,3 +7,6 @@
 *.elf
 *.map
 .DS_Store
+
+# rotor: large reference downloads (e.g. the thing:314027 pan/tilt STL zip)
+rotor/*.zip

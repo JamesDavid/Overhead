@@ -133,6 +133,12 @@
 #define EL_TRIM_GAIN         0.25f   // 0 = off
 #define EL_TRIM_DEADBAND_DEG 0.4f
 
+// Azimuth backlash compensation (steps). On a direction reversal the axis is driven
+// this many extra steps so the gear train always loads the same flank — the printed-gear
+// pan/tilt heads like thing:314027 need it (az has no gravity reference; el uses the trim
+// above instead). 0 = off (default); tune by jogging az back and forth and watching for slack.
+#define AZ_BACKLASH_STEPS 0
+
 // Homing feed rate (steps/s)
 #define HOME_SPEED 350.0f
 

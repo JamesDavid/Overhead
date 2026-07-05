@@ -65,6 +65,16 @@ After flashing, the rotor hosts an always‑on **`Rotor-setup`** Wi‑Fi AP (ope
 Saving writes to NVS and reboots to apply. The AP coexists with ESP‑NOW on the same channel, and while
 you're connected the rotor holds its channel steady so the page stays reachable.
 
+### Example build — thing:314027 pan/tilt head
+
+Set up against hollerer's [360° pan / 180° tilt head](https://www.thingiverse.com/thing:314027) (two
+28BYJ‑48 + ULN2003, a microswitch per axis, printed gear reduction). Recommended config for it:
+
+- **Az** — home to the *pan* microswitch (default GPIO 34); `SET NORTH` sets true north (the switch sits mid‑travel, which is fine).
+- **El** — home off the **accelerometer** (leave the el home switch unset). The *tilt* switch sits at a mechanical extreme, not the horizon, so gravity gives a true el 0; wire that switch as an **el end‑stop** instead.
+- **Az backlash** — the printed gears have lash and az has no gravity reference, so set **Az backlash comp** (steps) in the web UI and tune by jogging az back and forth.
+- Then `CAL EL` → `CAL AZ` → `SET NORTH`. Expect roughly **~32** az / **~68** el steps/deg on that head — measured for you, not entered.
+
 ## Calibrate — no gear‑ratio math
 
 Use the buttons in the **Rotor‑setup** web UI, or a serial monitor at **115200**. Results persist to

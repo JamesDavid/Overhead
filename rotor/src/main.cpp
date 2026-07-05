@@ -50,12 +50,13 @@ struct RotorCfg {
   uint8_t homeActive, endstopActive;   // 0 = active-LOW, 1 = active-HIGH
   // Radio (used from milestone 2 on): fixed ESP-NOW channel (0 = auto-hunt) + target.
   uint8_t channel, targetId;
+  uint16_t azBacklash;                 // az backlash-comp steps on a reversal (0 = off)
 };
 RotorCfg cfg;
 
 // Seed cfg from the config.h factory defaults (BYJ preset unless built with the flag).
 void cfgDefaults() {
-  cfg.ver = 1;
+  cfg.ver = 2;
   cfg.azDriver = AZ_DRIVER;  cfg.elDriver = EL_DRIVER;
 #if AZ_DRIVER == DRIVER_STEP_DIR
   cfg.azPins[0]=AZ_PIN_STEP; cfg.azPins[1]=AZ_PIN_DIR; cfg.azPins[2]=AZ_PIN_EN; cfg.azPins[3]=-1;
@@ -73,6 +74,7 @@ void cfgDefaults() {
   cfg.homeActive    = (AZ_LIMIT_ACTIVE == HIGH) ? 1 : 0;
   cfg.endstopActive = (ENDSTOP_ACTIVE  == HIGH) ? 1 : 0;
   cfg.channel = 0;  cfg.targetId = 0;
+  cfg.azBacklash = AZ_BACKLASH_STEPS;
 }
 inline int homeLvl()    { return cfg.homeActive    ? HIGH : LOW; }
 inline int endstopLvl() { return cfg.endstopActive ? HIGH : LOW; }
@@ -280,6 +282,7 @@ void handleRoot() {
   h += rowSel2("Home switch level",  "homeact", cfg.homeActive,    "active-LOW", "active-HIGH");
   h += rowSel2("End-stop level",     "endact",  cfg.endstopActive, "active-LOW", "active-HIGH");
   h += rowNum("ESP-NOW channel (0=auto-hunt)", "chan", cfg.channel, 0, 13);
+  h += rowNum("Az backlash comp (steps, 0=off)", "azbl", cfg.azBacklash, 0, 2000);
   h += F("</table><p><button type=submit>Save &amp; reboot</button></p></form>"
     "<p class=tag style='color:#9fb0c4;font-size:.82rem'>Saving reboots to apply pin/driver changes. "
     "You're on the <b>Rotor-setup</b> Wi-Fi.</p></div></body></html>");
@@ -307,6 +310,8 @@ void handleSave() {
   cfg.endstopActive = server.arg("endact").toInt()  ? 1 : 0;
   int ch = server.arg("chan").toInt();
   cfg.channel = (ch >= 1 && ch <= 13) ? (uint8_t)ch : 0;
+  int bl = server.arg("azbl").toInt();
+  cfg.azBacklash = (bl < 0) ? 0 : (bl > 2000 ? 2000 : (uint16_t)bl);
   nvsSave();
   server.send(200, "text/html",
     F("<!doctype html><meta charset=utf-8><meta http-equiv=refresh content='4;url=/'>"
@@ -352,6 +357,19 @@ long azDegToSteps(float trueAz) {
 long elDegToSteps(float el) {
   el = constrain(el, EL_MIN_DEG, EL_MAX_DEG);
   return g_elSign * lroundf(el * g_elSpd);
+}
+
+// Azimuth backlash compensation — command cfg.azBacklash extra steps in the current
+// direction of travel so the gear train always loads the same flank across a reversal
+// (the printed-gear pan/tilt heads need this; el uses the accelerometer trim instead).
+// The physical output still reaches `ideal`; only a reversal spends the take-up steps.
+long g_azPrevTarget = 0;
+long g_azBias       = 0;
+void azMoveTo(long ideal) {
+  if      (ideal > g_azPrevTarget) g_azBias = cfg.azBacklash;   // moving + -> bias ahead
+  else if (ideal < g_azPrevTarget) g_azBias = 0;                // moving - -> release bias
+  g_azPrevTarget = ideal;
+  azM.moveTo(ideal + g_azBias);
 }
 
 // ----------------------------------------------------------------------------
@@ -571,6 +589,7 @@ void homeAz() {
   azM.setSpeed(g_azSign * -HOME_SPEED);      // drive toward the switch (sign flips with invert)
   if (digitalRead(cfg.azHomePin) == homeLvl()) {
     azM.setCurrentPosition(0);               // mechanical zero
+    g_azPrevTarget = 0; g_azBias = 0;        // reset backlash tracking at home
     state = HOMING_EL;
     return;
   }
@@ -623,14 +642,14 @@ void track() {
   // Known limitation (§9): near a zenith pass, az slews faster than a 28BYJ can follow, so the
   // rotor lags through overhead and recovers on the far side. Cosmetic for a pointer — this is
   // deliberately NOT "fixed" in software.
-  azM.moveTo(azDegToSteps(azCmd));
+  azMoveTo(azDegToSteps(azCmd));   // az with backlash comp
   elM.moveTo(elDegToSteps(elCmd));
   azRun(); elRun();
 }
 
 void park() {
   if (millis() - rxTimeMs > RESCAN_MS) { startScan(); return; }  // lost -> re-hunt
-  azM.moveTo(0);
+  azMoveTo(0);
   elM.moveTo(elDegToSteps(EL_MIN_DEG));
   azRun(); elRun();
   // when a fresh valid packet shows up, resume tracking
