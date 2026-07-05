@@ -49,6 +49,15 @@
       <a href="https://creativecommons.org/licenses/by-nc-sa/3.0/">CC BY-NC-SA</a>.</figcaption>
   </figure>
 
+  <figure style="margin:18px 0">
+    <img src="img/pan-tilt-remix-assembled.jpg" alt="Assembled remix build in olive PLA with a controller enclosure"
+         style="width:100%;max-width:540px;border-radius:12px;border:1px solid var(--line);display:block">
+    <figcaption class="dim" style="font-size:.85rem;margin-top:8px">…or BalooRM's
+      <a href="https://www.thingiverse.com/thing:5461912">tilt/pan remix (thing:5461912)</a> — the same
+      dual-28BYJ mechanism, shown fully assembled. Photo © BalooRM,
+      <a href="https://creativecommons.org/licenses/by/4.0/">CC BY</a>.</figcaption>
+  </figure>
+
   <h2>Flash it from your browser</h2>
   <div class="flash">
     <p><b>One firmware for both motor types.</b> Plug the <b>ESP32</b> in over USB, click <b>Install</b>,
@@ -120,6 +129,9 @@
     two 28BYJ-48 + ULN2003 with a microswitch per axis. In the web UI, home az to the pan switch and el
     off the accelerometer (its tilt switch sits at a travel extreme, not the horizon), and set a little
     az backlash comp for the printed gears.</p>
+    <p>Prefer an antenna rotator? The firmware is motor-agnostic (28BYJ or NEMA, chosen in the web UI), so it
+    also suits other stepper az/el builds — e.g. jbyrns's
+    <a href="https://www.thingiverse.com/thing:4664558">AZEL Satellite Antenna Rotator</a> for a ham Arrow antenna.</p>
     <p>Source, hardware guide &amp; backlog: <a href="https://github.com/JamesDavid/Overhead">github.com/JamesDavid/Overhead</a>
     · Free for personal/non-commercial use (PolyForm Noncommercial 1.0.0). · DE KE7AQA</p>
   </div>

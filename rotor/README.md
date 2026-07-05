@@ -78,12 +78,22 @@ and assembled for this project is [`hardware/pan-tilt-rotor.3mf`](hardware/pan-t
 *Photos of the 314027 build © Thingiverse user [hollerer](https://www.thingiverse.com/thing:314027),
 licensed [CC BY‑NC‑SA](https://creativecommons.org/licenses/by-nc-sa/3.0/).*
 
+![Assembled remix — the same dual‑28BYJ mechanism in olive PLA with a controller enclosure](hardware/img/pan-tilt-remix-assembled.jpg)
+
+*Assembled [5461912 remix](https://www.thingiverse.com/thing:5461912) © Thingiverse user
+BalooRM, licensed [CC BY](https://creativecommons.org/licenses/by/4.0/).*
+
 Recommended config for it:
 
 - **Az** — home to the *pan* microswitch (default GPIO 34); `SET NORTH` sets true north (the switch sits mid‑travel, which is fine).
 - **El** — home off the **accelerometer** (leave the el home switch unset). The *tilt* switch sits at a mechanical extreme, not the horizon, so gravity gives a true el 0; wire that switch as an **el end‑stop** instead.
 - **Az backlash** — the printed gears have lash and az has no gravity reference, so set **Az backlash comp** (steps) in the web UI and tune by jogging az back and forth.
 - Then `CAL EL` → `CAL AZ` → `SET NORTH`. Expect roughly **~32** az / **~68** el steps/deg on that head — measured for you, not entered.
+
+**Other printable rotators.** The firmware is motor‑agnostic (28BYJ or NEMA, chosen in the browser), so
+it also suits other stepper az/el builds — e.g. jbyrns's
+[AZEL Satellite Antenna Rotator](https://www.thingiverse.com/thing:4664558) for a ham Arrow antenna (a
+larger antenna‑class design; check its motors/switches and set them in the web UI).
 
 ## Calibrate — no gear‑ratio math
 
