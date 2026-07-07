@@ -47,7 +47,7 @@ public:
   void setAlert(const String& s, int targetPage = -1);  // cross-tab alert; tap the strip -> targetPage
   void setBeeper(MorseBeeper* b) { _beeper = b; }       // Morse-code alert beeper (optional)
   void beepTest(const String& w);                       // force a Morse beep (remote/serial test)
-  void injectTap(int x, int y) { _injTapX = x; _injTapY = y; }   // debug: synthetic touch
+  void injectTap(int x, int y) { _injTapY = y; _injTapX = x; }   // debug: synthetic touch (Y first — X is the ready flag tick() polls)
   void injectSwipe(int dir) { _injSwipe = dir; }                 // debug: -1 prev, +1 next
   void injectScroll(int dy) { _injScroll = dy; }                 // debug: vertical scroll (dy<0 up, dy>0 down)
   void setInactivityMs(uint32_t ms) { _inactivityMs = ms; }
@@ -127,6 +127,8 @@ private:
   volatile int _injTapX = -1, _injTapY = -1;   // pending injected touch (debug web API)
   volatile int _injSwipe = 0;                  // pending injected swipe (-1/+1)
   volatile int _injScroll = 0;                 // pending injected vertical scroll (dy)
+  volatile bool _beepPending = false;          // staged /api/beep word (consumed in tick —
+  char _beepWord[24] = {0};                    //  MorseBeeper state is UI-thread-owned)
 
   bool     _grid = false;              // 3x3 quick-jump grid overlay is showing
   bool     _locPicker = false;         // saved-locations modal overlay is showing

@@ -61,9 +61,17 @@ public:
   // buffer allocated ONCE at boot (fresh, unfragmented heap) so it neither
   // fragments the heap nor competes with TLS allocations at runtime.
   void requestShot() { _shotReady = false; _shotPending = true; }
-  void serviceShot();                     // call from the main loop each tick
-  void freeShot();                        // release the 16KB buffer after serving (heap floor recovers)
-  void setShotsEnabled(bool on) { _shotsEnabled = on; if (!on) freeShot(); }  // runtime enable/disable
+  void serviceShot();                     // call from the main loop each tick (also runs deferred frees)
+  // The shot buffer is UI-thread-owned: web handlers must never free() it directly
+  // (that raced an in-flight encode/stream -> use-after-free). freeShot() only
+  // REQUESTS a release; serviceShot() frees once no web client holds the buffer.
+  void freeShot() { _freePending = true; }
+  void setShotsEnabled(bool on) { _shotsEnabled = on; if (!on) _freePending = true; }
+  // Web streaming hold: the /api/screen.jpg handler brackets each response so the
+  // UI thread can't free the buffer mid-stream. Called on the async_tcp task only
+  // (single task -> the counter needs no atomics; volatile so serviceShot sees it).
+  void shotClientBegin() { _shotClients = _shotClients + 1; }
+  void shotClientEnd()   { if (_shotClients > 0) _shotClients = _shotClients - 1; _freePending = true; }
   bool shotsEnabled() const { return _shotsEnabled; }
   bool shotReady() const { return _shotReady; }
   const uint8_t* jpeg() const { return _jpg; }
@@ -93,6 +101,8 @@ private:
   bool     _shotsEnabled = true;          // gate the 16KB buffer (production frees it)
   volatile bool _shotPending = false;
   volatile bool _shotReady = false;
+  volatile bool _freePending = false;     // release requested; honored in serviceShot (UI thread)
+  volatile int  _shotClients = 0;         // web responses currently holding the buffer
 #if BACKLIGHT_VIA_EXPANDER
   uint8_t _expanderAddr = 0;              // detected I2C expander (0 = none)
   void    expanderBegin();

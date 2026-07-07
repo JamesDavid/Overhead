@@ -278,6 +278,13 @@ int Display::encodeJpeg(int quality) {
 // UI thread only (shares the SPI bus with the live draw). Busy screens (big T-minus,
 // dense lists) blow past the buffer at medium quality, so fall back to low.
 void Display::serviceShot() {
+  // Deferred free (UI thread owns the buffer): honor a requested release only
+  // once no /api/screen.jpg response is still streaming from it and no capture
+  // is queued — the old free-from-the-web-task freed it mid-encode/mid-stream.
+  if (_freePending && _shotClients == 0 && !_shotPending) {
+    if (_jpg) { free(_jpg); _jpg = nullptr; }
+    _jpgLen = 0; _shotReady = false; _freePending = false;
+  }
   if (!_shotPending) return;
   _shotPending = false;
   _jpgLen = 0;
@@ -291,11 +298,6 @@ void Display::serviceShot() {
   _jpgLen = encodeJpeg(JPEGE_Q_MED);
   if (_jpgLen == 0) _jpgLen = encodeJpeg(JPEGE_Q_LOW);
   _shotReady = true;
-}
-
-void Display::freeShot() {                  // release the 16KB buffer between shots -> heap floor recovers
-  if (_jpg) { free(_jpg); _jpg = nullptr; }
-  _jpgLen = 0; _shotReady = false;
 }
 
 void Display::setBacklight(uint8_t level) {

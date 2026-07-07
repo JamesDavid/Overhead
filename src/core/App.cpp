@@ -65,7 +65,14 @@ bool App::autoAdvanceActive() {
   return false;
 }
 
-void App::beepTest(const String& w) { if (_beeper) _beeper->play(w); }   // bypasses the enable/night gate
+// Staged: /api/beep lands on the async_tcp task but MorseBeeper's segment state is
+// consumed by tick() on the UI thread — playing here mid-tick garbled the timing.
+// Fixed buffer + flag ordering (word first, flag last) avoids a torn cross-task String.
+void App::beepTest(const String& w) {                                    // bypasses the enable/night gate
+  strncpy(_beepWord, w.c_str(), sizeof(_beepWord) - 1);
+  _beepWord[sizeof(_beepWord) - 1] = 0;
+  _beepPending = true;
+}
 
 void App::setAlert(const String& s, int targetPage) {
   _alertTarget = s.length() ? targetPage : -1;
@@ -278,6 +285,10 @@ void App::tick(uint32_t nowMs) {
   if (_injScroll) {
     int dy = _injScroll; _injScroll = 0; _lastInteractMs = nowMs; _mode = Mode::Manual;
     if (_active >= 0 && !_grid) _pages[_active]->onScroll(*this, dy);
+  }
+  if (_beepPending) {                // staged /api/beep -> play on the UI thread
+    _beepPending = false;
+    if (_beeper) _beeper->play(String(_beepWord));
   }
 
   // Touch: distinguish a horizontal swipe (carousel page change) from a tap

@@ -40,6 +40,15 @@ public:
   void setDebug(App* app, Display* display) { _app = app; _display = display; }
 
 private:
+  // --- async_tcp -> UI-thread marshalling -----------------------------------
+  // Handlers run on the async_tcp task and must not touch Settings/Display/App
+  // state the UI thread owns (the EventBus.h contract): POST /api/settings is
+  // STAGED here and applied in loop(); GET /api/status + /api/settings serve
+  // caches rebuilt in loop(). _lock is a mutex (not a critical section) so
+  // String ops are legal while held.
+  void applyPendingSettings();           // UI thread: merge a staged POST into Settings
+  void refreshCaches(bool force);        // UI thread: rebuild the served JSON bodies
+
   Settings*      _s = nullptr;
   App*           _app = nullptr;
   Display*       _display = nullptr;
@@ -50,4 +59,11 @@ private:
   String _host;                          // mDNS hostname (for restart)
   bool   _running = false;               // listener up?
   bool   _everStopped = false;           // a stop() happened this boot (re-bind needs a reboot)
+
+  SemaphoreHandle_t _lock = nullptr;     // guards the staged POST + served caches
+  String _pendingSet;                    // staged /api/settings POST body
+  volatile bool _havePending = false;
+  String _statusCache;                   // served by GET /api/status
+  String _settingsCache;                 // served by GET /api/settings
+  uint32_t _cacheMs = 0;
 };

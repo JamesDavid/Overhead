@@ -7,6 +7,7 @@
 #include <LittleFS.h>
 #include <ESPmDNS.h>
 #include <array>
+#include <memory>
 
 static const char kIndexHtml[] PROGMEM = R"HTML(
 <!doctype html><html><head><meta charset=utf-8>
@@ -247,6 +248,7 @@ ref();
 
 bool WebPortal::begin(Settings* s, const String& hostname) {
   _s = s;
+  _lock = xSemaphoreCreateMutex();       // async_tcp <-> UI-thread handoff (see header)
   // Auth is OFF by default (home-LAN convenience); flip "require login" in System settings to enforce
   // it. Empty creds make AsyncWebServer/ElegantOTA skip auth entirely (_hasCreds = user && pass).
   bool authOn = _s->getBool("webAuth", false);
@@ -267,55 +269,63 @@ bool WebPortal::begin(Settings* s, const String& hostname) {
     req->send(200, "text/html", kRemoteHtml);
   }).setAuthentication(_apiUser.c_str(), _apiPass.c_str());
 
+  // GET /api/status + /api/settings serve caches rebuilt by the UI thread in
+  // loop() — the handlers (async_tcp task) must not read the Settings doc or
+  // provider Strings while the UI thread mutates them (torn reads / UAF).
   _server.on("/api/status", HTTP_GET, [this](AsyncWebServerRequest* req) {
-    JsonDocument doc;
-    if (_statusFn) _statusFn(doc);
-    String out; serializeJson(doc, out);
-    req->send(200, "application/json", out);
+    String out;
+    xSemaphoreTake(_lock, portMAX_DELAY); out = _statusCache; xSemaphoreGive(_lock);
+    req->send(200, "application/json", out.length() ? out : String("{}"));
   }).setAuthentication(_apiUser.c_str(), _apiPass.c_str());
 
   _server.on("/api/settings", HTTP_GET, [this](AsyncWebServerRequest* req) {
-    String out; serializeJson(_s->doc(), out);
-    req->send(200, "application/json", out);
+    String out;
+    xSemaphoreTake(_lock, portMAX_DELAY); out = _settingsCache; xSemaphoreGive(_lock);
+    req->send(200, "application/json", out.length() ? out : String("{}"));
   }).setAuthentication(_apiUser.c_str(), _apiPass.c_str());
 
-  // POST/PUT JSON body -> merge changed keys into settings and persist.
+  // POST/PUT JSON body -> STAGE it; loop() (UI thread) merges into Settings,
+  // persists, and applies the live toggles. Mutating _s->doc() here would race
+  // the UI thread (ArduinoJson pool reallocation under a live iterator).
   auto* setHandler = new AsyncCallbackJsonWebHandler("/api/settings",
       [this](AsyncWebServerRequest* req, JsonVariant& json) {
         if (!json.is<JsonObject>()) { req->send(400, "application/json", "{\"ok\":false}"); return; }
-        for (JsonPair kv : json.as<JsonObject>()) _s->doc()[kv.key()] = kv.value();
-        _s->save();
-        // Apply the remote-screenshot toggle LIVE so the web UI can free the 16 KB
-        // buffer on demand (off -> freeShot()), not just at the next reboot.
-        if (_display && json["debugShots"].is<bool>()) _display->setShotsEnabled(json["debugShots"].as<bool>());
-        // Apply rotation/invert live (so a CYD-variant orientation can be dialed in from a phone).
-        // Note: rotation desyncs the resistive touch cal — recalibrate via Health after settling on one.
-        if (_display && (json["dispRotation"].is<int>() || json["dispInvert"].is<bool>()))
-          _display->applyDisplayPrefs((int)_s->getInt("dispRotation", _display->rotation()), _s->getBool("dispInvert"));
+        String body; serializeJson(json, body);
+        xSemaphoreTake(_lock, portMAX_DELAY);
+        _pendingSet = std::move(body); _havePending = true;
+        xSemaphoreGive(_lock);
         req->send(200, "application/json", "{\"ok\":true}");
       });
   setHandler->setAuthentication(_apiUser.c_str(), _apiPass.c_str());
   _server.addHandler(setHandler);
 
   // --- Debug/automation: full-res JPEG screenshot. The UI thread encodes into an
-  // on-demand buffer; we stream it and free it when done (no permanent heap hit).
+  // on-demand buffer; we stream it and request its release when done (the actual
+  // free happens on the UI thread in serviceShot() — freeing here raced an
+  // in-flight encode/stream: use-after-free).
   _server.on("/api/screen.jpg", HTTP_GET, [this](AsyncWebServerRequest* req) {
     if (!_display) { req->send(503, "text/plain", "no display"); return; }
     Display* disp = _display;
+    disp->shotClientBegin();               // hold the buffer: UI thread won't free it mid-stream
     disp->requestShot();
     uint32_t t0 = millis();
     while (!disp->shotReady() && millis() - t0 < 1200) delay(5);
-    if (!disp->shotReady() || !disp->jpegLen()) { req->send(503, "text/plain", "capture failed"); return; }
+    if (!disp->shotReady() || !disp->jpegLen()) { disp->shotClientEnd(); req->send(503, "text/plain", "capture failed"); return; }
 
     const uint8_t* jpg = disp->jpeg();
     size_t len = disp->jpegLen();
+    // Release EXACTLY once, whether the stream completes or the client drops
+    // mid-transfer (previously an abort leaked the 16KB until reboot).
+    auto ended = std::make_shared<bool>(false);
+    auto endOnce = [disp, ended]() { if (!*ended) { *ended = true; disp->shotClientEnd(); } };
     AsyncWebServerResponse* res = req->beginChunkedResponse("image/jpeg",
-      [disp, jpg, len](uint8_t* buf, size_t maxLen, size_t index) -> size_t {
-        if (index >= len) { disp->freeShot(); return 0; }   // done -> free the 16KB so TLS has heap
+      [jpg, len, endOnce](uint8_t* buf, size_t maxLen, size_t index) -> size_t {
+        if (index >= len) { endOnce(); return 0; }   // done -> UI thread frees the 16KB so TLS has heap
         size_t k = (len - index < maxLen) ? (len - index) : maxLen;
         memcpy(buf, jpg + index, k);
         return k;
       });
+    req->onDisconnect(endOnce);            // abort path (client closed mid-stream)
     req->send(res);
   }).setAuthentication(_apiUser.c_str(), _apiPass.c_str());
 
@@ -364,7 +374,48 @@ bool WebPortal::begin(Settings* s, const String& hostname) {
   return true;                           // start() opens the listener
 }
 
-void WebPortal::loop() { if (_running) ElegantOTA.loop(); }
+void WebPortal::loop() {
+  if (_running) ElegantOTA.loop();
+  applyPendingSettings();                // staged POST /api/settings -> Settings (UI thread)
+  if (_running) refreshCaches(false);    // keep the served /api/status + /api/settings bodies fresh
+}
+
+// UI thread: merge a staged settings POST into the doc, persist, and apply the
+// live toggles (screenshot buffer / rotation) — all of which are UI-thread-owned.
+void WebPortal::applyPendingSettings() {
+  if (!_havePending) return;
+  String body;
+  xSemaphoreTake(_lock, portMAX_DELAY);
+  body = std::move(_pendingSet); _pendingSet = ""; _havePending = false;
+  xSemaphoreGive(_lock);
+  JsonDocument in;
+  if (deserializeJson(in, body) || !in.is<JsonObject>()) return;
+  for (JsonPair kv : in.as<JsonObject>()) _s->doc()[kv.key()] = kv.value();
+  _s->save();
+  // Apply the remote-screenshot toggle LIVE so the web UI can free the 16 KB
+  // buffer on demand (off -> deferred free), not just at the next reboot.
+  if (_display && in["debugShots"].is<bool>()) _display->setShotsEnabled(in["debugShots"].as<bool>());
+  // Apply rotation/invert live (so a CYD-variant orientation can be dialed in from a phone).
+  // Note: rotation desyncs the resistive touch cal — recalibrate via Health after settling on one.
+  if (_display && (in["dispRotation"].is<int>() || in["dispInvert"].is<bool>()))
+    _display->applyDisplayPrefs((int)_s->getInt("dispRotation", _display->rotation()), _s->getBool("dispInvert"));
+  refreshCaches(true);                   // the settings GET body changed
+}
+
+// UI thread: rebuild the JSON bodies the GET handlers serve. Status every 1s
+// (cheap, polled by debug tooling); the settings body piggybacks on the same
+// cadence and additionally refreshes immediately after an apply.
+void WebPortal::refreshCaches(bool force) {
+  if (!force && millis() - _cacheMs < 1000) return;
+  _cacheMs = millis();
+  JsonDocument st;
+  if (_statusFn) _statusFn(st);
+  String stOut; serializeJson(st, stOut);
+  String seOut; serializeJson(_s->doc(), seOut);
+  xSemaphoreTake(_lock, portMAX_DELAY);
+  _statusCache = std::move(stOut); _settingsCache = std::move(seOut);
+  xSemaphoreGive(_lock);
+}
 
 void WebPortal::stop() {
   if (!_running) return;
@@ -377,6 +428,7 @@ void WebPortal::stop() {
 
 void WebPortal::start() {
   if (_running) return;
+  refreshCaches(true);                   // seed the served bodies before the first request lands
   _server.begin();
   if (MDNS.begin(_host.c_str())) { MDNS.addService("http", "tcp", 80); Serial.printf("[web] http://%s.local/\n", _host.c_str()); }
   _running = true;
