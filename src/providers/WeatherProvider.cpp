@@ -44,7 +44,7 @@ void WeatherProvider::refresh(bool force) {
     "&wind_speed_unit=kn&forecast_days=2&timezone=GMT",
     _loc->active().lat, _loc->active().lon);
   _inflight = true;
-  _net->get(url, [this](int code, const String& body) {
+  bool sent = _net->get(url, [this](int code, const String& body) {
     _inflight = false;
     if (code == 200 && parse(body)) {
       uint32_t nowt = (uint32_t)time(nullptr);
@@ -56,6 +56,7 @@ void WeatherProvider::refresh(bool force) {
     }
     if (_bus) _bus->publish(ProviderId::Weather);
   });
+  if (!sent) _inflight = false;   // queue full -> retry next cycle instead of wedging
 }
 
 bool WeatherProvider::parse(const String& body) {

@@ -53,7 +53,7 @@ void TleProvider::fetchGroup(int idx) {
   if (_sats.empty()) _status = ProviderStatus::Loading;
   _pendingFetches++;
 
-  _net->get(url, [this, idx](int code, const String& body) {
+  bool sent = _net->get(url, [this, idx](int code, const String& body) {
     _pendingFetches--;
     bool ok = (code == 200) && body.length() > 60 && body.indexOf("1 ") >= 0;
     if (ok) {
@@ -79,6 +79,7 @@ void TleProvider::fetchGroup(int idx) {
                   _status == ProviderStatus::Ready ? "ready" : "stale/err");
     if (_bus) _bus->publish(ProviderId::Tle);
   });
+  if (!sent) _pendingFetches--;   // queue full: undo, else status sticks at Loading forever
 }
 
 void TleProvider::loadFromCache(int idx) {

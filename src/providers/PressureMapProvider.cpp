@@ -51,11 +51,12 @@ void PressureMapProvider::fetchAround(double lat, double lon) {
   char bb[80]; snprintf(bb, sizeof(bb), "bbox=%.2f,%.2f,%.2f,%.2f", _a0, _w0, _a1, _w1);
   String url = String("https://aviationweather.gov/api/data/metar?format=json&") + bb;
   _inflight = true; _status = ProviderStatus::Loading;
-  _net->get(url, [this](int code, const String& body) {     // ad-hoc drill-in: not cached
+  bool sent = _net->get(url, [this](int code, const String& body) {     // ad-hoc drill-in: not cached
     _inflight = false;
     if (code == 200 && parse(body)) { _lastFetched = (uint32_t)time(nullptr); _status = ProviderStatus::Ready; }
     else if (_pts.empty()) _status = ProviderStatus::Error;
   });
+  if (!sent) { _inflight = false; if (_pts.empty()) _status = ProviderStatus::Error; }
 }
 
 void PressureMapProvider::setScope(int s) {
@@ -99,7 +100,7 @@ void PressureMapProvider::refresh(bool force) {
   }
 
   _inflight = true;
-  _net->get(url, [this, key](int code, const String& body) {
+  bool sent = _net->get(url, [this, key](int code, const String& body) {
     _inflight = false;
     if (code == 200 && parse(body)) {
       _cache->put(key.c_str(), body, code, (uint32_t)time(nullptr));
@@ -109,6 +110,7 @@ void PressureMapProvider::refresh(bool force) {
       _status = ProviderStatus::Error;
     }
   });
+  if (!sent) _inflight = false;   // queue full -> retry next cycle instead of wedging
 }
 
 static int coverPct(const String& c) {

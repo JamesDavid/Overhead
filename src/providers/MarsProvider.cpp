@@ -26,7 +26,7 @@ void MarsProvider::refresh(bool force) {
   // /rovers returns all rover summaries in one small body (no per-photo lists).
   const char* url = "https://api.nasa.gov/mars-photos/api/v1/rovers?api_key=DEMO_KEY";
   _inflight = true;
-  _net->get(url, [this](int code, const String& body) {
+  bool sent = _net->get(url, [this](int code, const String& body) {
     _inflight = false;
     if (code == 200 && parse(body)) {
       _cache->put(kCacheKey, body, code, (uint32_t)time(nullptr));
@@ -37,6 +37,7 @@ void MarsProvider::refresh(bool force) {
     }
     if (_bus) _bus->publish(ProviderId::Mars);
   });
+  if (!sent) _inflight = false;   // queue full -> retry next cycle instead of wedging
 }
 
 bool MarsProvider::parse(const String& body) {

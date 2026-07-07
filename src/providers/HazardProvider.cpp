@@ -50,9 +50,8 @@ void HazardProvider::rebuild() {
 
 void HazardProvider::fetchAirsig() {
   _inAir = true;
-  _net->get("https://aviationweather.gov/api/data/airsigmet?format=json", [this](int code, const String& body) {
+  bool sent = _net->get("https://aviationweather.gov/api/data/airsigmet?format=json", [this](int code, const String& body) {
     _inAir = false;
-    _airsig.clear();
     if (code == 200) {
       JsonDocument filter;
       JsonObject e = filter.add<JsonObject>();
@@ -61,6 +60,9 @@ void HazardProvider::fetchAirsig() {
       JsonObject c = e["coords"].add<JsonObject>(); c["lat"] = c["lon"] = true;
       JsonDocument doc;
       if (!deserializeJson(doc, body, DeserializationOption::Filter(filter))) {
+        // clear only on a good fetch+parse: a failed refresh must keep the
+        // last-good hazards (serve stale), never fabricate an all-clear.
+        _airsig.clear();
         double olat = _loc->active().lat, olon = _loc->active().lon;
         for (JsonObject o : doc.as<JsonArray>()) {
           JsonArray cs = o["coords"].as<JsonArray>();
@@ -88,6 +90,7 @@ void HazardProvider::fetchAirsig() {
     }
     rebuild();
   });
+  if (!sent) _inAir = false;   // queue full -> retry next cycle instead of wedging
 }
 
 void HazardProvider::fetchPirep() {
@@ -97,15 +100,15 @@ void HazardProvider::fetchPirep() {
     "https://aviationweather.gov/api/data/pirep?format=json&bbox=%.1f,%.1f,%.1f,%.1f",
     la - 1.5, lo - 2.0, la + 1.5, lo + 2.0);
   _inPi = true;
-  _net->get(url, [this](int code, const String& body) {
+  bool sent = _net->get(url, [this](int code, const String& body) {
     _inPi = false;
-    _pirep.clear();
     if (code == 200) {
       JsonDocument filter;
       JsonObject e = filter.add<JsonObject>();
       e["rawOb"] = true;
       JsonDocument doc;
       if (!deserializeJson(doc, body, DeserializationOption::Filter(filter))) {
+        _pirep.clear();                          // last-good kept on any failure
         for (JsonObject o : doc.as<JsonArray>()) {
           String raw = (const char*)(o["rawOb"] | "");
           if (!raw.length()) continue;
@@ -117,4 +120,5 @@ void HazardProvider::fetchPirep() {
     }
     rebuild();
   });
+  if (!sent) _inPi = false;    // queue full -> retry next cycle instead of wedging
 }
