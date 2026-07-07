@@ -119,6 +119,14 @@ static int coverPct(const String& c) {
   return 0;
 }
 
+// AWC "visib" is mixed-type: "10+" (string) for unlimited but a bare JSON number
+// when reduced — the case that decides LIFR/IFR (mirrors AviationWxProvider).
+static float visibSm(JsonVariantConst v) {
+  if (v.is<float>() || v.is<int>()) return v.as<float>();
+  const char* s = v.as<const char*>();
+  return s ? (float)atof(s) : -1.0f;             // "10+" -> 10; absent -> unknown
+}
+
 // Flight category from ceiling + visibility (mirrors AviationWxProvider::flightCat so
 // the unified map colours every fetched station, not just the METAR-feed ones).
 static String flightCat(int ceilFt, float visSm) {
@@ -159,7 +167,7 @@ bool PressureMapProvider::parse(const String& body) {
       }
     }
     p.cloud = cl;
-    float visSm = atof(String((const char*)(o["visib"] | "-1")).c_str());
+    float visSm = visibSm(o["visib"]);
     p.cat = flightCat(ceil, visSm);
     MetarRec r; r.icao = p.icao; r.lat = p.lat; r.lon = p.lon; r.hpa = p.hpa;   // feed the shared pool
     r.cloud = p.cloud; r.wdir = p.wdir; r.wspd = p.wspd; r.cat = p.cat;

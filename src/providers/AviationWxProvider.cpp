@@ -112,6 +112,16 @@ void AviationWxProvider::fetchTafs() {
   });
 }
 
+// AWC "visib" is mixed-type: "10+" (a string) for unlimited but a bare JSON number
+// (e.g. 0.5) when visibility is REDUCED — exactly the case that decides LIFR/IFR.
+// The old string-only extraction defaulted numerics to -1 ("unknown"), so a
+// half-mile fog station with no ceiling was categorized VFR.
+static float visibSm(JsonVariantConst v) {
+  if (v.is<float>() || v.is<int>()) return v.as<float>();
+  const char* s = v.as<const char*>();
+  return s ? (float)atof(s) : -1.0f;             // "10+" -> 10; absent -> unknown
+}
+
 bool AviationWxProvider::parseMetars(const String& body) {
   JsonDocument filter;
   JsonObject e = filter.add<JsonObject>();
@@ -138,7 +148,7 @@ bool AviationWxProvider::parseMetars(const String& body) {
     m.wdir = o["wdir"].is<int>() ? (int)o["wdir"] : -1;
     m.wspd = o["wspd"].is<int>() ? (int)o["wspd"] : -1;
     m.altimHpa = o["altim"].is<float>() ? (int)lround((float)o["altim"]) : -1;
-    m.visSm = atof(String((const char*)(o["visib"] | "-1")).c_str());
+    m.visSm = visibSm(o["visib"]);
     m.wx = (const char*)(o["wxString"] | "");
     m.raw = (const char*)(o["rawOb"] | "");
     m.obsTime = (time_t)(o["obsTime"] | 0);
