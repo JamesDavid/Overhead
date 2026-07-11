@@ -52,6 +52,7 @@
         <option value="elegoo">Elegoo CYD — USB-C only</option>
         <option value="crowpanel">Crowpanel Advance 5in v1.2</option>
         <option value="adv7">Crowpanel Advance 7in (experimental)</option>
+        <option value="hmi7">Crowpanel 7in classic / non-Advance (experimental)</option>
         <option value="hmi5">Crowpanel HMI 5in / 502727 (experimental)</option>
       </select></label></p>
     <esp-web-install-button id="btn-std" manifest="flash/manifest.json">
@@ -82,6 +83,13 @@
       <span slot="not-allowed" class="btnfallback" style="display:block">
         Serial access was blocked — allow it and retry.</span>
     </esp-web-install-button>
+    <esp-web-install-button id="btn-hmi7" manifest="flash/manifest-crowpanel-hmi7.json" style="display:none">
+      <button slot="activate">⚡ Install Overhead (Crowpanel 7in classic — experimental)</button>
+      <span slot="unsupported" class="btnfallback" style="display:block">
+        Your browser can't do Web Serial — use desktop <b>Chrome</b> or <b>Edge</b>.</span>
+      <span slot="not-allowed" class="btnfallback" style="display:block">
+        Serial access was blocked — allow it and retry.</span>
+    </esp-web-install-button>
     <esp-web-install-button id="btn-hmi5" manifest="flash/manifest-crowpanel-hmi5.json" style="display:none">
       <button slot="activate">⚡ Install Overhead (Crowpanel HMI 5in — experimental)</button>
       <span slot="unsupported" class="btnfallback" style="display:block">
@@ -95,14 +103,16 @@
       document.getElementById('btn-elegoo').style.display=(v=='elegoo')?'':'none';
       document.getElementById('btn-crowpanel').style.display=(v=='crowpanel')?'':'none';
       document.getElementById('btn-adv7').style.display=(v=='adv7')?'':'none';
+      document.getElementById('btn-hmi7').style.display=(v=='hmi7')?'':'none';
       document.getElementById('btn-hmi5').style.display=(v=='hmi5')?'':'none';}
     </script>
     <p class="dim" style="margin-bottom:0">Targets: the ESP32 2.8" CYD (ILI9341) or the 5" <b>Crowpanel Advance</b>
     (ESP32-S3, 800&times;480). On a CYD, <b>not sure which?</b> Flash <i>CYD2USB</i> first; if the screen is
     sideways/portrait, upside-down, or the colours look wrong, either reflash <i>Elegoo</i> or fix it live in
-    <b>Settings → Screen</b> (rotation / invert / R&ndash;B order). For the big panel pick <i>Crowpanel Advance 5in</i>. The <i>Crowpanel Advance 7in</i> and
-    <i>Crowpanel HMI 5in / 502727</i> options are <b>experimental</b> — the Advance 7in shares the Advance mainboard (pins verified against the factory
-    driver) but its panel timing isn't hardware-verified yet, and the 502727's RGB display isn't verified at all; flash those only if you're helping bring them up.
+    <b>Settings → Screen</b> (rotation / invert / R&ndash;B order). For the big panel pick <i>Crowpanel Advance 5in</i>. The <i>Crowpanel Advance 7in</i>,
+    <i>Crowpanel 7in classic</i>, and <i>Crowpanel HMI 5in / 502727</i> options are <b>experimental</b> — their pins/timing come from the factory
+    drivers but aren't hardware-verified yet; flash those only if you're helping bring them up. (Not sure which 7in you have? The <b>Advance</b> says
+    "Advance" on the box/silkscreen and has the metal-shielded module + STC8 backlight; the classic is the older plain "CrowPanel 7.0".)
     After flashing, join the <code>Overhead-setup</code> Wi-Fi to enter your network.</p>
   </div>
 

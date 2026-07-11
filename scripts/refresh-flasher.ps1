@@ -52,10 +52,12 @@ $env:PLATFORMIO_CORE_DIR = $crowCore
 try {
   Build-Env "crowpanel_s3_5hmi" $pioCrow
   Build-Env "crowpanel_s3_7hmi" $pioCrow
+  Build-Env "crowpanel_hmi7"    $pioCrow
   Build-Env "crowpanel_hmi5"    $pioCrow
 } finally { Remove-Item Env:\PLATFORMIO_CORE_DIR -ErrorAction SilentlyContinue }
 Copy-Bin "crowpanel_s3_5hmi" "firmware.factory.bin" "crowpanel"      "firmware.factory.bin"
 Copy-Bin "crowpanel_s3_7hmi" "firmware.factory.bin" "crowpanel-adv7" "firmware.factory.bin"
+Copy-Bin "crowpanel_hmi7"    "firmware.factory.bin" "crowpanel-hmi7" "firmware.factory.bin"
 Copy-Bin "crowpanel_hmi5"    "firmware.factory.bin" "crowpanel-hmi5" "firmware.factory.bin"
 
 Write-Host "`n--- refreshed flasher bins ---"

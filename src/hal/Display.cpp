@@ -21,11 +21,16 @@ static constexpr int kTileRows = 20;                       // SRAM tile band hei
 // esp_lcd RGB panel that OWNS the scan-out (its own framebuffer). LovyanGFX's Bus_RGB scan is
 // neutered (patch_lovyangfx.py) and allocates a SEPARATE work framebuffer. data_gpio uses the
 // i^8 high/low byte swap to match LovyanGFX's framebuffer byte order.
+// Effective scan rate: boards may override in Board.h (RGB_SCAN_PCLK_HZ). Default is the
+// Advance-tuned 14 MHz — solid while the full SRAM renderer lands (the factory 21 MHz still
+// glitches on content that's rendered from PSRAM).
+#ifndef RGB_SCAN_PCLK_HZ
+#define RGB_SCAN_PCLK_HZ 14000000
+#endif
 void Display::rgbPanelBegin() {
   esp_lcd_rgb_panel_config_t pc = {};
   pc.clk_src = LCD_CLK_SRC_PLL160M;
-  pc.timings.pclk_hz           = 14000000;   // solid rate while building the full SRAM renderer
-                                             // (21 MHz still glitches on content that's rendered from PSRAM).
+  pc.timings.pclk_hz           = RGB_SCAN_PCLK_HZ;
   pc.timings.h_res             = TFT_PANEL_WIDTH;
   pc.timings.v_res             = TFT_PANEL_HEIGHT;
   pc.timings.hsync_pulse_width = RGB_HSYNC_PULSE;
@@ -34,7 +39,11 @@ void Display::rgbPanelBegin() {
   pc.timings.vsync_pulse_width = RGB_VSYNC_PULSE;
   pc.timings.vsync_back_porch  = RGB_VSYNC_BACK;
   pc.timings.vsync_front_porch = RGB_VSYNC_FRONT;
-  pc.timings.flags.pclk_idle_high = 1;       // V1.2 factory setting
+  // Polarity/idle flags from Board.h (Advance: idle-high per the V1.2 factory setting;
+  // the classic 7" wants pclk falling-edge + idle-low instead).
+  pc.timings.flags.pclk_idle_high  = RGB_PCLK_IDLE_HIGH;
+  pc.timings.flags.pclk_active_neg = RGB_PCLK_ACTIVE_NEG;
+  pc.timings.flags.de_idle_high    = RGB_DE_IDLE_HIGH;
   pc.data_width     = 16;
   pc.bits_per_pixel = 16;
   pc.num_fbs        = 1;                      // single FB; we push tiny dirty-rects (flushFramebuffer).

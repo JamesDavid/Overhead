@@ -222,6 +222,53 @@
   #define CAP_HAS_RTC            0       // not documented on the 502727
   // Audio is an I2S amp+speaker (not a simple keyed buzzer) -> Morse beeper is silent here
   // for now (no BUZZER_* defined). A future I2S tone path could drive it.
+#elif defined(BOARD_CROWPANEL_HMI7)
+  // ===== Elecrow CrowPanel 7.0-HMI (classic, non-Advance) =====
+  // ESP32-S3-WROOM-1-N4R8 (4 MB flash, 8 MB PSRAM), 800x480 RGB (EK9716-class panel),
+  // GT911 touch on I2C IO19/20, DIRECT-GPIO backlight (IO2). Pins + timing verbatim
+  // from the factory V3.0 Arduino example (LovyanGFX Bus_RGB config) in Elecrow's
+  // CrowPanel-7.0-HMI repo. EXPERIMENTAL: not yet verified on hardware.
+  #define BOARD_NAME            "CrowPanel 7.0-HMI (ESP32-S3, classic)"
+  #define PIN_RGB_D0   15  // B0
+  #define PIN_RGB_D1    7  // B1
+  #define PIN_RGB_D2    6  // B2
+  #define PIN_RGB_D3    5  // B3
+  #define PIN_RGB_D4    4  // B4
+  #define PIN_RGB_D5    9  // G0
+  #define PIN_RGB_D6   46  // G1
+  #define PIN_RGB_D7    3  // G2
+  #define PIN_RGB_D8    8  // G3
+  #define PIN_RGB_D9   16  // G4
+  #define PIN_RGB_D10   1  // G5
+  #define PIN_RGB_D11  14  // R0
+  #define PIN_RGB_D12  21  // R1
+  #define PIN_RGB_D13  47  // R2
+  #define PIN_RGB_D14  48  // R3
+  #define PIN_RGB_D15  45  // R4
+  #define PIN_RGB_PCLK   0
+  #define PIN_RGB_HSYNC 39
+  #define PIN_RGB_VSYNC 40
+  #define PIN_RGB_DE    41
+  // Factory V3.0 timing: 15 MHz pclk, the big EK9716 porches, falling-edge pclk.
+  #define RGB_SCAN_PCLK_HZ   15000000
+  #define RGB_PCLK_HZ        15000000
+  #define RGB_HSYNC_FRONT    40
+  #define RGB_HSYNC_PULSE    48
+  #define RGB_HSYNC_BACK     40
+  #define RGB_VSYNC_FRONT    1
+  #define RGB_VSYNC_PULSE    31
+  #define RGB_VSYNC_BACK     13
+  #define RGB_PCLK_ACTIVE_NEG 1
+  #define RGB_DE_IDLE_HIGH    0
+  #define RGB_PCLK_IDLE_HIGH  0
+  #define PIN_I2C_SDA          19       // GT911 touch I2C
+  #define PIN_I2C_SCL          20
+  #define BACKLIGHT_VIA_EXPANDER 0      // direct GPIO PWM
+  #define PIN_TFT_BL             2
+  #define BACKLIGHT_ACTIVE_HIGH  1
+  #define BACKLIGHT_PWM_FREQ   300      // factory example drives the BL LEDC at 300 Hz
+  #define CAP_HAS_RTC            0
+  // No keyed buzzer/speaker on the classic 7" -> Morse beeper silent (no BUZZER_*).
 #else
   // ===== Elecrow CrowPanel Advance family: 5.0-HMI + 7.0-HMI =====
   // Both are ESP32-S3-WROOM-1-N16R8 (16 MB flash, 8 MB PSRAM) on the SAME Advance
