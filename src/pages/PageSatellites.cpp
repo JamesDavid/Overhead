@@ -436,10 +436,11 @@ void PageSatellites::drawGroundView(App& app, const astro::SatObservation& o) {
   // Visibility footprint: the ground locus where this satellite is currently at >= the minEl
   // threshold — a circle on the sphere (Earth-central angle lambda from the sub-sat point), so it
   // projects to a distorted oval here. If the observer is inside it, the sat is above your threshold.
-  {
+  if (o.altKm > 0) {   // decayed/badly-propagated TLEs report sub-surface altitude -> asin(NaN) garbage
     const double Re = 6371.0;
     double eps = minEl() * D2R;
     double snae = (Re / (Re + o.altKm)) * cos(eps);            // sin of the satellite's nadir angle
+    if (snae > 1.0) snae = 1.0;                                // belt-and-braces: keep asin in domain
     double lambda = 90.0 * D2R - eps - asin(snae);             // Earth-central angle (rad)
     double lat1 = o.subLatDeg * D2R, lon1 = o.subLonDeg * D2R;
     double sinL1 = sin(lat1), cosL1 = cos(lat1), cosLam = cos(lambda), sinLam = sin(lambda);

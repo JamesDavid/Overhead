@@ -249,6 +249,7 @@ static void fillStatusJson(JsonDocument& d) {
 
 void setup() {
   Serial.begin(OVERHEAD_LOG_BAUD);
+  Serial.setTimeout(50);   // readStringUntil default is 1000ms — a newline-less char on RX froze the UI loop 1s/read
   delay(200);
   Serial.println("\n\n=== Overhead — Milestone 1 (services + infra) ===");
   Serial.printf("board: %s  fw: %s\n", BOARD_NAME, OVERHEAD_FW_VERSION);

@@ -49,8 +49,16 @@ void HazardProvider::rebuild() {
 }
 
 void HazardProvider::fetchAirsig() {
+  // Box the query server-side (like fetchPirep): the national feed is routinely
+  // 100KB+ of polygon coords — too big to buffer on the no-PSRAM heap, and the
+  // observer-proximity filter below discards almost all of it anyway.
+  double la = _loc->active().lat, lo = _loc->active().lon;
+  char url[160];
+  snprintf(url, sizeof(url),
+    "https://aviationweather.gov/api/data/airsigmet?format=json&bbox=%.1f,%.1f,%.1f,%.1f",
+    la - 1.5, lo - 2.0, la + 1.5, lo + 2.0);
   _inAir = true;
-  bool sent = _net->get("https://aviationweather.gov/api/data/airsigmet?format=json", [this](int code, const String& body) {
+  bool sent = _net->get(url, [this](int code, const String& body) {
     _inAir = false;
     if (code == 200) {
       JsonDocument filter;

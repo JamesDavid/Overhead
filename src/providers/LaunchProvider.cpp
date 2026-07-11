@@ -12,9 +12,10 @@ static const char* kCacheKey = "launch_ll2";
 static time_t isoToEpoch(const String& iso) {
   int y, mo, d, h, mi, s;
   if (sscanf(iso.c_str(), "%d-%d-%dT%d:%d:%d", &y, &mo, &d, &h, &mi, &s) != 6) return 0;
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return 0;   // mo=0 would index cum[-1] (negative C++ modulo)
   static const int cum[] = {0,31,59,90,120,151,181,212,243,273,304,334};
   long days = (long)(y - 1970) * 365 + (y - 1969) / 4 - (y - 1901) / 100 + (y - 1601) / 400
-            + cum[(mo - 1) % 12] + (d - 1);
+            + cum[mo - 1] + (d - 1);
   if (mo > 2 && ((y % 4 == 0 && y % 100 != 0) || y % 400 == 0)) days += 1;
   return (time_t)days * 86400 + h * 3600 + mi * 60 + s;
 }

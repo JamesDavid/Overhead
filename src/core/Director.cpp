@@ -119,7 +119,7 @@ void Director::tick(uint32_t nowMs) {
       _avAlertMsg = avExtreme ? ("WX " + avWx)
                   : avSpeci   ? String("WX: new SPECI report")
                               : String("WX: AIRMET/SIGMET nearby");
-      _avAlertUntil = nowMs + 9000;
+      _avAlertSetMs = nowMs;                        // shown for 9s (wrap-safe delta below)
     }
   }
 
@@ -166,7 +166,7 @@ void Director::tick(uint32_t nowMs) {
   }
   // Nothing imminent: a plane overhead, else a fresh weather announcement, else clear.
   if (overhead)                                                  _app->setAlert("Overhead " + ohMsg, acIdx);
-  else if (aWx && nowMs < _avAlertUntil && _avAlertMsg.length()) _app->setAlert(_avAlertMsg, avIdx);
+  else if (aWx && (nowMs - _avAlertSetMs) < 9000 && _avAlertMsg.length()) _app->setAlert(_avAlertMsg, avIdx);
   else _app->setAlert("");
 
   // Ambient resting default + multi-page attract tour. ambientDay/Night may be a
