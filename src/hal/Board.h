@@ -223,11 +223,22 @@
   // Audio is an I2S amp+speaker (not a simple keyed buzzer) -> Morse beeper is silent here
   // for now (no BUZZER_* defined). A future I2S tone path could drive it.
 #else
-  // ===== Elecrow CrowPanel Advance 5.0-HMI =====
-  // ESP32-S3-WROOM-1-N16R8 (16 MB flash, 8 MB PSRAM), ST7262 RGB, GT911 touch, backlight
-  // behind an I2C I/O expander. Pins from ../cyd-radio/crowpanel-5in.md (authoritative --
-  // the Elecrow public wiki lists a DIFFERENT, wrong pinout).
+  // ===== Elecrow CrowPanel Advance family: 5.0-HMI + 7.0-HMI =====
+  // Both are ESP32-S3-WROOM-1-N16R8 (16 MB flash, 8 MB PSRAM) on the SAME Advance
+  // mainboard: every RGB data/control pin, the I2C bus, GT911, BM8563 RTC and the
+  // STC8 backlight controller are identical (verified against Elecrow's shared
+  // 7.0/5.0/4.3 factory PlatformIO project — its one LovyanGFX config drives all
+  // three). 5.0 pins from ../cyd-radio/crowpanel-5in.md (authoritative -- the
+  // Elecrow public wiki lists a DIFFERENT, wrong pinout); the 7.0 panel differs
+  // only in pixel clock (18 MHz vs 21) and a direct-GPIO buzzer (IO8).
+#ifdef BOARD_CROWPANEL_ADV7
+  // EXPERIMENTAL: same mainboard as the Advance 5.0 but the 7" panel is not yet
+  // verified on hardware (timing from the factory driver; ESPHome uses 20 MHz —
+  // try that if 18 MHz shimmers).
+  #define BOARD_NAME            "CrowPanel Advance 7.0-HMI (ESP32-S3)"
+#else
   #define BOARD_NAME            "CrowPanel Advance 5.0-HMI (ESP32-S3)"
+#endif
   #define PIN_RGB_D0   21  // B0
   #define PIN_RGB_D1   47  // B1
   #define PIN_RGB_D2   48  // B2
@@ -248,9 +259,14 @@
   #define PIN_RGB_HSYNC 40
   #define PIN_RGB_VSYNC 41
   #define PIN_RGB_DE    42
-  // V1.2 factory LovyanGFX driver: 21 MHz pclk + pclk_idle_high=1 (the V1.2 ST7262 needs
-  // the factory 21 MHz + idle-high or the panel never latches). Porches 8/4/8 both axes.
+  // Factory LovyanGFX drivers: pclk_idle_high=1 + porches 8/4/8 both axes on the whole
+  // Advance family; only the pixel clock differs — 5.0 (V1.2 ST7262) needs the factory
+  // 21 MHz or the panel never latches; the 7" (SC7277) factory config runs 18 MHz.
+#ifdef BOARD_CROWPANEL_ADV7
+  #define RGB_PCLK_HZ        18000000
+#else
   #define RGB_PCLK_HZ        21000000
+#endif
   #define RGB_HSYNC_FRONT    8
   #define RGB_HSYNC_PULSE    4
   #define RGB_HSYNC_BACK     8
@@ -269,8 +285,9 @@
   #define STC8_CMD_BL_MAX      0x10
   #define STC8_CMD_AMP_MUTE    0x18
   #define BACKLIGHT_VIA_EXPANDER 1
-  #define CAP_HAS_RTC            1       // PCF8563 onboard
-  // V1.2 buzzer/speaker via the STC8 expander (0x30): 246=buzzer on, 247=off, 248/249=speaker.
+  #define CAP_HAS_RTC            1       // PCF8563/BM8563 onboard
+  // Buzzer via the STC8 (0x30) on BOTH sizes: 246=buzzer on, 247=off, 248/249=speaker.
+  // (Official 7" wiki: only the ancient V1.0 had a direct IO8 buzzer; V1.2+ = STC8 P2.7.)
   #define BUZZER_VIA_EXPANDER    1
   #define STC8_CMD_BUZZER_ON     246
   #define STC8_CMD_BUZZER_OFF    247

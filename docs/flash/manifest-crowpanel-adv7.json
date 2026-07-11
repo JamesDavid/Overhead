@@ -1,0 +1,13 @@
+{
+  "name": "Overhead — Crowpanel Advance 7in (experimental)",
+  "version": "0.1",
+  "new_install_prompt_erase": true,
+  "builds": [
+    {
+      "chipFamily": "ESP32-S3",
+      "parts": [
+        { "path": "crowpanel-adv7/firmware.factory.bin", "offset": 0 }
+      ]
+    }
+  ]
+}
