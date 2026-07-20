@@ -282,7 +282,7 @@ void setup() {
   // render until loop() runs). Boot straight to OFFLINE field mode.
   bool wifiOk = false; (void)apName;
 #else
-  bool wifiOk = prov.begin(apName, 180,
+  bool wifiOk = prov.begin(apName, 300,   // 5 min: field testers ran out of the old 3-min window mid-setup
       []() -> bool { int16_t tx, ty; return touch.read(display, tx, ty); },   // tap = go offline
       [apName]() { splashPortal(apName); },                                   // portal opened -> prompt
       [](bool m, bool iv) {                                                   // mirror/invert from the portal

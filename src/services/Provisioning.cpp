@@ -33,6 +33,13 @@ bool Provisioning::begin(const String& apName, uint16_t timeoutSec,
 
   // Portal is up. Pump it until we connect, the idle timeout fires, or the user
   // asks to skip (tap the screen) and run the device offline on cached data.
+  //
+  // CRASH GUARD (field report, classic 7"): WiFiManager's OWN portal timeout fires
+  // inside process() and tears the portal down (server.reset()). Calling
+  // stopConfigPortal() again after that dereferences the reset server pointer
+  // (WiFiManager.cpp shutdownConfigPortal has no null guard) -> LoadProhibited
+  // panic + reboot loop. So: stop the portal ONLY while WM still reports it
+  // active, and leave the pump as soon as WM closes it itself.
   if (onPortalStart) onPortalStart();
   uint32_t start = millis();
   while (millis() - start < (uint32_t)timeoutSec * 1000UL) {
@@ -42,6 +49,10 @@ bool Provisioning::begin(const String& apName, uint16_t timeoutSec,
                     WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
       return true;
     }
+    if (!wm.getConfigPortalActive()) {             // WM's internal timeout closed it already
+      Serial.println("[wifi] portal closed (WM timeout) — running offline");
+      return false;                                // torn down inside process(); do NOT stop again
+    }
     if (skipRequested && skipRequested()) {
       Serial.println("[wifi] user skipped portal — running offline (field mode)");
       wm.stopConfigPortal();
@@ -50,6 +61,6 @@ bool Provisioning::begin(const String& apName, uint16_t timeoutSec,
     delay(30);
   }
   Serial.println("[wifi] portal timed out — running offline");
-  wm.stopConfigPortal();
+  if (wm.getConfigPortalActive()) wm.stopConfigPortal();
   return false;
 }
