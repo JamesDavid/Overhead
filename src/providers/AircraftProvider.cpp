@@ -4,6 +4,9 @@
 #include "../services/LocationService.h"
 #include "../core/EventBus.h"
 #include <ArduinoJson.h>
+#include <esp_heap_caps.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include <algorithm>
 #include <math.h>
 #include <time.h>
@@ -106,40 +109,77 @@ void AircraftProvider::poll() {
 }
 
 void AircraftProvider::parseStream(Stream& body) {
-  // Runs on the NET TASK. Filter the (potentially large) feed straight off the HTTP
-  // stream so the full body is never buffered as a String (no huge contiguous alloc on
-  // the no-PSRAM board). Accept both "ac" (adsb.lol/airplanes.live) and "aircraft"
-  // (tar1090/readsb) array keys. Result lands in _acStaging; the UI-thread cb commits.
-  JsonDocument filter;
-  for (const char* key : {"ac", "aircraft"}) {
-    JsonObject e = filter[key].add<JsonObject>();
-    e["hex"] = e["flight"] = e["lat"] = e["lon"] = e["alt_baro"] = true;
-    e["gs"] = e["track"] = e["squawk"] = e["category"] = e["seen"] = e["t"] = true;
-    e["baro_rate"] = e["geom_rate"] = true;   // vertical rate (ft/min) for climb/descent trend
-  }
-  JsonDocument doc;
-  if (deserializeJson(doc, body, DeserializationOption::Filter(filter))) return;
+  // Runs on the NET TASK. Parse the aircraft array ELEMENT-BY-ELEMENT straight off
+  // the HTTP stream so peak heap is a single aircraft object — NOT the whole feed.
+  //
+  // The old path built the entire filtered feed in one JsonDocument before the kMax
+  // cap loop ran, so a busy metro (100-200 contacts on adsb.lol at 50 nm) needed a
+  // large growing contiguous alloc. Because the aircraft feed is plain HTTP it also
+  // BYPASSES NetClient's 42 KB TLS heap floor, so that big parse was the one thing
+  // allowed to run when the heap was already critically low -> exhaust/fragment ->
+  // heap-corruption panic (SW_CPU_RESET, "No core dump found") -> boot loop.
 
-  JsonArray arr = doc["ac"].as<JsonArray>();
-  if (arr.isNull()) arr = doc["aircraft"].as<JsonArray>();
-  if (arr.isNull()) return;
+  // The aircraft feed skips NetClient's heap-floor guard (plain HTTP), so gate the
+  // parse here: if the largest free block is too small, bail and keep the last
+  // (stale) contacts rather than risk a corrupting allocation.
+  if (heap_caps_get_largest_free_block(MALLOC_CAP_8BIT) < 20000) {
+    _staged = false;
+    return;
+  }
+
+  // Advance the stream to the start of the aircraft array. adsb.lol / airplanes.live
+  // use "ac"; tar1090 / readsb use "aircraft". "ac" is a prefix of "aircraft", so
+  // find("\"ac") lands on either key; then walk to the array's opening '['.
+  if (!body.find((char*)"\"ac")) return;
+  if (!body.find((char*)"["))   return;
+
+  // Per-ELEMENT filter: only the fields we actually use. Applied to each object as
+  // it is parsed, so the reused `elem` document stays tiny.
+  JsonDocument filter;
+  filter["hex"] = filter["flight"] = filter["lat"] = filter["lon"] = true;
+  filter["alt_baro"] = filter["gs"] = filter["track"] = filter["squawk"] = true;
+  filter["category"] = filter["seen"] = filter["t"] = true;
+  filter["baro_rate"] = filter["geom_rate"] = true;   // vertical rate (ft/min) for climb/descent trend
 
   double olat = centerLat(), olon = centerLon();
-  int maxAlt = (int)_s->getInt("adsbMaxAltFt", 0);
+  int    maxAlt = (int)_s->getInt("adsbMaxAltFt", 0);
 
-  // Keep only the nearest kMax as we scan, so `out` never grows to hold a whole busy
-  // feed (~150 contacts). A growing vector would need an ever-larger CONTIGUOUS block,
-  // which bad_alloc-aborts at a low largest-free-block (exceptions are off) -> reboot.
-  // Reserved once at the cap, it stays a small fixed allocation. Larger-screen/heap boards (CrowPanel)
-  // keep more contacts so traffic out toward the ring edge shows, not just the nearest handful.
+  // Keep only the nearest kMax. Reserved once at the cap, `out` stays a small fixed
+  // allocation. Larger-screen/heap boards (CrowPanel) keep more so traffic out toward
+  // the ring edge shows, not just the nearest handful.
 #if defined(BOARD_CROWPANEL_S3_5HMI)
   static constexpr int kMax = 48;
 #else
   static constexpr int kMax = 24;
 #endif
   std::vector<Aircraft> out; out.reserve(kMax + 1);
-  for (JsonObject o : arr) {
+
+  // This whole read+parse runs on the NetTask, pinned to core 0 alongside the WiFi
+  // task, at a priority just above the idle task. If it holds core 0 for longer than
+  // the ~5 s task-watchdog window, IDLE0 never runs and the TWDT aborts (that's the
+  // "IDLE0 did not reset" crash). So we (a) yield briefly every few contacts to let
+  // IDLE0 run and pet the watchdog, and (b) cap the total parse time so a huge/slow
+  // feed can never monopolise the core — we just keep whatever we gathered so far.
+  static constexpr uint32_t kMaxParseMs = 2500;
+  const uint32_t parseStart = millis();
+  int scanned = 0;
+
+  // Parse one array element at a time. `elem` is reused each iteration, so peak heap
+  // is a single filtered aircraft object regardless of how busy the feed is.
+  JsonDocument elem;
+  do {
+    // Give IDLE0 a slice every 8 contacts so the task watchdog stays fed.
+    if ((++scanned & 0x07) == 0) vTaskDelay(1);
+    if (millis() - parseStart > kMaxParseMs) break;        // time-box the parse
+
+    elem.clear();
+    DeserializationError err =
+        deserializeJson(elem, body, DeserializationOption::Filter(filter));
+    if (err) break;                                        // malformed / truncated -> stop
+
+    JsonObject o = elem.as<JsonObject>();
     if (!o["lat"].is<double>() || !o["lon"].is<double>()) continue;
+
     Aircraft a;
     a.hex   = (const char*)(o["hex"] | "");
     a.flight= (const char*)(o["flight"] | "");
@@ -165,7 +205,11 @@ void AircraftProvider::parseStream(Stream& body) {
     int far = 0;                                           // else replace the farthest kept, if closer
     for (int k = 1; k < (int)out.size(); ++k) if (out[k].distNm > out[far].distNm) far = k;
     if (a.distNm < out[far].distNm) out[far] = a;
-  }
+
+    // findUntil consumes the delimiter after each element: "," -> continue,
+    // "]" (or EOF) -> returns false and ends the array loop.
+  } while (body.findUntil((char*)",", (char*)"]"));
+
   std::sort(out.begin(), out.end(), [](const Aircraft& a, const Aircraft& b) { return a.distNm < b.distNm; });
   _acStaging = std::move(out);
   _staged = true;                        // tell the UI-thread cb a good parse is ready
