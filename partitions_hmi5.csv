@@ -2,8 +2,12 @@
 # too big for dual 1.5 MB OTA slots + a usable LittleFS, so this is a SINGLE app slot
 # (no OTA — flash over USB via the web flasher) with a generous FS for the runtime caches.
 # Revisit (restore dual-OTA) if the firmware ever shrinks under ~1.4 MB.
+# NOTE: the data partition must be LABELLED "spiffs" — Arduino's LittleFS.begin()
+# mounts by that label (field report: named "littlefs" it never mounted, so settings/
+# caches all failed with vfs "File system is not mounted" spam).
+#
 # Name,     Type, SubType,  Offset,   Size
 nvs,        data, nvs,      0x9000,   0x5000
 otadata,    data, ota,      0xe000,   0x2000
 app0,       app,  ota_0,    0x10000,  0x2C0000
-littlefs,   data, spiffs,   0x2D0000, 0x130000
+spiffs,     data, spiffs,   0x2D0000, 0x130000
