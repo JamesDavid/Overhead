@@ -378,4 +378,9 @@ Built on excellent open-source libraries, each under its own license: **LovyanGF
 Weather Center, Open-Meteo, ip-api, Launch Library 2, CelesTrak, the HYG database,
 d3-celestial, and Natural Earth.
 
+**Contributors:** [@dustinsterk](https://github.com/dustinsterk) — brought up the
+CrowPanel 7.0 classic on real hardware (his field reports found and pinned four firmware
+bugs, two of them latent on every board) and contributed the busy-airspace memory fix
+(streaming ADS-B parse + NetTask watchdog handling, [PR #1](https://github.com/JamesDavid/Overhead/pull/1)).
+
 *73 de KE7AQA.*

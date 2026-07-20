@@ -52,7 +52,7 @@
         <option value="elegoo">Elegoo CYD — USB-C only</option>
         <option value="crowpanel">Crowpanel Advance 5in v1.2</option>
         <option value="adv7">Crowpanel Advance 7in (experimental)</option>
-        <option value="hmi7">Crowpanel 7in classic / non-Advance (experimental)</option>
+        <option value="hmi7">Crowpanel 7in classic / non-Advance (community-tested)</option>
         <option value="hmi5">Crowpanel HMI 5in / 502727 (experimental)</option>
       </select></label></p>
     <esp-web-install-button id="btn-std" manifest="flash/manifest.json">
@@ -109,10 +109,11 @@
     <p class="dim" style="margin-bottom:0">Targets: the ESP32 2.8" CYD (ILI9341) or the 5" <b>Crowpanel Advance</b>
     (ESP32-S3, 800&times;480). On a CYD, <b>not sure which?</b> Flash <i>CYD2USB</i> first; if the screen is
     sideways/portrait, upside-down, or the colours look wrong, either reflash <i>Elegoo</i> or fix it live in
-    <b>Settings → Screen</b> (rotation / invert / R&ndash;B order). For the big panel pick <i>Crowpanel Advance 5in</i>. The <i>Crowpanel Advance 7in</i>,
-    <i>Crowpanel 7in classic</i>, and <i>Crowpanel HMI 5in / 502727</i> options are <b>experimental</b> — their pins/timing come from the factory
-    drivers but aren't hardware-verified yet; flash those only if you're helping bring them up. (Not sure which 7in you have? The <b>Advance</b> says
-    "Advance" on the box/silkscreen and has the metal-shielded module + STC8 backlight; the classic is the older plain "CrowPanel 7.0".)
+    <b>Settings → Screen</b> (rotation / invert / R&ndash;B order). For the big panel pick <i>Crowpanel Advance 5in</i>. The <i>Crowpanel 7in classic</i>
+    is <b>community-tested</b> — display, touch, WiFi and storage all verified on real hardware. The <i>Crowpanel Advance 7in</i> and
+    <i>Crowpanel HMI 5in / 502727</i> options are still <b>experimental</b> (factory-driver pins/timing, not yet hardware-verified) — flash those only
+    if you're helping bring them up. (Not sure which 7in you have? The <b>Advance</b> says "Advance" on the box/silkscreen and has the metal-shielded
+    module + STC8 backlight; the classic is the older plain "CrowPanel 7.0".)
     After flashing, join the <code>Overhead-setup</code> Wi-Fi to enter your network.</p>
   </div>
 
@@ -178,6 +179,9 @@
   <div class="foot">
     <p>Companion hardware: the <a href="rotor-flasher/">Overhead Rotor</a> — an alt/az pointer that
     physically slews to whatever the dashboard is tracking (flash it from here too).</p>
+    <p>Thanks: <a href="https://github.com/dustinsterk">@dustinsterk</a> — CrowPanel 7in classic bring-up
+    (field-testing that pinned four firmware bugs) + the busy-airspace memory fix
+    (<a href="https://github.com/JamesDavid/Overhead/pull/1">PR #1</a>).</p>
     <p>Source, hardware guide &amp; backlog: <a href="https://github.com/JamesDavid/Overhead">github.com/JamesDavid/Overhead</a>
     · Free for personal/non-commercial use (PolyForm Noncommercial 1.0.0). · DE KE7AQA</p>
   </div>
