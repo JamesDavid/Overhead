@@ -302,6 +302,13 @@ void setup() {
   timeSvc.begin();
 
   net.begin(24576);   // generous stack — mbedtls TLS handshakes are stack-hungry
+  // The NetTask (core 0, just above idle) does multi-second blocking HTTP/TLS
+  // reads. Arduino Stream reads busy-spin on yield() while waiting for TCP data, and
+  // yield() will not run the LOWER-priority idle task — so IDLE0 starves and the task
+  // watchdog aborts ("IDLE0 did not reset" -> boot loop). Nothing more important than
+  // idle shares core 0, so unsubscribe core-0 idle from the TWDT. (loop/UI on core 1
+  // stays watchdog-protected.)
+  disableCore0WDT();
   tleProv.begin(&settings, &net, &cache, &bus);    // cacheable -> boot-updater candidates (load cache + fetch if stale)
   launchProv.begin(&settings, &net, &cache, &bus); // LL2 + fallback
   spaceWxProv.begin(&settings, &net, &cache, &bus);// Kp/SFI (persists a while)
