@@ -27,6 +27,10 @@ $flash = Join-Path $root "docs\flash"
 
 function Build-Env([string]$e, [string]$launcher = $pio) {
   Write-Host "==> building $e"
+  # Force the partition table + factory merge to regenerate: PIO does NOT rebuild
+  # partitions.bin when only the .csv changed, and the factory merge is a post-link
+  # action — a stale table once shipped inside a "fresh" factory image (field bug).
+  Remove-Item (Join-Path $build "$e\partitions.bin"), (Join-Path $build "$e\firmware.bin") -Force -ErrorAction SilentlyContinue
   & $launcher run -e $e
   if ($LASTEXITCODE -ne 0) { throw "build failed: $e" }
 }
