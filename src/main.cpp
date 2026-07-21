@@ -52,6 +52,18 @@
 #include "pages/PageAviation.h"
 #if ASTRO_SELFTEST
 #include "astro/SelfTest.h"
+
+#if defined(BOARD_HAS_PSRAM)
+#include <esp_heap_caps.h>
+#include "mbedtls/platform.h"
+// Arduino-ESP32 defaults to CONFIG_MBEDTLS_INTERNAL_MEM_ALLOC, so mbedtls allocates
+// its (large, contiguous) TLS handshake buffers from INTERNAL RAM even on an S3 with
+// 8 MB PSRAM free. A fragmented internal heap then fails the handshake with -32512
+// (MBEDTLS_ERR_SSL_ALLOC_FAILED). Redirect mbedtls to PSRAM so TLS stops starving.
+static void* mbedtlsPsramCalloc(size_t n, size_t sz) {
+  return heap_caps_calloc(n, sz, MALLOC_CAP_SPIRAM);
+}
+#endif
 #endif
 
 // --- HAL ---
@@ -301,6 +313,10 @@ void setup() {
   timeSvc.setRtc(&rtc);
   timeSvc.begin();
 
+#if defined(BOARD_HAS_PSRAM)
+  // Route TLS allocations to PSRAM BEFORE the first HTTPS fetch (see note at top).
+  mbedtls_platform_set_calloc_free(mbedtlsPsramCalloc, free);
+#endif
   net.begin(24576);   // generous stack — mbedtls TLS handshakes are stack-hungry
   // The NetTask (core 0, just above idle) does multi-second blocking HTTP/TLS
   // reads. Arduino Stream reads busy-spin on yield() while waiting for TCP data, and
@@ -308,7 +324,13 @@ void setup() {
   // watchdog aborts ("IDLE0 did not reset" -> boot loop). Nothing more important than
   // idle shares core 0, so unsubscribe core-0 idle from the TWDT. (loop/UI on core 1
   // stays watchdog-protected.)
+  // Only the no-PSRAM CYD-class boards starve IDLE0 (slow single-core parse under
+  // heap pressure). The S3 + PSRAM CrowPanels parse fast and never trip it — and there
+  // disableCore0WDT() leaves the idle hook resetting an unsubscribed task, spamming
+  // "esp_task_wdt_reset: task not found". So scope the workaround to non-PSRAM boards.
+#if !defined(BOARD_HAS_PSRAM)
   disableCore0WDT();
+#endif
   tleProv.begin(&settings, &net, &cache, &bus);    // cacheable -> boot-updater candidates (load cache + fetch if stale)
   launchProv.begin(&settings, &net, &cache, &bus); // LL2 + fallback
   spaceWxProv.begin(&settings, &net, &cache, &bus);// Kp/SFI (persists a while)

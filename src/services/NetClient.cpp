@@ -71,12 +71,22 @@ void NetClient::perform(Job* job) {
   // TLS needs a large contiguous block; attempting it when the heap is too
   // fragmented OOMs and can corrupt the heap (lfs_close assert). Skip instead
   // and let the provider serve stale / retry later (cyd-radio §15 mbedtls floor).
-  if (job->url.startsWith("https://") &&
-      heap_caps_get_largest_free_block(MALLOC_CAP_8BIT) < 42000) {
-    job->code = -3;
-    _httpsSkips++;
-    Serial.printf("[net] skip (low heap, %u total) %.40s\n", (unsigned)_httpsSkips, job->url.c_str());
-    return;
+  if (job->url.startsWith("https://")) {
+#if defined(BOARD_HAS_PSRAM)
+    // TLS handshake buffers are routed to PSRAM (mbedtls_platform_set_calloc_free in
+    // setup), so gate on the largest free PSRAM block, not internal RAM.
+    size_t blk = heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM);
+#else
+    // No-PSRAM CYD: mbedtls allocates from internal RAM. MALLOC_CAP_INTERNAL == the
+    // 8BIT heap here, but is explicit about the pool TLS actually draws from.
+    size_t blk = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
+#endif
+    if (blk < 42000) {
+      job->code = -3;
+      _httpsSkips++;
+      Serial.printf("[net] skip (low heap, %u total) %.40s\n", (unsigned)_httpsSkips, job->url.c_str());
+      return;
+    }
   }
 
   HTTPClient http;
