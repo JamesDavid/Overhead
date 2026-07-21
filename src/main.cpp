@@ -52,6 +52,7 @@
 #include "pages/PageAviation.h"
 #if ASTRO_SELFTEST
 #include "astro/SelfTest.h"
+#endif
 
 #if defined(BOARD_HAS_PSRAM)
 #include <esp_heap_caps.h>
@@ -63,7 +64,6 @@
 static void* mbedtlsPsramCalloc(size_t n, size_t sz) {
   return heap_caps_calloc(n, sz, MALLOC_CAP_SPIRAM);
 }
-#endif
 #endif
 
 // --- HAL ---
