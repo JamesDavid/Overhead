@@ -72,13 +72,13 @@ void AircraftProvider::poll() {
     if (!host.length()) { _status = ProviderStatus::Error; return; }
     url = "http://" + host + "/data/aircraft.json";
   } else {
-    // Cloud feed over PLAIN HTTP (adsb.lol) so it dodges the ~42 KB contiguous-TLS
-    // floor that makes the HTTPS sources httpsSkip-fail on the no-PSRAM board — the
-    // radar then populates even with the web server up. Same {"ac":[...]} schema as
-    // airplanes.live, so parse() is unchanged. (airplanes.live 301-redirects http->
-    // https, so it can't be used without TLS.)
+    // Cloud feed over HTTPS (adsb.lol now 301-redirects http->https and the HTTP client
+    // doesn't follow that). Routed through NetClient, so it gets the same serialized
+    // NetTask + 42 KB contiguous-heap TLS floor as the other HTTPS feeds; under the
+    // floor it returns code -3 and we keep the last (stale) contacts. Same {"ac":[...]}
+    // schema as airplanes.live, so parse() is unchanged.
     char b[96];
-    snprintf(b, sizeof(b), "http://api.adsb.lol/v2/point/%.4f/%.4f/%d",
+    snprintf(b, sizeof(b), "https://api.adsb.lol/v2/point/%.4f/%.4f/%d",
              centerLat(), centerLon(), (int)_radiusNm);
     url = b;
   }
@@ -114,13 +114,13 @@ void AircraftProvider::parseStream(Stream& body) {
   //
   // The old path built the entire filtered feed in one JsonDocument before the kMax
   // cap loop ran, so a busy metro (100-200 contacts on adsb.lol at 50 nm) needed a
-  // large growing contiguous alloc. Because the aircraft feed is plain HTTP it also
-  // BYPASSES NetClient's 42 KB TLS heap floor, so that big parse was the one thing
+  // large growing contiguous alloc. Local plain-HTTP feeds also
+  // BYPASS NetClient's 42 KB TLS heap floor, so that big parse was the one thing
   // allowed to run when the heap was already critically low -> exhaust/fragment ->
   // heap-corruption panic (SW_CPU_RESET, "No core dump found") -> boot loop.
 
-  // The aircraft feed skips NetClient's heap-floor guard (plain HTTP), so gate the
-  // parse here: if the largest free block is too small, bail and keep the last
+  // Local (plain-HTTP) feeds skip NetClient's TLS heap-floor guard, and cloud (HTTPS)
+  // arrives with TLS buffers still live, so gate the parse here: if the largest free block is too small, bail and keep the last
   // (stale) contacts rather than risk a corrupting allocation.
   if (heap_caps_get_largest_free_block(MALLOC_CAP_8BIT) < 20000) {
     _staged = false;
